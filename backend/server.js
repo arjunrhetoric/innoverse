@@ -7,6 +7,7 @@ import connectDB from "./config/db.js"
 import authRoutes from "./routes/authRoutes.js"
 import passport from './config/passportConfig.js';
 import projectRoutes from "./routes/projectRoutes.js";
+import proposalRoutes from "./routes/proposalRoutes.js";
 
 
 dotenv.config({ path: './.env' }); //Loading environment variables
@@ -14,6 +15,8 @@ connectDB();    //Connect to MongoDB
 
 const app = express();
 app.use(express.json()); //Parsing JSON requests
+app.use(express.urlencoded({ extended: true }));
+
 
 //Session Middleware
 app.use(
@@ -38,6 +41,7 @@ app.use(passport.session());
 //Routes
 app.use('/api/auth', authRoutes); //Route for authentication
 app.use('/api/projects', projectRoutes); //Project and problem routes
+app.use("/api/proposals", proposalRoutes); //Proposal routes
 
 //Starting server
 const port = process.env.PORT;

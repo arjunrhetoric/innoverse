@@ -31,3 +31,12 @@ import ProblemStatement from "../models/ProblemStatement.js";
     }
 };
 
+export const getProblems = async (req, res) => {
+    try {
+      const problems = await ProblemStatement.find().populate("createdBy", "name email");
+      res.status(200).json({ message: "Problems fetched successfully", problems });
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching problems", error: error.message });
+    }
+  };
+
