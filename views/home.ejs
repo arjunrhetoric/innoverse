@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>INNOVERSE - Where Innovation Meets Talent</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --primary-color: #2575fc;
+      --secondary-color: #1e1e1e;
+      --accent-color: #8e2de2;
+      --background-dark: #121212;
+      --text-light: #ffffff;
+      --gradient-primary: linear-gradient(135deg, #2575fc, #8e2de2);
+    }
+
+    @keyframes gradientWave {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @keyframes floatAnimation {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+      100% { transform: translateY(0px); }
+    }
+
+    @keyframes glowingText {
+      0% { text-shadow: 0 0 5px rgba(37, 117, 252, 0.5); }
+      50% { text-shadow: 0 0 20px rgba(37, 117, 252, 0.8); }
+      100% { text-shadow: 0 0 5px rgba(37, 117, 252, 0.5); }
+    }
+
+    body {
+      background-color: var(--background-dark);
+      color: var(--text-light);
+      font-family: 'Inter', 'Poppins', sans-serif;
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+    }
+
+    .navbar {
+      backdrop-filter: blur(15px);
+      background-color: rgba(30, 30, 30, 0.9) !important;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .navbar-brand {
+      font-weight: bold;
+      animation: glowingText 3s infinite;
+    }
+
+    /* Updated Hero Section with Darker Theme & Enhanced Animation */
+    .hero-section {
+      background: linear-gradient(-45deg, #0f0f0f, #1a1a2e, #0f0f0f, #1a1a2e);
+      background-size: 600% 600%;
+      animation: gradientWave 20s ease infinite;
+      position: relative;
+      overflow: hidden;
+      color: var(--text-light);
+      padding: 150px 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+    }
+
+    .particle-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 10;
+    }
+
+    .hero-content h1 {
+      font-size: 4rem;
+      font-weight: bold;
+      margin-bottom: 2rem;
+      animation: glowingText 3s infinite;
+    }
+
+    .feature-card {
+      background: rgba(30, 30, 30, 0.8);
+      border-radius: 20px;
+      padding: 2rem;
+      height: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      transform-style: preserve-3d;
+      perspective: 1000px;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-15px) rotateX(10deg);
+      box-shadow: 0 15px 30px rgba(37, 117, 252, 0.3);
+      border-color: var(--primary-color);
+    }
+
+    .feature-icon {
+      font-size: 3.5rem;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: floatAnimation 4s ease-in-out infinite;
+    }
+
+    .stats-card {
+      background: rgba(30, 30, 30, 0.8);
+      border-radius: 20px;
+      padding: 2.5rem;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .stats-card:hover {
+      transform: translateY(-10px) scale(1.05);
+      box-shadow: 0 15px 30px rgba(37, 117, 252, 0.2);
+    }
+
+    .stats-card .counter {
+      font-size: 2.5rem;
+      font-weight: bold;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .timeline {
+      position: relative;
+      padding: 2rem 0;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 2px;
+      height: 100%;
+      background: var(--gradient-primary);
+    }
+
+    .timeline-item {
+      margin-bottom: 3rem;
+      position: relative;
+    }
+
+    .timeline-content {
+      background: rgba(30, 30, 30, 0.8);
+      border-radius: 20px;
+      padding: 2rem;
+      position: relative;
+      width: 45%;
+      margin-left: auto;
+      transition: all 0.3s ease;
+    }
+
+    .timeline-item:nth-child(even) .timeline-content {
+      margin-left: 0;
+    }
+
+    .timeline-content:hover {
+      transform: scale(1.05);
+      box-shadow: 0 15px 30px rgba(37, 117, 252, 0.2);
+      border-color: var(--primary-color);
+    }
+
+    .testimonial-card {
+      background: rgba(30, 30, 30, 0.8);
+      border-radius: 20px;
+      padding: 2rem;
+      height: 100%;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .testimonial-card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 15px 30px rgba(37, 117, 252, 0.2);
+      border-color: var(--primary-color);
+    }
+
+    .testimonial-img {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      margin-bottom: 1rem;
+    }
+
+    .btn-primary {
+      background: var(--gradient-primary);
+      border: none;
+      padding: 12px 30px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(37, 117, 252, 0.4);
+    }
+
+    .cta-section {
+      background: var(--gradient-primary);
+      padding: 100px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('/api/placeholder/1920/1080') center/cover;
+      opacity: 0.1;
+      animation: gradientWave 15s ease infinite;
+    }
+
+    footer {
+      background: linear-gradient(135deg, var(--secondary-color), #0f0f0f);
+      padding: 60px 0;
+    }
+
+    .social-icons a {
+      color: var(--text-light);
+      margin: 0 15px;
+      font-size: 28px;
+      transition: all 0.3s ease;
+    }
+
+    .social-icons a:hover {
+      color: var(--primary-color);
+      transform: scale(1.2) rotate(360deg);
+    }
+
+    @media (max-width: 768px) {
+      .hero-content h1 {
+        font-size: 2.5rem;
+      }
+
+      .feature-card,
+      .stats-card,
+      .testimonial-card {
+        margin-bottom: 1.5rem;
+      }
+    }
+
+    /* New styles for the Contact Section */
+    .contact-section {
+      background: var(--secondary-color);
+      padding: 100px 0;
+    }
+    .contact-section .form-control {
+      background-color: #1e1e1e;
+      border: 1px solid #333;
+      color: var(--text-light);
+    }
+    .contact-section .form-control::placeholder {
+      color: #bbb;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+    <div class="container">
+      <a class="navbar-brand animate__animated animate__pulse" href="#">INNOVERSE</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
+          <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
+          <li class="nav-item"><a class="nav-link" href="#blog">Blog</a></li>
+          <li class="nav-item"><a class="nav-link" href="#contact">Contact</a></li>
+          <li class="nav-item" ><a class="btn btn-primary" href="/login">Get Started</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero-section">
+    <div id="particles-js" class="particle-background"></div>
+    <div class="container hero-content text-center">
+      <h1 class="animate__animated animate__fadeInUp">Welcome to INNOVERSE</h1>
+      <p class="lead mb-4 animate__animated animate__fadeInUp animate__delay-1s">
+        Transforming Student Potential into Startup Innovation
+      </p>
+      <a href="/login" class="btn btn-primary btn-lg animate__animated animate__zoomIn animate__delay-2s">Join the Ecosystem</a>
+    </div>
+  </section>
+
+  <section id="stats" class="py-5">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-md-3" data-aos="fade-up">
+          <div class="stats-card">
+            <i class="fas fa-users mb-3 display-4 text-primary"></i>
+            <h3 class="counter">5000+</h3>
+            <p>Active Students</p>
+          </div>
+        </div>
+        <div class="col-md-3" data-aos="fade-up" data-aos-delay="100">
+          <div class="stats-card">
+            <i class="fas fa-building mb-3 display-4 text-primary"></i>
+            <h3 class="counter">200+</h3>
+            <p>Partner Startups</p>
+          </div>
+        </div>
+        <div class="col-md-3" data-aos="fade-up" data-aos-delay="200">
+          <div class="stats-card">
+            <i class="fas fa-handshake mb-3 display-4 text-primary"></i>
+            <h3 class="counter">1000+</h3>
+            <p>Successful Matches</p>
+          </div>
+        </div>
+        <div class="col-md-3" data-aos="fade-up" data-aos-delay="300">
+          <div class="stats-card">
+            <i class="fas fa-globe mb-3 display-4 text-primary"></i>
+            <h3 class="counter">50+</h3>
+            <p>Countries</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how-it-works" class="py-5">
+    <div class="container">
+      <h2 class="text-center mb-5" data-aos="fade-up">How It Works</h2>
+      <div class="timeline">
+        <div class="timeline-item" data-aos="fade-right">
+          <div class="timeline-content">
+            <h4>1. Create Your Profile</h4>
+            <p>Students and startups build comprehensive profiles highlighting their skills and needs.</p>
+          </div>
+        </div>
+        <div class="timeline-item" data-aos="fade-left">
+          <div class="timeline-content">
+            <h4>2. Smart Matching</h4>
+            <p>Our AI-powered system connects students with relevant startup opportunities.</p>
+          </div>
+        </div>
+        <div class="timeline-item" data-aos="fade-right">
+          <div class="timeline-content">
+            <h4>3. Collaborate</h4>
+            <p>Work on real projects, gain experience, and drive innovation together.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="testimonials" class="py-5">
+    <div class="container">
+      <h2 class="text-center mb-5" data-aos="fade-up">Success Stories</h2>
+      <div class="row">
+        <div class="col-md-4" data-aos="fade-up">
+          <div class="testimonial-card text-center">
+            <img src="/api/placeholder/80/80" alt="Student" class="testimonial-img" />
+            <h5>Sarah Johnson</h5>
+            <p class="text-muted">Computer Science Student</p>
+            <p>"INNOVERSE helped me land my dream internship at a cutting-edge AI startup."</p>
+          </div>
+        </div>
+        <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
+          <div class="testimonial-card text-center">
+            <img src="/api/placeholder/80/80" alt="Startup Founder" class="testimonial-img" />
+            <h5>Mike Chen</h5>
+            <p class="text-muted">Startup Founder</p>
+            <p>"We found incredible student talent that transformed our development team."</p>
+          </div>
+        </div>
+        <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
+          <div class="testimonial-card text-center">
+            <img src="/api/placeholder/80/80" alt="Student" class="testimonial-img" />
+            <h5>Emma Davis</h5>
+            <p class="text-muted">Data Science Graduate</p>
+            <p>"The mentorship and real-world experience I gained were invaluable for my career."</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- New Contact Section (replacing the previous Sign Up CTA) -->
+  <section class="contact-section" id="contact">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 data-aos="fade-up">Get in Touch</h2>
+        <p class="lead" data-aos="fade-up" data-aos-delay="100">
+          We'd love to hear from you. Fill out the form below and we will get back to you shortly.
+        </p>
+      </div>
+      <form action="/contact" method="post" data-aos="fade-up" data-aos-delay="200">
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <input type="text" class="form-control" name="name" placeholder="Your Name" required />
+          </div>
+          <div class="col-md-6 mb-3">
+            <input type="email" class="form-control" name="email" placeholder="Your Email" required />
+          </div>
+        </div>
+        <div class="mb-3">
+          <input type="text" class="form-control" name="subject" placeholder="Subject" required />
+        </div>
+        <div class="mb-3">
+          <textarea class="form-control" name="message" rows="5" placeholder="Your Message" required></textarea>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="mailingList" name="mailingList" />
+          <label class="form-check-label" for="mailingList">
+            Subscribe to our mailing list
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg">Send Message</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Updated Footer Section -->
+  <footer class="bg-dark text-light pt-5 pb-3">
+    <div class="container">
+      <div class="row">
+        <!-- About Section -->
+        <div class="col-md-4 mb-4">
+          <h5 class="text-uppercase">INNOVERSE</h5>
+          <p>
+            Connecting student talent with startup innovation. Join our vibrant community where ideas flourish and creativity thrives.
+          </p>
+          <div class="social-icons">
+            <a href="#" class="text-light me-2"><i class="fab fa-twitter fa-lg"></i></a>
+            <a href="#" class="text-light me-2"><i class="fab fa-linkedin fa-lg"></i></a>
+            <a href="#" class="text-light"><i class="fab fa-instagram fa-lg"></i></a>
+          </div>
+        </div>
+        <!-- Quick Links -->
+        <div class="col-md-4 mb-4">
+          <h5 class="text-uppercase">Quick Links</h5>
+          <ul class="list-unstyled">
+            <li><a href="#about" class="text-light">About Us</a></li>
+            <li><a href="#features" class="text-light">Features</a></li>
+            <li><a href="#blog" class="text-light">Blog</a></li>
+            <li><a href="#contact" class="text-light">Contact</a></li>
+          </ul>
+        </div>
+        <!-- Newsletter Subscription -->
+        <div class="col-md-4 mb-4">
+          <h5 class="text-uppercase">Newsletter</h5>
+          <p>Subscribe to get the latest news and updates.</p>
+          <form action="/subscribe" method="post">
+            <div class="input-group">
+              <input type="email" class="form-control" placeholder="Your Email" aria-label="Your Email" required />
+              <button class="btn btn-primary" type="submit">Subscribe</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <hr class="bg-light" />
+      <div class="text-center">
+        <p class="mb-0">&copy; 2025 INNOVERSE. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/particles.js/2.0.0/particles.min.js"></script>
+  <script>
+    AOS.init({
+      duration: 1000,
+      once: true
+    });
+
+    particlesJS('particles-js', {
+      particles: {
+        number: { value: 80 },
+        color: { value: '#ffffff' },
+        shape: { type: 'circle' },
+        opacity: {
+          value: 0.5,
+          random: true
+        },
+        size: {
+          value: 3,
+          random: true
+        },
+        move: {
+          enable: true,
+          speed: 2
+        }
+      },
+      interactivity: {
+        events: {
+          onhover: {
+            enable: true,
+            mode: 'repulse'
+          }
+        }
+      }
+    });
+
+    // Animate counters
+    const counters = document.querySelectorAll('.counter');
+    counters.forEach(counter => {
+      const target = parseInt(counter.innerText);
+      let count = 0;
+      const increment = target / 100;
+
+      const updateCount = () => {
+        if (count < target) {
+          count += increment;
+          counter.innerText = Math.ceil(count) + '+';
+          setTimeout(updateCount, 10);
+        } else {
+          counter.innerText = target + '+';
+        }
+      };
+
+      updateCount();
+    });
+  </script>
+</body>
+</html>

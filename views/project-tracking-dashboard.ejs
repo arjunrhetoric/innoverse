@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Project Tracking Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons for notifications -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+  <style>
+    /* Common Styles */
+    body {
+      background-color: #0d1117;
+      color: #c9d1d9;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container, .container-fluid { padding-top: 20px; }
+    h2 { margin-bottom: 20px; }
+    .header {
+      padding: 15px 20px;
+      border-bottom: 1px solid #30363d;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 1.8rem; margin: 0; }
+    
+    /* Notification Dropdown */
+    .notification-icon {
+      position: relative;
+      cursor: pointer;
+    }
+    .notification-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: #d73a49;
+      color: #fff;
+      border-radius: 50%;
+      padding: 2px 5px;
+      font-size: 0.75rem;
+    }
+    .dropdown-menu.notifications {
+      max-height: 300px;
+      overflow-y: auto;
+      width: 300px;
+    }
+    
+    /* Sidebar (PR List) for Startup */
+    .sidebar {
+      background-color: #161b22;
+      padding: 15px;
+      border-radius: 5px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .pr-list-item {
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #30363d;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .pr-list-item.active {
+      background-color: #238636;
+      border-color: #238636;
+      color: #ffffff;
+    }
+    
+    /* PR Details & Tabs for Startup */
+    .pr-details {
+      background-color: #161b22;
+      padding: 15px;
+      border-radius: 5px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    .pr-header {
+      background-color: #161b22;
+      padding: 10px;
+      border-bottom: 1px solid #30363d;
+      margin-bottom: 15px;
+    }
+    .pr-header h2 { margin: 0; font-size: 1.5rem; }
+    .action-btns button {
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+    .nav-tabs .nav-link {
+      background-color: #161b22;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+    }
+    .nav-tabs .nav-link.active {
+      background-color: #238636;
+      border-color: #238636;
+      color: #ffffff;
+    }
+    
+    /* Diff styling with inline comment support */
+    pre.diff {
+      background-color: #1e1e1e;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      position: relative;
+    }
+    .diff-header { color: #6a737d; }
+    .diff-index  { color: #6a737d; }
+    .diff-file   { color: #6a737d; }
+    .line-add    { color: #28a745; display: block; cursor: pointer; }
+    .line-del    { color: #d73a49; display: block; cursor: pointer; }
+    .line-neutral { color: #c9d1d9; display: block; }
+    .inline-comment { margin-top: 5px; }
+    
+    /* Timeline styling */
+    .timeline-item {
+      border-left: 2px solid #238636;
+      margin-left: 20px;
+      padding-left: 10px;
+      margin-bottom: 10px;
+    }
+    .timeline-item span { font-size: 0.85rem; color: #6a737d; }
+    
+    /* Analytics styling */
+    .analytics .metric {
+      padding: 10px;
+      border-bottom: 1px solid #30363d;
+    }
+    
+    /* Milestone Management (for Startup) */
+    .milestones-list {
+      background-color: #161b22;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .milestone-item {
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #30363d;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .milestone-item.completed {
+      background-color: #238636;
+      color: #ffffff;
+    }
+    .milestone-actions button {
+      margin-left: 5px;
+      font-size: 0.75rem;
+    }
+    
+    /* Modal for Milestone Creation/Editing */
+    .modal .form-control { background-color: #2a2a2a; color: #fff; }
+    
+    /* Chat Sidebar (for both roles) */
+    .chat-sidebar {
+      background-color: #161b22;
+      padding: 15px;
+      border-radius: 5px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .chat-message {
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #30363d;
+    }
+    
+    /* Student Progress Tracking */
+    .progress-card {
+      background-color: #161b22;
+      padding: 20px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header with Notifications -->
+  <div class="header">
+    <h1><% if(user.role==="Startup"){ %>Pull Request Management<% } else { %>Project Progress<% } %></h1>
+    <div class="d-flex align-items-center">
+      <div class="dropdown me-3">
+        <div class="notification-icon" id="notificationIcon" data-bs-toggle="dropdown">
+          <i class="bi bi-bell" style="font-size: 1.5rem;"></i>
+          <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
+        </div>
+        <ul class="dropdown-menu notifications" id="notificationDropdown">
+          <li class="dropdown-item">No notifications</li>
+        </ul>
+      </div>
+      <% if(user.role==="Startup"){ %>
+        <button id="refreshAll" class="btn btn-secondary btn-sm">Refresh All</button>
+      <% } else { %>
+        <button id="refreshProgressBtn" class="btn btn-secondary btn-sm">Refresh</button>
+      <% } %>
+    </div>
+  </div>
+  
+  <% if (user.role === "Startup") { %>
+  <!-- Startup Side: PR Management & Milestone Control -->
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Left Sidebar: PR List -->
+      <div class="col-md-3">
+        <h4>Pull Requests</h4>
+        <div id="prList" class="sidebar">
+          <% if (pullRequests && pullRequests.length > 0) { %>
+            <% pullRequests.forEach(pr => { %>
+              <div class="pr-list-item" 
+                   data-repo-owner="<%= pr.base.repo.owner.login %>" 
+                   data-repo-name="<%= pr.base.repo.name %>" 
+                   data-pull-number="<%= pr.number %>">
+                <strong>#<%= pr.number %></strong> – <%= pr.title %>
+              </div>
+            <% }); %>
+          <% } else { %>
+            <p>No pull requests available.</p>
+          <% } %>
+        </div>
+      </div>
+      
+      <!-- Central Panel: PR Details & Tabs -->
+      <div class="col-md-6">
+        <div id="prDetailsContainer">
+          <div id="prHeader" class="pr-header">
+            <h2 id="prTitle">Select a PR</h2>
+            <small id="prMeta"></small>
+          </div>
+          <div id="prActions" class="action-btns mb-3" style="display: none;">
+            <button id="editPRBtn" class="btn btn-primary btn-sm">Edit PR</button>
+            <button id="mergePRBtn" class="btn btn-success btn-sm">Merge PR</button>
+            <button id="closePRBtn" class="btn btn-danger btn-sm">Close PR</button>
+            <button id="reopenPRBtn" class="btn btn-warning btn-sm" style="display: none;">Reopen PR</button>
+          </div>
+          <ul class="nav nav-tabs" id="prTabNav" style="display: none;">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overviewTab" type="button">Overview</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#conversationTab" type="button">Conversation</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#commitsTab" type="button">Commits</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#filesTab" type="button">Files Changed</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#diffTab" type="button">Diff</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#timelineTab" type="button">Timeline</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#analyticsTab" type="button">Analytics</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#milestonesTab" type="button">Milestones</button></li>
+          </ul>
+          <div class="tab-content mt-3" id="prTabContent" style="display: none;">
+            <div class="tab-pane fade show active" id="overviewTab" role="tabpanel">
+              <div id="overviewContent"></div>
+              <hr>
+              <h6>Review Summary</h6>
+              <div id="reviewSummary"></div>
+            </div>
+            <div class="tab-pane fade" id="conversationTab" role="tabpanel">
+              <div id="conversationContent"></div>
+              <div class="mt-3">
+                <textarea id="newComment" class="form-control" rows="2" placeholder="Add a comment (use @ for mentions)..."></textarea>
+                <button id="postCommentBtn" class="btn btn-primary btn-sm mt-2">Post Comment</button>
+              </div>
+            </div>
+            <div class="tab-pane fade" id="commitsTab" role="tabpanel">
+              <div id="commitsContent"></div>
+            </div>
+            <div class="tab-pane fade" id="filesTab" role="tabpanel">
+              <div id="filesContent"></div>
+            </div>
+            <div class="tab-pane fade" id="diffTab" role="tabpanel">
+              <pre id="diffContent" class="diff"></pre>
+            </div>
+            <div class="tab-pane fade" id="timelineTab" role="tabpanel">
+              <div id="timelineContent"></div>
+            </div>
+            <div class="tab-pane fade" id="analyticsTab" role="tabpanel">
+              <div class="analytics" id="analyticsContent"></div>
+            </div>
+            <div class="tab-pane fade" id="milestonesTab" role="tabpanel">
+              <div class="d-flex justify-content-between mb-2">
+                <h5>Milestones</h5>
+                <button id="addMilestoneBtn" class="btn btn-primary btn-sm">Add Milestone</button>
+              </div>
+              <div id="milestonesList" class="milestones-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+     
+     
+  
+  <!-- Modal: Edit PR -->
+  <div class="modal fade" id="editPrModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Pull Request</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="editPrTitle" class="form-label">Title</label>
+            <input type="text" id="editPrTitle" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label for="editPrBody" class="form-label">Description</label>
+            <textarea id="editPrBody" class="form-control" rows="4"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="savePrEditsBtn">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal: Milestone Creation/Editing (Startup) -->
+  <div class="modal fade" id="milestoneModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header">
+          <h5 class="modal-title" id="milestoneModalTitle">Add Milestone</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input type="text" id="milestoneTitle" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea id="milestoneDescription" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Deadline</label>
+            <input type="date" id="milestoneDeadline" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="saveMilestoneBtn">Save Milestone</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <% } else if (user.role === "Student") { %>
+  <!-- Student Side: Dynamic Progress, Milestones, Timeline, Analytics, & Chat -->
+  <div class="container">
+    <div class="header">
+      <h1>Project Progress</h1>
+      <button id="refreshProgressBtn" class="btn btn-secondary btn-sm">Refresh Progress</button>
+    </div>
+    <!-- Progress Card -->
+    <div class="progress-card">
+      <h4>Overall Project Progress</h4>
+      <div class="progress mb-3" style="height: 30px;">
+        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: <%= progress %>%;" aria-valuenow="<%= progress %>" aria-valuemin="0" aria-valuemax="100">
+          <%= progress %>% Complete
+        </div>
+      </div>
+    </div>
+    <!-- Milestones List -->
+    <div class="milestones-list mb-4">
+      <h4>Milestones</h4>
+      <ul id="milestonesUl" class="list-group">
+        <% if (milestones && milestones.length > 0) { %>
+          <% milestones.forEach(m => { %>
+            <li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light border-secondary">
+              <div>
+                <strong><%= m.title %></strong><br>
+                <small><%= m.description %></small><br>
+                <small>Deadline: <%= m.deadline ? new Date(m.deadline).toLocaleDateString() : 'N/A' %></small>
+              </div>
+              <% if (!m.completed) { %>
+                <button class="btn btn-sm btn-outline-primary request-clarification-btn" data-id="<%= m._id %>">Request Clarification</button>
+              <% } else { %>
+                <span class="badge bg-success">Completed</span>
+              <% } %>
+            </li>
+          <% }); %>
+        <% } else { %>
+          <li class="list-group-item bg-dark text-light border-secondary">No milestones set yet.</li>
+        <% } %>
+      </ul>
+    </div>
+    <!-- Milestone Timeline -->
+    <div class="timeline mb-4">
+      <h4>Milestone Timeline</h4>
+      <div id="timelineContent">
+        <!-- Timeline events loaded dynamically -->
+      </div>
+    </div>
+    <!-- Analytics Section -->
+    <div class="analytics mb-4">
+      <h4>Analytics</h4>
+      <div id="analyticsContent">
+        <!-- Analytics metrics loaded dynamically -->
+      </div>
+    </div>
+    
+  <% } %>
+  
+  <!-- Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Utility: Format diff text with inline comment support
+    function formatDiff(diffText) {
+      const lines = diffText.split('\n');
+      return lines.map((line, index) => {
+        let formatted = "";
+        if (/^diff --git/.test(line)) {
+          formatted = `<span class="diff-header">${line}</span>`;
+        } else if (/^index/.test(line)) {
+          formatted = `<span class="diff-index">${line}</span>`;
+        } else if (/^---/.test(line) || /^\+\+\+/.test(line)) {
+          formatted = `<span class="diff-file">${line}</span>`;
+        } else if (/^\+/.test(line)) {
+          formatted = `<span class="line-add" data-line="${index}">${line}</span>`;
+        } else if (/^-/.test(line)) {
+          formatted = `<span class="line-del" data-line="${index}">${line}</span>`;
+        } else {
+          formatted = `<span class="line-neutral" data-line="${index}">${line}</span>`;
+        }
+        return formatted;
+      }).join('\n');
+    }
+    
+    // Bind inline diff comment events
+    function bindDiffCommentEvents() {
+      $('.diff span[data-line]').off('click').on('click', function() {
+        $('.inline-comment').remove();
+        const lineElem = $(this);
+        const commentBox = $(`
+          <div class="inline-comment mt-2">
+            <textarea class="form-control" rows="2" placeholder="Add inline comment (use @ for mentions)..."></textarea>
+            <button class="btn btn-sm btn-primary mt-1 submit-inline-comment">Submit Comment</button>
+          </div>
+        `);
+        lineElem.after(commentBox);
+        commentBox.find('.submit-inline-comment').on('click', function() {
+          const commentText = commentBox.find('textarea').val();
+          if (!commentText) {
+            alert("Please enter a comment.");
+            return;
+          }
+          const lineNumber = lineElem.attr('data-line');
+          fetch('/api/pr/inline-comment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              repoOwner: currentRepoOwner,
+              repoName: currentRepoName,
+              pullNumber: currentPullNumber,
+              lineNumber,
+              comment: commentText
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            alert(data.message);
+            commentBox.remove();
+          })
+          .catch(err => {
+            alert("Error posting inline comment: " + err.message);
+          });
+        });
+      });
+    }
+    
+    const socket = io();
+    let currentPrId = null;
+    let currentRepoOwner = null, currentRepoName = null, currentPullNumber = null;
+    
+    <% if(user.role === "Startup") { %>
+      // Startup side: When a PR item is clicked
+      $('.pr-list-item').on('click', function() {
+        $('.pr-list-item').removeClass('active');
+        $(this).addClass('active');
+        currentRepoOwner = $(this).data('repo-owner');
+        currentRepoName = $(this).data('repo-name');
+        currentPullNumber = $(this).data('pull-number');
+        currentPrId = currentRepoOwner + '-' + currentRepoName + '-' + currentPullNumber;
+        $('#prActions, #prTabNav, #prTabContent, #chatSidebar').show();
+        socket.emit('joinPRRoom', currentPrId);
+        loadPrDetails(currentRepoOwner, currentRepoName, currentPullNumber);
+      });
+      
+      // Function to load all PR details for Startup tabs
+      function loadPrDetails(repoOwner, repoName, pullNumber) {
+        $('#prTitle').text("PR #" + pullNumber);
+        $('#prMeta').text(repoOwner + "/" + repoName);
+        // Overview
+        fetch(`/api/pr/details?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
+          .then(res => res.json())
+          .then(data => {
+            let html = `<h5>${data.title}</h5>`;
+            html += `<p>${data.body || 'No description provided.'}</p>`;
+            html += `<p><strong>Status:</strong> ${data.state}</p>`;
+            $('#overviewContent').html(html);
+          })
+          .catch(err => {
+            console.error("Error fetching overview:", err);
+            $('#overviewContent').html("<p>Error loading overview.</p>");
+          });
+        // Review Summary
+        fetch(`/api/pr/reviews?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
+          .then(res => res.json())
+          .then(data => {
+            let html = "";
+            if(data.length === 0) {
+              html = "<p>No reviews yet.</p>";
+            } else {
+              data.forEach(review => {
+                html += `<div><strong>${review.user.login}</strong>: ${review.state} <small>(${new Date(review.submitted_at).toLocaleString()})</small></div>`;
+              });
+            }
+            $('#reviewSummary').html(html);
+          })
+          .catch(err => {
+            console.error("Error fetching reviews:", err);
+            $('#reviewSummary').html("<p>Error loading reviews.</p>");
+          });
+        // Conversation
+        fetch(`/api/pr/comments?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
+          .then(res => res.json())
+          .then(data => {
+            let html = "";
+            if(data.length === 0) {
+              html = "<p>No conversation available.</p>";
+            } else {
+              data.forEach(comment => {
+                html += `<div class="mb-2"><strong>${comment.user.login}:</strong> ${comment.body}</div>`;
+              });
+            }
+            $('#conversationContent').html(html);
+          })
+          .catch(err => {
+            console.error("Error fetching conversation:", err);
+            $('#conversationContent').html("<p>Error loading conversation.</p>");
+          });
+        // Commits
+        fetch(`/api/pr/commits?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
+          .then(res => res.json())
+          .then(data => {
+            let html = "";
+            if(data.length === 0) {
+              html = "<p>No commits available.</p>";
+            } else {
+              html = "<ul>";
+              data.forEach(commit => {
+                html += `<li>${commit.sha.substring(0,7)} - ${commit.commit.message}</li>`;
+              });
+              html += "</ul>";
+            }
+            $('#commitsContent').html(html);
+          })
+          .catch(err => {
+            console.error("Error fetching commits:", err);
+            $('#commitsContent').html("<p>Error loading commits.</p>");
+          });
+        // Files Changed
+        fetch(`/api/pr/files?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
+          .then(res => res.json())
+          .then(data => {
+            let html = "";
+            if(data.length === 0) {
+              html = "<p>No files changed.</p>";
+            } else {
+              html = "<ul>";
+              data.forEach(file => {
+                html += `<li><strong>${file.filename}</strong> — ${file.changes} changes</li>`;
+              });
+              html += "</ul>";
+            }
+            $('#filesContent').html(html);
+          })
+          .catch(err => {
+            console.error("Error fetching files:", err);
+            $('#filesContent').html("<p>Error loading files changed.</p>");
+          });
+        // Diff
+        fetch(`/api/pr/diff?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`, {
+          headers: { "Accept": "application/vnd.github.v3.diff" }
+        })
+          .then(res => res.text())
+          .then(diffText => {
+            const formattedDiff = formatDiff(diffText);
+            $('#diffContent').html(formattedDiff);
+            bindDiffCommentEvents();
+          })
+          .catch(err => {
+            console.error("Error fetching diff:", err);
+            $('#diffContent').text("Error loading diff.");
+          });
+        // Timeline
+        fetch(`/api/milestones/timeline?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}`)
+          .then(res => res.json())
+          .then(data => {
+            console.log("Timeline data:", data);
+            if(!Array.isArray(data)) {
+              data = [];
+            }
+            let html = "";
+            if(data.length === 0) {
+              html = "<p>No timeline events available.</p>";
+            } else {
+              data.forEach(event => {
+                html += `<div class="timeline-item">
+                          <strong>${event.event}</strong> - ${event.actor.login} 
+                          <span>(${new Date(event.created_at).toLocaleString()})</span>
+                          <p>${event.details || ""}</p>
+                        </div>`;
+              });
+            }
+            $('#timelineContent').html(html);
+          })
+          .catch(err => {
+            console.error("Error fetching timeline:", err);
+            $('#timelineContent').html("<p>Error loading timeline.</p>");
+          });
+        // Analytics
+        fetch(`/api/pr/analytics?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
+          .then(res => res.json())
+          .then(data => {
+            let html = `<div class="metric"><strong>Inline Comments:</strong> ${data.inlineComments}</div>`;
+            html += `<div class="metric"><strong>GitHub Comments:</strong> ${data.githubComments}</div>`;
+            html += `<div class="metric"><strong>Average Review Time:</strong> ${data.averageReviewTime}</div>`;
+            $('#analyticsContent').html(html);
+          })
+          .catch(err => {
+            console.error("Error fetching analytics:", err);
+            $('#analyticsContent').html("<p>Error loading analytics.</p>");
+          });
+        // Milestones
+        fetch(`/api/milestones?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}`)
+          .then(res => res.json())
+          .then(data => {
+            let html = "";
+            if(data.length === 0) {
+              html = "<p>No milestones set yet.</p>";
+            } else {
+              data.forEach(milestone => {
+                html += `<div class="milestone-item ${milestone.completed ? 'completed' : ''}" data-id="${milestone._id}">
+                            <div>
+                              <strong>${milestone.title}</strong><br>
+                              <small>${milestone.description || ''}</small><br>
+                              <small>Deadline: ${milestone.deadline ? new Date(milestone.deadline).toLocaleDateString() : 'N/A'}</small>
+                            </div>
+                            <div class="milestone-actions">
+                              <button class="btn btn-sm btn-outline-info edit-milestone-btn">Edit</button>
+                              <button class="btn btn-sm btn-outline-danger delete-milestone-btn">Delete</button>
+                              <button class="btn btn-sm btn-outline-success mark-complete-btn" ${milestone.completed ? 'disabled' : ''}>Complete</button>
+                            </div>
+                          </div>`;
+              });
+            }
+            $('#milestonesList').html(html);
+          })
+          .catch(err => {
+            console.error("Error fetching milestones:", err);
+            $('#milestonesList').html("<p>Error loading milestones.</p>");
+          });
+      }
+      
+      // Milestone Management for Startup
+      $('#addMilestoneBtn').on('click', function() {
+        $('#milestoneModalTitle').text("Add Milestone");
+        $('#milestoneTitle').val("");
+        $('#milestoneDescription').val("");
+        $('#milestoneDeadline').val("");
+        $('#milestoneModal').attr('data-milestone-id', '');
+        new bootstrap.Modal(document.getElementById("milestoneModal")).show();
+      });
+      
+      $('#milestoneModal').on('shown.bs.modal', function () {
+        $('#milestoneTitle').focus();
+      });
+      
+      $('#saveMilestoneBtn').on('click', async function() {
+        const title = $('#milestoneTitle').val();
+        const description = $('#milestoneDescription').val();
+        const deadline = $('#milestoneDeadline').val();
+        const milestoneId = $('#milestoneModal').attr('data-milestone-id');
+        const payload = { repoOwner: currentRepoOwner, repoName: currentRepoName, title, description, deadline };
+        let method = "POST";
+        let url = "/api/milestones";
+        if (milestoneId) {
+          method = "PATCH";
+          url += "/" + milestoneId;
+        }
+        try {
+          const res = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const result = await res.json();
+          alert(result.message);
+          bootstrap.Modal.getInstance(document.getElementById("milestoneModal")).hide();
+          loadPrDetails(currentRepoOwner, currentRepoName, currentPullNumber);
+        } catch (error) {
+          alert("Error saving milestone");
+        }
+      });
+      
+      $('#milestonesList').on('click', '.edit-milestone-btn', function() {
+        const milestoneElem = $(this).closest('.milestone-item');
+        const milestoneId = milestoneElem.attr('data-id');
+        fetch(`/api/milestones/${milestoneId}`)
+          .then(res => res.json())
+          .then(data => {
+            $('#milestoneModalTitle').text("Edit Milestone");
+            $('#milestoneTitle').val(data.title);
+            $('#milestoneDescription').val(data.description);
+            $('#milestoneDeadline').val(data.deadline ? new Date(data.deadline).toISOString().split('T')[0] : "");
+            $('#milestoneModal').attr('data-milestone-id', data._id);
+            new bootstrap.Modal(document.getElementById("milestoneModal")).show();
+          })
+          .catch(err => alert("Error loading milestone details"));
+      });
+      
+      $('#milestonesList').on('click', '.delete-milestone-btn', function() {
+        if(!confirm("Are you sure you want to delete this milestone?")) return;
+        const milestoneId = $(this).closest('.milestone-item').attr('data-id');
+        fetch(`/api/milestones/${milestoneId}`, { method: "DELETE" })
+          .then(res => res.json())
+          .then(data => {
+            alert(data.message);
+            loadPrDetails(currentRepoOwner, currentRepoName, currentPullNumber);
+          })
+          .catch(err => alert("Error deleting milestone"));
+      });
+      
+      $('#milestonesList').on('click', '.mark-complete-btn', function() {
+        const milestoneId = $(this).closest('.milestone-item').attr('data-id');
+        fetch(`/api/milestones/${milestoneId}/complete`, { method: "PATCH" })
+          .then(res => res.json())
+          .then(data => {
+            alert(data.message);
+            loadPrDetails(currentRepoOwner, currentRepoName, currentPullNumber);
+          })
+          .catch(err => alert("Error marking milestone complete"));
+      });
+      
+      // Edit PR functionality (for Startup PRs even on Student side, if needed)
+      $('#editPRBtn').on('click', function() {
+        const activeItem = $('.pr-list-item.active');
+        if (!activeItem.length) { alert("Select a PR first."); return; }
+        const repoOwner = activeItem.data('repo-owner');
+        const repoName = activeItem.data('repo-name');
+        const pullNumber = activeItem.data('pull-number');
+        fetch(`/api/pr/details?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
+          .then(res => res.json())
+          .then(data => {
+            $('#editPrTitle').val(data.title);
+            $('#editPrBody').val(data.body);
+            new bootstrap.Modal(document.getElementById("editPrModal")).show();
+          })
+          .catch(err => alert("Error loading PR details for editing."));
+      });
+      
+      // Save PR edits
+      $('#savePrEditsBtn').on('click', async function() {
+        const title = $('#editPrTitle').val();
+        const body = $('#editPrBody').val();
+        const activeItem = $('.pr-list-item.active');
+        const repoOwner = activeItem.data('repo-owner');
+        const repoName = activeItem.data('repo-name');
+        const pullNumber = activeItem.data('pull-number');
+        try {
+          const res = await fetch("/api/pr/update", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ repoOwner, repoName, pullNumber, title, body })
+          });
+          const result = await res.json();
+          alert(result.message);
+          bootstrap.Modal.getInstance(document.getElementById("editPrModal")).hide();
+          loadPrDetails(repoOwner, repoName, pullNumber);
+        } catch (error) {
+          alert("Error updating PR");
+        }
+      });
+      
+      // Merge PR
+      $('#mergePRBtn').on('click', async () => {
+        const activeItem = $('.pr-list-item.active');
+        if(!activeItem.length) { alert("Select a PR first."); return; }
+        const repoOwner = activeItem.data('repo-owner');
+        const repoName = activeItem.data('repo-name');
+        const pullNumber = activeItem.data('pull-number');
+        try {
+          const res = await fetch("/api/pr/merge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ repoOwner, repoName, pullNumber })
+          });
+          const result = await res.json();
+          alert(result.message);
+          loadPrDetails(repoOwner, repoName, pullNumber);
+        } catch (error) {
+          alert("Error merging PR");
+        }
+      });
+      
+      // Close PR
+      $('#closePRBtn').on('click', async () => {
+        const activeItem = $('.pr-list-item.active');
+        if(!activeItem.length) { alert("Select a PR first."); return; }
+        const repoOwner = activeItem.data('repo-owner');
+        const repoName = activeItem.data('repo-name');
+        const pullNumber = activeItem.data('pull-number');
+        try {
+          const res = await fetch("/api/pr/close", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ repoOwner, repoName, pullNumber })
+          });
+          const result = await res.json();
+          alert(result.message);
+          if(result.data && result.data.state === "closed"){
+            $('#reopenPRBtn').show();
+          }
+          loadPrDetails(repoOwner, repoName, pullNumber);
+        } catch (error) {
+          alert("Error closing PR");
+        }
+      });
+      
+      // Reopen PR
+      $('#reopenPRBtn').on('click', async () => {
+        const activeItem = $('.pr-list-item.active');
+        if(!activeItem.length) { alert("Select a PR first."); return; }
+        const repoOwner = activeItem.data('repo-owner');
+        const repoName = activeItem.data('repo-name');
+        const pullNumber = activeItem.data('pull-number');
+        try {
+          const res = await fetch("/api/pr/reopen", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ repoOwner, repoName, pullNumber })
+          });
+          const result = await res.json();
+          alert(result.message);
+          $('#reopenPRBtn').hide();
+          loadPrDetails(repoOwner, repoName, pullNumber);
+        } catch (error) {
+          alert("Error reopening PR");
+        }
+      });
+      
+      // Post a new comment
+      $('#postCommentBtn').on('click', () => {
+        const comment = $('#newComment').val();
+        if (!comment) {
+          alert("Please enter a comment.");
+          return;
+        }
+        const activeItem = $('.pr-list-item.active');
+        const repoOwner = activeItem.data('repo-owner');
+        const repoName = activeItem.data('repo-name');
+        const pullNumber = activeItem.data('pull-number');
+        fetch('/api/pr/comment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repoOwner, repoName, pullNumber, comment })
+        })
+          .then(res => res.json())
+          .then(data => {
+            alert(data.message);
+            loadPrDetails(repoOwner, repoName, pullNumber);
+            $('#newComment').val('');
+          })
+          .catch(err => alert("Error posting comment: " + err.message));
+      });
+      
+      // Startup Chat functionality
+      socket.on('newProjectChatMessage', (data) => {
+        if(data.room === currentPrId) {
+          const msgHtml = `<div class="chat-message"><strong>${data.sender}:</strong> ${data.message}</div>`;
+          $('#chatMessages').append(msgHtml);
+          $('#chatSidebar').scrollTop($('#chatSidebar')[0].scrollHeight);
+        }
+      });
+      
+      $('#sendChat').on('click', async () => {
+        const message = $('#chatInput').val();
+        if(!message) return;
+        if(!currentPrId) { alert("Select a PR first."); return; }
+        const chatData = {
+          room: currentPrId,
+          message,
+          sender: 'Startup',
+          timestamp: Date.now()
+        };
+        // Save the message persistently
+        try {
+          await fetch('/api/chat', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(chatData)
+          });
+        } catch (error) {
+          console.error("Error saving chat message:", error);
+        }
+        socket.emit('projectChatMessage', chatData);
+        $('#chatInput').val('');
+      });
+    <% } else if (user.role === "Student") { %>
+      // Student side: Dynamic Data Loading
+      let studentProjectRepoOwner = "";
+      let studentProjectRepoName = "";
+      
+      async function loadStudentData() {
+        try {
+          // Fetch overall project progress
+          const progressRes = await fetch('/api/project/progress');
+          const progressData = await progressRes.json();
+          console.log("Project progress data:", progressData);
+          const progressBar = document.getElementById("progressBar");
+          progressBar.style.width = progressData.progress + "%";
+          progressBar.innerText = progressData.progress + "% Complete";
+          // Save repo details for later use
+          studentProjectRepoOwner = progressData.repoOwner || "";
+          studentProjectRepoName = progressData.repoName || "";
+          console.log("Student project repo:", studentProjectRepoOwner, studentProjectRepoName);
+          
+          // Load milestones (read-only for students)
+          const milestonesRes = await fetch('/api/milestones?userRole=student&repoOwner=' + encodeURIComponent(studentProjectRepoOwner) + '&repoName=' + encodeURIComponent(studentProjectRepoName));
+          const milestones = await milestonesRes.json();
+          console.log("Milestones fetched:", milestones.length);
+          let milestonesHtml = "";
+          if(milestones.length === 0) {
+            milestonesHtml = '<li class="list-group-item bg-dark text-light border-secondary">No milestones set yet.</li>';
+          } else {
+            milestones.forEach(m => {
+              milestonesHtml += `<li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light border-secondary">
+                                  <div>
+                                    <strong>${m.title}</strong><br>
+                                    <small>${m.description || ''}</small><br>
+                                    <small>Deadline: ${m.deadline ? new Date(m.deadline).toLocaleDateString() : 'N/A'}</small>
+                                  </div>
+                                  ${!m.completed ? `<button class="btn btn-sm btn-outline-primary request-clarification-btn" data-id="${m._id}">Request Clarification</button>` 
+                                  : `<span class="badge bg-success">Completed</span>`}
+                                </li>`;
+            });
+          }
+          $('#milestonesUl').html(milestonesHtml);
+          
+          // Load milestone timeline
+          const timelineRes = await fetch('/api/milestones/timeline?repoOwner=' + encodeURIComponent(studentProjectRepoOwner) + '&repoName=' + encodeURIComponent(studentProjectRepoName));
+          let timelineData = await timelineRes.json();
+          console.log("Timeline data received:", timelineData);
+          if(!Array.isArray(timelineData)) {
+            timelineData = [];
+          }
+          let timelineHtml = "";
+          if(timelineData.length === 0) {
+            timelineHtml = "<p>No timeline events available.</p>";
+          } else {
+            timelineData.forEach(event => {
+              timelineHtml += `<div class="timeline-item">
+                                  <strong>${event.event}</strong> on <em>${event.milestoneTitle}</em><br>
+                                  <small>${new Date(event.created_at).toLocaleString()}</small><br>
+                                  <small>${event.details || ""}</small>
+                               </div>`;
+            });
+          }
+          $('#timelineContent').html(timelineHtml);
+          
+          // Load project analytics
+          const analyticsRes = await fetch('/api/project/analytics?repoOwner=' + encodeURIComponent(studentProjectRepoOwner) + '&repoName=' + encodeURIComponent(studentProjectRepoName));
+          const analyticsData = await analyticsRes.json();
+          let analyticsHtml = `<div class="metric"><strong>Avg. Milestone Completion Time:</strong> ${analyticsData.avgCompletionTime}</div>`;
+          analyticsHtml += `<div class="metric"><strong>Completed Milestones:</strong> ${analyticsData.completedMilestones}</div>`;
+          analyticsHtml += `<div class="metric"><strong>Pending Milestones:</strong> ${analyticsData.pendingMilestones}</div>`;
+          $('#analyticsContent').html(analyticsHtml);
+          
+          // Load persistent project chat history
+          const chatRes = await fetch('/api/chat?room=' + encodeURIComponent("project-chat"));
+          const chatMessages = await chatRes.json();
+          $('#studentChatMessages').empty();
+          chatMessages.forEach(msg => {
+            const msgHtml = `<div class="chat-message"><strong>${msg.sender}:</strong> ${msg.message}</div>`;
+            $('#studentChatMessages').append(msgHtml);
+          });
+          $('#studentChatMessages').scrollTop($('#studentChatMessages')[0].scrollHeight);
+          
+        } catch (error) {
+          console.error("Error loading student data:", error);
+        }
+      }
+      
+      document.getElementById("refreshProgressBtn").addEventListener("click", loadStudentData);
+      loadStudentData();
+      
+      // Listen for real-time milestone updates via Socket.IO
+      socket.on("milestoneUpdate", (data) => {
+        console.log("Received milestoneUpdate event:", data);
+        // If the update belongs to the current project, refresh student data
+        if(data.repoOwner === studentProjectRepoOwner && data.repoName === studentProjectRepoName){
+          loadStudentData();
+        }
+      });
+      
+      // Request Clarification on a milestone
+      $(document).on('click', '.request-clarification-btn', function() {
+        const milestoneId = $(this).attr('data-id');
+        const clarification = prompt("Enter your clarification request:");
+        if (!clarification) return;
+        fetch('/api/milestones/request-clarification', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ milestoneId, clarification })
+        })
+          .then(res => res.json())
+          .then(data => {
+            alert(data.message);
+            loadNotifications();
+          })
+          .catch(err => alert("Error requesting clarification: " + err.message));
+      });
+      
+      // Student Chat functionality
+      $('#sendStudentChat').on('click', async () => {
+        const message = $('#studentChatInput').val();
+        if(!message) return;
+        const chatData = {
+          room: "project-chat",
+          message,
+          sender: "<%= user.name %>",
+          timestamp: Date.now()
+        };
+        // Save the chat message persistently
+        try {
+          await fetch('/api/chat', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(chatData)
+          });
+        } catch (error) {
+          console.error("Error saving chat message:", error);
+        }
+        socket.emit('projectChatMessage', chatData);
+        $('#studentChatInput').val('');
+        // Optionally, reload chat history:
+        loadStudentData();
+      });
+      
+      socket.on('newProjectChatMessage', (data) => {
+        const msgHtml = `<div class="chat-message"><strong>${data.sender}:</strong> ${data.message}</div>`;
+        $('#studentChatMessages').append(msgHtml);
+        $('#studentChatMessages').scrollTop($('#studentChatMessages')[0].scrollHeight);
+      });
+    <% } %>
+    
+    // General notifications (for both roles)
+    function loadNotifications() {
+      fetch('/api/notifications')
+        .then(res => res.json())
+        .then(data => {
+          const dropdown = $('#notificationDropdown');
+          dropdown.empty();
+          if(data.length === 0) {
+            dropdown.append('<li class="dropdown-item">No notifications</li>');
+            $('#notificationBadge').hide();
+          } else {
+            $('#notificationBadge').text(data.length).show();
+            data.forEach(n => {
+              dropdown.append(`<li class="dropdown-item">${n.message} <small>(${new Date(n.createdAt).toLocaleString()})</small></li>`);
+            });
+          }
+        })
+        .catch(err => console.error("Error loading notifications:", err));
+    }
+    setInterval(loadNotifications, 30000);
+    loadNotifications();
+  </script>
+</body>
+</html>
