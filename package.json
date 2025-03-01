@@ -1,0 +1,38 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon server.js"
+  },
+  "type": "module",
+  "keywords": [],
+  "author": "Arjun Singh",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcrypt": "^5.1.1",
+    "bootstrap": "^5.3.3",
+    "company-email-validator": "^1.1.0",
+    "connect-mongo": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "ejs-mate": "^4.0.0",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "jsonwebtoken": "^9.0.2",
+    "localtunnel": "^2.0.2",
+    "mongoose": "^8.9.5",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.16",
+    "nodemon": "^3.1.9",
+    "passport": "^0.7.0",
+    "passport-github2": "^0.1.12",
+    "passport-google-oauth2": "^0.2.0",
+    "passport-local": "^1.0.0",
+    "socket.io": "^4.8.1"
+  }
+}

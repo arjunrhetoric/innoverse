@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Startup Dashboard - INNOVERSE</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <style>
+    :root {
+      --primary-color: #2575fc;
+      --secondary-color: #6c757d;
+      --bg-dark: #121212;
+      --bg-darker: #1e1e1e;
+      --card-bg: #2a2a2a;
+      --text-color: #ffffff;
+      --text-muted: #a0a0a0;
+      --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-color);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+    }
+    .navbar {
+      background: linear-gradient(135deg, var(--bg-darker) 0%, #252525 100%);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.2);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      padding: 1rem;
+    }
+    .navbar-brand {
+      font-size: 1.5rem;
+      font-weight: bold;
+      background: linear-gradient(45deg, var(--primary-color), #6a11cb);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      transition: transform 0.3s ease;
+    }
+    .navbar-brand:hover {
+      transform: scale(1.05);
+    }
+    .dashboard-container {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    .welcome-section {
+      background: linear-gradient(120deg, var(--primary-color), #6a11cb);
+      color: white;
+      padding: 2rem;
+      border-radius: 15px;
+      margin-bottom: 2rem;
+      animation: fadeIn 0.5s ease-out;
+    }
+    .card {
+      background: var(--card-bg);
+      border: none;
+      border-radius: 15px;
+      box-shadow: var(--card-shadow);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 15px rgba(37, 117, 252, 0.2);
+    }
+    .stats-card {
+      padding: 1.5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .stats-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary-color), #6a11cb);
+    }
+    .stats-card h5 {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .stats-card h3 {
+      color: var(--primary-color);
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 10px 0;
+    }
+    .btn {
+      padding: 0.8rem 1.5rem;
+      border-radius: 10px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    .btn-outline-primary {
+      border-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+    .btn-outline-primary:hover {
+      background-color: var(--primary-color);
+      color: white;
+      transform: translateY(-2px);
+    }
+    .btn-outline-secondary {
+      border-color: var(--secondary-color);
+      color: var(--secondary-color);
+    }
+    .btn-outline-secondary:hover {
+      background-color: var(--secondary-color);
+      color: white;
+      transform: translateY(-2px);
+    }
+    .form-control {
+      background: var(--card-bg);
+      border: 2px solid #333;
+      border-radius: 10px;
+      padding: 0.7rem 1rem;
+      color: var(--text-color);
+      transition: all 0.3s ease;
+    }
+    .form-control:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 117, 252, 0.1);
+    }
+    .challenge-list .card {
+      margin-bottom: 1rem;
+    }
+    .badge {
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-weight: 500;
+      background: rgba(37, 117, 252, 0.2);
+      color: var(--primary-color);
+      transition: all 0.3s ease;
+    }
+    .badge:hover {
+      background: var(--primary-color);
+      color: white;
+      transform: translateY(-2px);
+    }
+    .hidden {
+      display: none;
+      opacity: 0;
+      transform: translateY(-20px);
+      transition: all 0.3s ease;
+    }
+    .hidden.show {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .fa-bell {
+      cursor: pointer;
+      transition: transform 0.3s ease;
+    }
+    .fa-bell:hover {
+      animation: bell-ring 1s ease;
+    }
+    @keyframes bell-ring {
+      0%, 100% { transform: rotate(0); }
+      20%, 60% { transform: rotate(15deg); }
+      40%, 80% { transform: rotate(-15deg); }
+    }
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-dark);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--primary-color);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="#">Innoverse</a>
+    <div class="ms-auto d-flex align-items-center">
+      <div class="position-relative me-4">
+        <input type="text" class="form-control" placeholder="Search proposals...">
+        <i class="fas fa-search position-absolute" style="right: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+      </div>
+      <i class="fa-solid fa-bell fs-5 me-4" style="color: var(--primary-color);"></i>
+      <!-- My Account Dropdown -->
+      <div class="dropdown">
+        <button class="btn btn-dark dropdown-toggle d-flex align-items-center" type="button" id="accountDropdown" data-bs-toggle="dropdown">
+          <i class="fa-solid fa-building me-2"></i> <%= user.name %>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark" aria-labelledby="accountDropdown">
+          <li>
+            <a class="dropdown-item" href="/github-profile">
+              <i class="fab fa-github me-2"></i> View Profile
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item text-danger" href="/api/auth/logout">
+              <i class="fas fa-sign-out-alt me-2"></i> Logout
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Dashboard -->
+<div class="container dashboard-container">
+  <div class="welcome-section">
+    <h2 class="fw-bold mb-2">Welcome, <%= user.name %> 👋</h2>
+    <p class="mb-0">Manage your challenges and review student proposals</p>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-4">
+      <div class="card stats-card">
+        <div class="d-flex flex-column align-items-center">
+          <i class="fas fa-flag mb-3 fs-2" style="color: var(--primary-color);"></i>
+          <h5>Active Challenges</h5>
+          <h3><%= challenges.length %></h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card stats-card">
+        <div class="d-flex flex-column align-items-center">
+          <i class="fas fa-file-alt mb-3 fs-2" style="color: var(--primary-color);"></i>
+          <h5>Total Proposals</h5>
+          <h3><%= totalProposals %></h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card stats-card">
+        <div class="d-flex flex-column align-items-center">
+          <i class="fas fa-clock mb-3 fs-2" style="color: var(--primary-color);"></i>
+          <h5>Pending Reviews</h5>
+          <h3><%= pendingReviews %></h3>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="d-flex mb-4">
+    <button class="btn btn-outline-primary me-3" id="toggleChallengeForm">
+      <i class="fa-solid fa-plus me-2"></i> Post Challenges
+    </button>
+    <button class="btn btn-outline-secondary" id="viewProposalsBtn">
+      <i class="fa-solid fa-file-alt me-2"></i> View Proposals
+    </button>
+  </div>
+
+  <!-- Student Proposals Section -->
+  <h4 class="mt-4">Student Proposals</h4>
+  <% if (proposals.length > 0) { %>
+    <% proposals.forEach(proposal => { %>
+      <div class="card p-3 mb-3" id="proposal-<%= proposal._id %>">
+        <h5>
+          Submitted by:
+          <a href="/student-github-profile/<%= proposal.studentId._id %>">
+            <%= proposal.studentId.name %>
+          </a>
+        </h5>
+        <p>For: <strong><%= proposal.problemId.title %></strong></p>
+        <p><%= proposal.description %></p>
+        <p>Status: <%= proposal.status %></p>
+        <p><a href="<%= proposal.pptUrl %>" target="_blank">View Proposal PPT</a></p>
+        <% if (proposal.status === "Approved") { %>
+          <a href="/project-tracking-dashboard" class="btn btn-primary mt-3 tracking-link">
+            Go to Project Tracking Dashboard
+          </a>
+        <% } else if (proposal.status === "Rejected") { %>
+          <p class="text-danger mt-3 fw-bold">Proposal Rejected</p>
+        <% } else { %>
+          <div class="d-flex justify-content-between" id="reviewButtons-<%= proposal._id %>">
+            <button class="btn btn-success approve-btn" data-id="<%= proposal._id %>">
+              <i class="fa-solid fa-check me-2"></i> Approve
+            </button>
+            <button class="btn btn-danger reject-btn" data-id="<%= proposal._id %>">
+              <i class="fa-solid fa-times me-2"></i> Request Revision
+            </button>
+          </div>
+        <% } %>
+      </div>
+    <% }) %>
+  <% } else { %>
+    <p class="text-muted">No proposals available yet.</p>
+  <% } %>
+
+  <!-- Challenge Form -->
+  <div id="challengeForm" class="hidden">
+    <div class="card p-4 mb-4">
+      <h4 class="mb-4">Create New Challenge</h4>
+      <form id="postChallengeForm">
+        <div class="mb-3">
+          <label class="form-label">Challenge Title</label>
+          <input type="text" id="challengeTitle" class="form-control" placeholder="Enter challenge title" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Description</label>
+          <textarea id="challengeDescription" class="form-control" rows="4" placeholder="Describe your challenge" required></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Skills Required</label>
+          <input type="text" id="challengeSkills" class="form-control" placeholder="e.g., JavaScript, React, Node.js">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Final Deadline</label>
+          <input type="date" id="finalDeadline" class="form-control" required>
+        </div>
+        <script>
+          document.getElementById("finalDeadline").addEventListener("click", function() {
+              this.showPicker(); 
+          });
+      </script>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="createGithubRepo">
+          <label class="form-check-label">Create a GitHub Repository for this challenge</label>
+        </div>
+        <div id="githubRepoInput" class="mb-3 hidden">
+          <label class="form-label">GitHub Repository Name</label>
+          <input type="text" id="githubRepoName" class="form-control" placeholder="Enter repository name">
+        </div>
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="fas fa-paper-plane me-2"></i> Post Challenge
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Active Challenges Section -->
+  <div class="mb-3 d-flex justify-content-between align-items-center">
+    <h4 class="mb-0">Active Challenges</h4>
+    <div class="dropdown">
+      <button class="btn btn-dark dropdown-toggle" type="button" data-bs-toggle="dropdown">
+        <i class="fas fa-sort me-2"></i> Sort by
+      </button>
+      <ul class="dropdown-menu dropdown-menu-dark">
+        <li><a class="dropdown-item" href="#">Newest First</a></li>
+        <li><a class="dropdown-item" href="#">Oldest First</a></li>
+        <li><a class="dropdown-item" href="#">Most Proposals</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="challenge-list">
+    <% challenges.forEach(challenge => { %>
+      <div class="card p-4 mb-3">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <h5 class="mb-0"><%= challenge.title %></h5>
+          <button class="btn btn-sm btn-outline-danger" onclick="openDeleteModal('<%= challenge._id %>')">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+        <p class="mb-3"><%= challenge.description %></p>
+        <div class="d-flex flex-wrap gap-2">
+          <% challenge.skillsRequired.forEach(skill => { %>
+            <span class="badge"><%= skill %></span>
+          <% }) %>
+        </div>
+        <p class="text-muted mt-2">
+          <i class="fas fa-calendar-alt me-1"></i> Final Deadline:
+          <%= new Date(challenge.finalDeadline).toDateString() %>
+        </p>
+        <% if (challenge.githubRepoUrl) { %>
+          <p class="mt-2">
+            <i class="fab fa-github"></i>
+            <a href="<%= challenge.githubRepoUrl %>" target="_blank">GitHub Repo</a>
+          </p>
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<!-- Review Modal -->
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow border-0">
+      <div class="modal-header bg-light border-bottom border-light px-4 py-3">
+        <h5 class="modal-title fs-4 fw-semibold text-dark" id="reviewModalLabel">Review Proposal</h5>
+        <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="reviewForm">
+          <input type="hidden" id="proposalId" name="proposalId">
+          <input type="hidden" id="reviewStatus" name="reviewStatus">
+          <div class="mb-4">
+            <label for="reviewFeedback" class="form-label fw-medium mb-2">Review Comment</label>
+            <textarea class="form-control border-2 shadow-sm" id="reviewFeedback" name="reviewFeedback" rows="4" placeholder="Share your thoughts about this proposal..." style="resize: none;"></textarea>
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-4">
+            <button type="button" class="btn btn-light px-4 fw-medium" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary px-4 fw-medium" id="submitReviewBtn">Submit Review</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- README Modal -->
+<div class="modal fade" id="readmeModal" tabindex="-1" aria-labelledby="readmeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light" style="border-radius: 15px; border: 1px solid #2d2d2d; box-shadow: 0 0 25px rgba(0,0,0,0.3);">
+      <div class="modal-header border-bottom border-gray-700 p-4" style="background: linear-gradient(145deg, #2d2d2d, #1a1a1a);">
+        <h5 class="modal-title" id="readmeModalLabel">
+          <i class="fas fa-book-open me-2" style="color: #58a6ff;"></i>
+          Initialize Repository README
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4" style="background-color: #0d1117;">
+        <form id="readmeForm">
+          <div class="mb-4">
+            <label for="repoOwner" class="form-label text-light mb-2">
+              <i class="fas fa-user me-2" style="color: #58a6ff;"></i>
+              Repository Owner
+            </label>
+            <div class="input-group">
+              <span class="input-group-text bg-dark border-dark text-light">
+                <i class="fab fa-github"></i>
+              </span>
+              <input type="text" 
+                     class="form-control bg-dark text-light border-dark" 
+                     id="repoOwner" 
+                     placeholder="e.g., your-github-username" 
+                     required
+                     style="border-left: none;">
+            </div>
+          </div>
+          <div class="mb-4">
+            <label for="repoName" class="form-label text-light mb-2">
+              <i class="fas fa-code-branch me-2" style="color: #58a6ff;"></i>
+              Repository Name
+            </label>
+            <input type="text" 
+                   class="form-control bg-dark text-light border-dark" 
+                   id="repoName" 
+                   placeholder="e.g., my-startup-repo" 
+                   required>
+          </div>
+          <div class="mb-4">
+            <label for="commitMessage" class="form-label text-light mb-2">
+              <i class="fas fa-comment-dots me-2" style="color: #58a6ff;"></i>
+              Commit Message
+            </label>
+            <input type="text" 
+                   class="form-control bg-dark text-light border-dark" 
+                   id="commitMessage" 
+                   value="Initialize README.md" 
+                   required>
+          </div>
+          <div class="mb-4">
+            <label for="readmeContent" class="form-label text-light mb-2">
+              <i class="fas fa-file-alt me-2" style="color: #58a6ff;"></i>
+              README Content
+            </label>
+            <div class="position-relative">
+              <textarea class="form-control bg-dark text-light border-dark" 
+                        id="readmeContent" 
+                        rows="6" 
+                        placeholder="Enter initialization text for README.md" 
+                        required
+                        style="resize: none;"></textarea>
+              <div class="position-absolute bottom-0 end-0 p-2 text-muted">
+                <i class="fas fa-markdown" style="color: #58a6ff;"></i>
+              </div>
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-4">
+            <button type="button" class="btn btn-outline-light px-4 rounded-pill" data-bs-dismiss="modal">
+              <i class="fas fa-times me-2"></i>Cancel
+            </button>
+            <button type="submit" class="btn px-4 rounded-pill text-dark fw-bold" style="background: linear-gradient(90deg, #58a6ff, #79c0ff); border: none;">
+              <i class="fas fa-check me-2"></i>Update README
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light" style="border-radius: 15px;">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to delete this problem statement? This action cannot be undone.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  document.getElementById("toggleChallengeForm").addEventListener("click", function () {
+    const form = document.getElementById("challengeForm");
+    form.classList.toggle("hidden");
+    form.classList.toggle("show");
+  });
+  
+  document.getElementById("createGithubRepo").addEventListener("change", function () {
+    const githubRepoInput = document.getElementById("githubRepoInput");
+    if (this.checked) {
+      githubRepoInput.classList.remove("hidden");
+    } else {
+      githubRepoInput.classList.add("hidden");
+    }
+  });
+  
+  document.getElementById("postChallengeForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const submitButton = this.querySelector('button[type="submit"]');
+    const originalText = submitButton.innerHTML;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Posting...';
+    submitButton.disabled = true;
+    try {
+      const title = document.getElementById("challengeTitle").value;
+      const description = document.getElementById("challengeDescription").value;
+      const skills = document.getElementById("challengeSkills").value.split(",");
+      const finalDeadline = document.getElementById("finalDeadline").value;
+      const createGithubRepo = document.getElementById("createGithubRepo").checked;
+      const githubRepoName = document.getElementById("githubRepoName").value;
+      const response = await fetch("/api/projects/post-problem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description, skillsRequired: skills, finalDeadline, createGithubRepo, githubRepoName }),
+      });
+      const data = await response.json();
+      if (data.message) {
+        alert("Challenge posted successfully!");
+        location.reload();
+      } else {
+        alert("Error posting challenge");
+      }
+    } catch (error) {
+      alert("Error posting challenge");
+    } finally {
+      submitButton.innerHTML = originalText;
+      submitButton.disabled = false;
+    }
+  });
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    const reviewModalEl = document.getElementById('reviewModal');
+    const reviewModal = new bootstrap.Modal(reviewModalEl);
+    const proposalIdInput = document.getElementById('proposalId');
+    const reviewStatusInput = document.getElementById('reviewStatus');
+    const reviewFeedback = document.getElementById('reviewFeedback');
+    const reviewForm = document.getElementById('reviewForm');
+  
+    document.querySelectorAll(".approve-btn").forEach(button => {
+      button.addEventListener("click", function () {
+        const proposalId = this.getAttribute("data-id");
+        proposalIdInput.value = proposalId;
+        reviewStatusInput.value = "Approved";
+        reviewFeedback.value = "Looks good!";
+        reviewModal.show();
+      });
+    });
+  
+    document.querySelectorAll(".reject-btn").forEach(button => {
+      button.addEventListener("click", function () {
+        const proposalId = this.getAttribute("data-id");
+        proposalIdInput.value = proposalId;
+        reviewStatusInput.value = "Rejected";
+        reviewFeedback.value = "";
+        reviewModal.show();
+      });
+    });
+  
+    reviewForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const proposalId = proposalIdInput.value;
+      const status = reviewStatusInput.value;
+      const feedback = reviewFeedback.value;
+      try {
+        const response = await fetch(`/api/proposals/${proposalId}/review`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status, feedback })
+        });
+        const result = await response.json();
+        if (response.ok) {
+          reviewModal.hide();
+          if (status === "Approved") {
+            showReadmeModal(proposalId);
+          } else if (status === "Rejected") {
+            updateRejectedProposalCard(proposalId);
+            alert("Proposal rejected successfully!");
+          }
+        } else {
+          alert("Error: " + result.message);
+        }
+      } catch (error) {
+        alert("Error reviewing proposal: " + error.message);
+      }
+    });
+  });
+  
+  function showReadmeModal(proposalId) {
+    const readmeModal = new bootstrap.Modal(document.getElementById('readmeModal'));
+    readmeModal.show();
+  }
+  
+  function updateRejectedProposalCard(proposalId) {
+    const card = document.getElementById('proposal-' + proposalId);
+    if (card) {
+      const btnContainer = document.getElementById("reviewButtons-" + proposalId);
+      if (btnContainer) {
+        btnContainer.remove();
+      }
+      const existingLink = card.querySelector('.tracking-link');
+      if (existingLink) {
+        existingLink.remove();
+      }
+      const rejectionMsg = document.createElement("p");
+      rejectionMsg.className = "text-danger mt-3 fw-bold";
+      rejectionMsg.textContent = "Proposal Rejected";
+      card.appendChild(rejectionMsg);
+      console.log("Updated card for rejected proposal:", proposalId);
+    } else {
+      console.warn("No card element found for proposal:", proposalId);
+    }
+  }
+  
+  document.getElementById("readmeForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const repoOwner = document.getElementById("repoOwner").value.trim();
+    const repoName = document.getElementById("repoName").value.trim();
+    const commitMessage = document.getElementById("commitMessage").value.trim();
+    const readmeContent = document.getElementById("readmeContent").value.trim();
+    try {
+      const response = await fetch("/api/github/update-readme", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repoOwner, repoName, commitMessage, readmeContent })
+      });
+      const result = await response.json();
+      if (response.ok) {
+        alert("README.md updated successfully!");
+        location.reload();
+      } else {
+        alert("Error updating README: " + result.message);
+      }
+    } catch (error) {
+      alert("Error: " + error.message);
+    }
+  });
+
+  let currentDeleteProblemId = null;
+  function openDeleteModal(problemId) {
+    currentDeleteProblemId = problemId;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+  }
+
+  document.getElementById("confirmDeleteBtn").addEventListener("click", async function() {
+    if (!currentDeleteProblemId) return;
+    try {
+      const response = await fetch("/api/projects/" + currentDeleteProblemId, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert("Problem deleted successfully!");
+        document.getElementById("challenge-" + currentDeleteProblemId)?.remove();
+        location.reload();
+      } else {
+        alert("Error: " + data.message);
+      }
+    } catch (error) {
+      alert("Error deleting problem: " + error.message);
+    }
+  });
+</script>
+
+</body>
+</html>
