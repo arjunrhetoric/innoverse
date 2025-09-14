@@ -6,6 +6,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <!-- Bootstrap Icons for notifications -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     /* Common Styles */
     body {
@@ -207,6 +208,8 @@
   
   <% if (user.role === "Startup") { %>
   <!-- Startup Side: PR Management & Milestone Control -->
+
+    
   <div class="container-fluid">
     <div class="row">
       <!-- Left Sidebar: PR List -->
@@ -226,6 +229,91 @@
             <p>No pull requests available.</p>
           <% } %>
         </div>
+        
+
+
+
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs mt-3" id="certificateTabs">
+  <li class="nav-item">
+    <% if(problemData.completed == true){ %>
+    <button class="btn btn-primary mb-4 " onclick="openModal()"> Issue Certificate</button>
+    <% } %>
+  </li>
+</ul>
+
+<style>
+  .rating-stars {
+    font-size: 24px;
+    color: gray;
+    cursor: pointer;
+  }
+  .star.selected {
+    color: gold;
+  }
+</style>
+
+<script>
+  function setRating(value) {
+    document.getElementById("ratingInput").value = value;
+    let stars = document.querySelectorAll(".star");
+    stars.forEach((star, index) => {
+      star.classList.toggle("selected", index < value);
+    });
+  }
+</script>
+
+<!-- Centered Certificate Form -->
+<div class="position-fixed top-50 start-50 translate-middle w-50 text text-dark" id="certificateModal" style="display: none;">
+  <div class="card p-5 shadow-lg position-relative">
+    <!-- Close Button -->
+    <button class="btn-close position-absolute top-0 end-0 m-3" onclick="closeModal()"></button>
+
+    <h4 class="text-center">Issue Certificate</h4>
+    <form id="certificateForm" enctype="multipart/form-data">
+      <input type="hidden" name="problemId" value="<%= problemData._id %>">
+
+      <div class="mb-3">
+        <label class="form-label">Rating (1-5 stars)</label>
+        <div class="rating-stars">
+          <% for(let i = 1; i <= 5; i++) { %>
+            <i class="fas fa-star star" data-value="<%= i %>" onclick="setRating(<%= i %>)"></i>
+          <% } %>
+        </div>
+        <input type="hidden" name="rating" id="ratingInput" required>
+      </div>
+                
+
+      <div class="mb-3">
+        <label class="form-label">Review</label>
+        <textarea name="review" class="form-control" rows="4" required></textarea>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Upload Certificate (PDF only)</label>
+        <input type="file" name="certificate" class="form-control" accept=".pdf" required>
+      </div>
+
+      <div class="text-center">
+        <button type="submit" class="btn btn-primary">Submit Certificate</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openModal() {
+    document.getElementById("certificateModal").style.display = "block";
+  }
+
+  function closeModal() {
+    document.getElementById("certificateModal").style.display = "none";
+  }
+</script>
+
+
+
       </div>
       
       <!-- Central Panel: PR Details & Tabs -->
@@ -247,9 +335,10 @@
             <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#commitsTab" type="button">Commits</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#filesTab" type="button">Files Changed</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#diffTab" type="button">Diff</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#timelineTab" type="button">Timeline</button></li>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#analyticsTab" type="button">Analytics</button></li>
+            <% if(problemData.completed == false){ %>
             <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#milestonesTab" type="button">Milestones</button></li>
+            <% } %>
           </ul>
           <div class="tab-content mt-3" id="prTabContent" style="display: none;">
             <div class="tab-pane fade show active" id="overviewTab" role="tabpanel">
@@ -274,19 +363,21 @@
             <div class="tab-pane fade" id="diffTab" role="tabpanel">
               <pre id="diffContent" class="diff"></pre>
             </div>
-            <div class="tab-pane fade" id="timelineTab" role="tabpanel">
-              <div id="timelineContent"></div>
-            </div>
+           
             <div class="tab-pane fade" id="analyticsTab" role="tabpanel">
               <div class="analytics" id="analyticsContent"></div>
             </div>
+            <% if(problemData.completed == false){ %>
             <div class="tab-pane fade" id="milestonesTab" role="tabpanel">
               <div class="d-flex justify-content-between mb-2">
                 <h5>Milestones</h5>
-                <button id="addMilestoneBtn" class="btn btn-primary btn-sm">Add Milestone</button>
+                <button id="addMilestoneBtn" class="btn btn-primary btn-sm">
+                  Add Milestone
+                </button>                
               </div>
               <div id="milestonesList" class="milestones-list"></div>
             </div>
+            <% } %>
           </div>
         </div>
       </div>
@@ -361,8 +452,13 @@
     <div class="progress-card">
       <h4>Overall Project Progress</h4>
       <div class="progress mb-3" style="height: 30px;">
-        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: <%= progress %>%;" aria-valuenow="<%= progress %>" aria-valuemin="0" aria-valuemax="100">
-          <%= progress %>% Complete
+        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+            role="progressbar" 
+            style="width: <%= progress * 10 %>%;" 
+            aria-valuenow="90" 
+            aria-valuemin="0" 
+            aria-valuemax="100">
+          <%= progress * 10 %>% Complete
         </div>
       </div>
     </div>
@@ -390,22 +486,48 @@
         <% } %>
       </ul>
     </div>
-    <!-- Milestone Timeline -->
-    <div class="timeline mb-4">
-      <h4>Milestone Timeline</h4>
-      <div id="timelineContent">
-        <!-- Timeline events loaded dynamically -->
-      </div>
-    </div>
-    <!-- Analytics Section -->
-    <div class="analytics mb-4">
-      <h4>Analytics</h4>
-      <div id="analyticsContent">
-        <!-- Analytics metrics loaded dynamically -->
-      </div>
-    </div>
+   
     
   <% } %>
+
+
+  
+  <!-- Add this script -->
+  <script>
+    // Star rating interaction
+    document.querySelectorAll('.star').forEach(star => {
+      star.addEventListener('click', (e) => {
+        const value = parseInt(e.target.dataset.value);
+        document.querySelectorAll('.star').forEach((s, i) => {
+          s.classList.toggle('text-warning', i < value);
+        });
+        document.getElementById('ratingValue').value = value;
+      });
+    });
+  
+    // Certificate form submission
+    document.getElementById('certificateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      
+      try {
+        const response = await fetch('/api/certificates/submit', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const result = await response.json();
+        if(response.ok) {
+          alert('Certificate submitted successfully!');
+          location.reload();
+        } else {
+          alert('Error: ' + result.message);
+        }
+      } catch (error) {
+        alert('Error submitting certificate');
+      }
+    });
+  </script>
   
   <!-- Scripts -->
   <script src="/socket.io/socket.io.js"></script>
@@ -481,6 +603,8 @@
     let currentRepoOwner = null, currentRepoName = null, currentPullNumber = null;
     
     <% if(user.role === "Startup") { %>
+
+
       // Startup side: When a PR item is clicked
       $('.pr-list-item').on('click', function() {
         $('.pr-list-item').removeClass('active');
@@ -511,6 +635,8 @@
             console.error("Error fetching overview:", err);
             $('#overviewContent').html("<p>Error loading overview.</p>");
           });
+
+
         // Review Summary
         fetch(`/api/pr/reviews?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
           .then(res => res.json())
@@ -529,6 +655,8 @@
             console.error("Error fetching reviews:", err);
             $('#reviewSummary').html("<p>Error loading reviews.</p>");
           });
+
+
         // Conversation
         fetch(`/api/pr/comments?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
           .then(res => res.json())
@@ -547,6 +675,8 @@
             console.error("Error fetching conversation:", err);
             $('#conversationContent').html("<p>Error loading conversation.</p>");
           });
+
+
         // Commits
         fetch(`/api/pr/commits?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
           .then(res => res.json())
@@ -567,6 +697,8 @@
             console.error("Error fetching commits:", err);
             $('#commitsContent').html("<p>Error loading commits.</p>");
           });
+
+
         // Files Changed
         fetch(`/api/pr/files?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
           .then(res => res.json())
@@ -587,6 +719,8 @@
             console.error("Error fetching files:", err);
             $('#filesContent').html("<p>Error loading files changed.</p>");
           });
+
+
         // Diff
         fetch(`/api/pr/diff?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`, {
           headers: { "Accept": "application/vnd.github.v3.diff" }
@@ -601,6 +735,8 @@
             console.error("Error fetching diff:", err);
             $('#diffContent').text("Error loading diff.");
           });
+
+
         // Timeline
         fetch(`/api/milestones/timeline?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}`)
           .then(res => res.json())
@@ -627,6 +763,7 @@
             console.error("Error fetching timeline:", err);
             $('#timelineContent').html("<p>Error loading timeline.</p>");
           });
+          
         // Analytics
         fetch(`/api/pr/analytics?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}&pullNumber=${pullNumber}`)
           .then(res => res.json())
@@ -640,7 +777,12 @@
             console.error("Error fetching analytics:", err);
             $('#analyticsContent').html("<p>Error loading analytics.</p>");
           });
-        // Milestones
+
+
+
+
+        
+          //Milestones
         fetch(`/api/milestones?repoOwner=${repoOwner}&repoName=${encodeURIComponent(repoName)}`)
           .then(res => res.json())
           .then(data => {
@@ -670,8 +812,10 @@
             $('#milestonesList').html("<p>Error loading milestones.</p>");
           });
       }
+
+
       
-      // Milestone Management for Startup
+
       $('#addMilestoneBtn').on('click', function() {
         $('#milestoneModalTitle').text("Add Milestone");
         $('#milestoneTitle').val("");
@@ -704,11 +848,11 @@
             body: JSON.stringify(payload)
           });
           const result = await res.json();
-          alert(result.message);
+          // alert(result.message);
           bootstrap.Modal.getInstance(document.getElementById("milestoneModal")).hide();
           loadPrDetails(currentRepoOwner, currentRepoName, currentPullNumber);
         } catch (error) {
-          alert("Error saving milestone");
+          // alert("Error saving milestone");
         }
       });
       
@@ -745,12 +889,18 @@
         fetch(`/api/milestones/${milestoneId}/complete`, { method: "PATCH" })
           .then(res => res.json())
           .then(data => {
-            alert(data.message);
+            
             loadPrDetails(currentRepoOwner, currentRepoName, currentPullNumber);
           })
-          .catch(err => alert("Error marking milestone complete"));
+          .catch(err => console.log("Error marking milestone complete"));
       });
       
+
+
+
+
+
+
       // Edit PR functionality (for Startup PRs even on Student side, if needed)
       $('#editPRBtn').on('click', function() {
         const activeItem = $('.pr-list-item.active');
@@ -920,85 +1070,85 @@
       let studentProjectRepoOwner = "";
       let studentProjectRepoName = "";
       
-      async function loadStudentData() {
-        try {
-          // Fetch overall project progress
-          const progressRes = await fetch('/api/project/progress');
-          const progressData = await progressRes.json();
-          console.log("Project progress data:", progressData);
-          const progressBar = document.getElementById("progressBar");
-          progressBar.style.width = progressData.progress + "%";
-          progressBar.innerText = progressData.progress + "% Complete";
-          // Save repo details for later use
-          studentProjectRepoOwner = progressData.repoOwner || "";
-          studentProjectRepoName = progressData.repoName || "";
-          console.log("Student project repo:", studentProjectRepoOwner, studentProjectRepoName);
+      // async function loadStudentData() {
+      //   try {
+      //     // Fetch overall project progress
+      //     const progressRes = await fetch('/api/project/progress');
+      //     const progressData = await progressRes.json();
+      //     console.log("Project progress data:", progressData);
+      //     const progressBar = document.getElementById("progressBar");
+      //     progressBar.style.width = progressData.progress + "%";
+      //     progressBar.innerText = progressData.progress + "% Complete";
+      //     // Save repo details for later use
+      //     studentProjectRepoOwner = progressData.repoOwner || "";
+      //     studentProjectRepoName = progressData.repoName || "";
+      //     console.log("Student project repo:", studentProjectRepoOwner, studentProjectRepoName);
           
-          // Load milestones (read-only for students)
-          const milestonesRes = await fetch('/api/milestones?userRole=student&repoOwner=' + encodeURIComponent(studentProjectRepoOwner) + '&repoName=' + encodeURIComponent(studentProjectRepoName));
-          const milestones = await milestonesRes.json();
-          console.log("Milestones fetched:", milestones.length);
-          let milestonesHtml = "";
-          if(milestones.length === 0) {
-            milestonesHtml = '<li class="list-group-item bg-dark text-light border-secondary">No milestones set yet.</li>';
-          } else {
-            milestones.forEach(m => {
-              milestonesHtml += `<li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light border-secondary">
-                                  <div>
-                                    <strong>${m.title}</strong><br>
-                                    <small>${m.description || ''}</small><br>
-                                    <small>Deadline: ${m.deadline ? new Date(m.deadline).toLocaleDateString() : 'N/A'}</small>
-                                  </div>
-                                  ${!m.completed ? `<button class="btn btn-sm btn-outline-primary request-clarification-btn" data-id="${m._id}">Request Clarification</button>` 
-                                  : `<span class="badge bg-success">Completed</span>`}
-                                </li>`;
-            });
-          }
-          $('#milestonesUl').html(milestonesHtml);
+      //     // Load milestones (read-only for students)
+      //     const milestonesRes = await fetch('/api/milestones?userRole=student&repoOwner=' + encodeURIComponent(studentProjectRepoOwner) + '&repoName=' + encodeURIComponent(studentProjectRepoName));
+      //     const milestones = await milestonesRes.json();
+      //     console.log("Milestones fetched:", milestones.length);
+      //     let milestonesHtml = "";
+      //     if(milestones.length === 0) {
+      //       milestonesHtml = '<li class="list-group-item bg-dark text-light border-secondary">No milestones set yet.</li>';
+      //     } else {
+      //       milestones.forEach(m => {
+      //         milestonesHtml += `<li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light border-secondary">
+      //                             <div>
+      //                               <strong>${m.title}</strong><br>
+      //                               <small>${m.description || ''}</small><br>
+      //                               <small>Deadline: ${m.deadline ? new Date(m.deadline).toLocaleDateString() : 'N/A'}</small>
+      //                             </div>
+      //                             ${!m.completed ? `<button class="btn btn-sm btn-outline-primary request-clarification-btn" data-id="${m._id}">Request Clarification</button>` 
+      //                             : `<span class="badge bg-success">Completed</span>`}
+      //                           </li>`;
+      //       });
+      //     }
+      //     $('#milestonesUl').html(milestonesHtml);
           
-          // Load milestone timeline
-          const timelineRes = await fetch('/api/milestones/timeline?repoOwner=' + encodeURIComponent(studentProjectRepoOwner) + '&repoName=' + encodeURIComponent(studentProjectRepoName));
-          let timelineData = await timelineRes.json();
-          console.log("Timeline data received:", timelineData);
-          if(!Array.isArray(timelineData)) {
-            timelineData = [];
-          }
-          let timelineHtml = "";
-          if(timelineData.length === 0) {
-            timelineHtml = "<p>No timeline events available.</p>";
-          } else {
-            timelineData.forEach(event => {
-              timelineHtml += `<div class="timeline-item">
-                                  <strong>${event.event}</strong> on <em>${event.milestoneTitle}</em><br>
-                                  <small>${new Date(event.created_at).toLocaleString()}</small><br>
-                                  <small>${event.details || ""}</small>
-                               </div>`;
-            });
-          }
-          $('#timelineContent').html(timelineHtml);
+      //     // Load milestone timeline
+      //     const timelineRes = await fetch('/api/milestones/timeline?repoOwner=' + encodeURIComponent(studentProjectRepoOwner) + '&repoName=' + encodeURIComponent(studentProjectRepoName));
+      //     let timelineData = await timelineRes.json();
+      //     console.log("Timeline data received:", timelineData);
+      //     if(!Array.isArray(timelineData)) {
+      //       timelineData = [];
+      //     }
+      //     let timelineHtml = "";
+      //     if(timelineData.length === 0) {
+      //       timelineHtml = "<p>No timeline events available.</p>";
+      //     } else {
+      //       timelineData.forEach(event => {
+      //         timelineHtml += `<div class="timeline-item">
+      //                             <strong>${event.event}</strong> on <em>${event.milestoneTitle}</em><br>
+      //                             <small>${new Date(event.created_at).toLocaleString()}</small><br>
+      //                             <small>${event.details || ""}</small>
+      //                          </div>`;
+      //       });
+      //     }
+      //     $('#timelineContent').html(timelineHtml);
           
-          // Load project analytics
-          const analyticsRes = await fetch('/api/project/analytics?repoOwner=' + encodeURIComponent(studentProjectRepoOwner) + '&repoName=' + encodeURIComponent(studentProjectRepoName));
-          const analyticsData = await analyticsRes.json();
-          let analyticsHtml = `<div class="metric"><strong>Avg. Milestone Completion Time:</strong> ${analyticsData.avgCompletionTime}</div>`;
-          analyticsHtml += `<div class="metric"><strong>Completed Milestones:</strong> ${analyticsData.completedMilestones}</div>`;
-          analyticsHtml += `<div class="metric"><strong>Pending Milestones:</strong> ${analyticsData.pendingMilestones}</div>`;
-          $('#analyticsContent').html(analyticsHtml);
+      //     // Load project analytics
+      //     const analyticsRes = await fetch('/api/project/analytics?repoOwner=' + encodeURIComponent(studentProjectRepoOwner) + '&repoName=' + encodeURIComponent(studentProjectRepoName));
+      //     const analyticsData = await analyticsRes.json();
+      //     let analyticsHtml = `<div class="metric"><strong>Avg. Milestone Completion Time:</strong> ${analyticsData.avgCompletionTime}</div>`;
+      //     analyticsHtml += `<div class="metric"><strong>Completed Milestones:</strong> ${analyticsData.completedMilestones}</div>`;
+      //     analyticsHtml += `<div class="metric"><strong>Pending Milestones:</strong> ${analyticsData.pendingMilestones}</div>`;
+      //     $('#analyticsContent').html(analyticsHtml);
           
-          // Load persistent project chat history
-          const chatRes = await fetch('/api/chat?room=' + encodeURIComponent("project-chat"));
-          const chatMessages = await chatRes.json();
-          $('#studentChatMessages').empty();
-          chatMessages.forEach(msg => {
-            const msgHtml = `<div class="chat-message"><strong>${msg.sender}:</strong> ${msg.message}</div>`;
-            $('#studentChatMessages').append(msgHtml);
-          });
-          $('#studentChatMessages').scrollTop($('#studentChatMessages')[0].scrollHeight);
+      //     // Load persistent project chat history
+      //     const chatRes = await fetch('/api/chat?room=' + encodeURIComponent("project-chat"));
+      //     const chatMessages = await chatRes.json();
+      //     $('#studentChatMessages').empty();
+      //     chatMessages.forEach(msg => {
+      //       const msgHtml = `<div class="chat-message"><strong>${msg.sender}:</strong> ${msg.message}</div>`;
+      //       $('#studentChatMessages').append(msgHtml);
+      //     });
+      //     $('#studentChatMessages').scrollTop($('#studentChatMessages')[0].scrollHeight);
           
-        } catch (error) {
-          console.error("Error loading student data:", error);
-        }
-      }
+      //   } catch (error) {
+      //     console.error("Error loading student data:", error);
+      //   }
+      // }
       
       document.getElementById("refreshProgressBtn").addEventListener("click", loadStudentData);
       loadStudentData();

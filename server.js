@@ -27,7 +27,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import projectProgressRoutes from "./routes/projectProgressRoutes.js";
 import projectAnalyticsRoutes from "./routes/projectAnalyticsRoutes.js";
 import milestoneTimelineRoutes from "./routes/milestoneTimelineRoutes.js";
-
+import certificateRoutes from './routes/certificateRoutes.js';
 
 
 dotenv.config();
@@ -74,10 +74,13 @@ app.use((req, res, next) => {
 
 // Serve static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use('/certificates', express.static(path.join(__dirname, 'uploads/certificates')));
+
 
 // Create HTTP server and setup Socket.IO
 import http from "http";
 import { Server } from "socket.io";
+import Certificate from "./models/Certificate.js";
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -107,7 +110,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/project", projectProgressRoutes);      // /api/project/progress
 app.use("/api/project", projectAnalyticsRoutes);       // /api/project/analytics
 app.use("/api/milestones/timeline", milestoneTimelineRoutes);
-
+app.use("/api/certificates", certificateRoutes);
 
 
 // Socket.IO – Unified project chat and notifications
@@ -209,9 +212,19 @@ app.get("/startup-dashboard", ensureAuth, async (req, res) => {
 
 
 
-app.get("/github-profile", (req, res) => {
+app.get("/github-profile", async (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/login");
-  res.render("github-profile", { user: req.user });
+  // let certificates = "dakshesihfbueiugbh"
+
+  const certificateData = await Certificate.find({ studentId: req.user._id })
+            .populate('startupId', 'name githubUsername')
+            .populate('problemId', 'title');
+  
+  // console.log(certificateData)
+
+  res.render("github-profile", { user: req.user , certificates : certificateData});
+  console.log("User" , req.user);
+  
 });
 
 // Start Server

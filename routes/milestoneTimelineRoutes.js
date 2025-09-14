@@ -1,6 +1,6 @@
 // routes/milestoneTimelineRoutes.js
 import express from "express";
-import Milestone from "../models/Milestone.js"; // Ensure this path is correct
+import Milestone from "../models/Milestone.js"; 
 
 const router = express.Router();
 
@@ -13,11 +13,11 @@ router.get("/", async (req, res) => {
     // Fetch milestones for the given repository
     const milestones = await Milestone.find({ repoOwner, repoName }).sort({ updatedAt: -1 });
     
-    // Map milestones to timeline events. Use m.createdAt if updatedAt is not defined.
+    // Map milestones to timeline events. 
     const timeline = milestones.map(m => ({
       event: m.completed ? "Milestone Completed" : "Milestone Created/Updated",
       milestoneTitle: m.title,
-      actor: { login: "Startup" },  // Or, if available, m.createdBy
+      actor: { login: "Startup" },  
       created_at: m.updatedAt || m.createdAt,
       details: m.description
     }));

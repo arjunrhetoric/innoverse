@@ -33,6 +33,8 @@
     "passport-github2": "^0.1.12",
     "passport-google-oauth2": "^0.2.0",
     "passport-local": "^1.0.0",
-    "socket.io": "^4.8.1"
+    "pdfjs-dist": "^4.10.38",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0"
   }
 }

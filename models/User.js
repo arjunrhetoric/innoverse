@@ -27,9 +27,6 @@ const UserSchema  = new mongoose.Schema({
     enum: ['Student', 'Startup'],
     default: null,
   },
-  businessName: {
-    type: String,
-  },
   githubRepoName: {
     type: String,
     default: null,
@@ -38,6 +35,14 @@ const UserSchema  = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  projectsCompleted: {
+    type: Number,
+    default: 0
+  },
+  ratings: {
+    type: [Number],
+    default: []
+  }
 });
 
 export default mongoose.model('User', UserSchema);

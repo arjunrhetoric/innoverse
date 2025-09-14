@@ -1,7 +1,7 @@
 import express from "express";
 import { submitProposal, reviewProposal } from "../controllers/proposalController.js";
 import { ensureAuth } from "../middlewares/authMiddleware.js";
-import upload from "../config/multerConfig.js";
+import upload from "../controllers/multerConfig2.js"
 
 const router = express.Router();
 
