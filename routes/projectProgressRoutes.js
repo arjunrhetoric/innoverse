@@ -5,7 +5,7 @@ import Milestone from "../models/Milestone.js";
 const router = express.Router();
 
 // Define the 5 software development phases
-const phases = ["Planning", "Design", "Development", "Testing", "Deployment"];
+const phases = ["Planning" || "Plan"|| "Planning Phase" || "Plan Phase" , "Design" || "Designing" || "Design Phase" || "Designing Phase", "Development" || "Develop" || "Devloping Phase" || "Coding phase" || "Code" || "Development Phase" , "Testing" || "Test" || "Test Phase" || "Testing Phase", "Deployment" || "Deploy" || "Deploying" || "Deploy Phase" || "Deployment Phase"];
 
 router.get("/progress", async (req, res) => {
   try {
@@ -38,7 +38,6 @@ router.get("/progress", async (req, res) => {
     res.status(500).json({ message: "Error fetching project progress", error: error.message });
   }
 });
-
 
 
 

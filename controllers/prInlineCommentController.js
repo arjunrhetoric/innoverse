@@ -6,6 +6,7 @@ import User from "../models/User.js";
 export const postInlineComment = async (req, res) => {
   try {
     const { repoOwner, repoName, pullNumber, lineNumber, comment } = req.body;
+
     if (!repoOwner || !repoName || !pullNumber || lineNumber === undefined || !comment) {
       return res.status(400).json({ message: "Missing required fields" });
     }
@@ -13,17 +14,21 @@ export const postInlineComment = async (req, res) => {
     const newComment = new InlineComment({
       repoOwner,
       repoName,
-      pullNumber,
-      lineNumber,
+      pullNumber : parseInt(pullNumber),
+      lineNumber : parseInt(lineNumber),
       comment,
       createdBy: req.user._id
     });
     await newComment.save();
 
-    // For display in conversation, let's store the user's name
-    // (or you can do a populate in the fetch route)
-    const userName = req.user.name || req.user.githubUsername || "Unknown";
+    const populatedComment = await InlineComment.findById(newComment._id)
+      .populate('createdBy', 'name githubUsername');
 
+    // Emit real-time update
+    req.io.to(`${repoOwner}-${repoName}-${pullNumber}`).emit('newInlineComment', {
+      ...populatedComment.toObject(),
+      createdByName: populatedComment.createdBy.name
+    });6
   
 
     res.json({ message: "Inline comment saved successfully", data: newComment });

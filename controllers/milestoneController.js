@@ -119,6 +119,34 @@ export const markMilestoneComplete = async (req, res) => {
       repoName: milestone.repoName,
       progress 
     });
+
+    // In markMilestoneComplete controller
+if(progress >= 100) {
+  await Problem.findByIdAndUpdate(
+    problem._id,
+    { completed: true, completedAt: new Date() }
+  );
+  
+  // Send completion emails
+  const transporter = nodemailer.createTransport({ /* ... */ });
+  
+  // To student
+  await transporter.sendMail({
+    to: student.email,
+    subject: 'Project Completed!',
+    html: `<h1>Congratulations!</h1>
+          <p>You've successfully completed the project!</p>`
+  });
+
+  // To startup
+  await transporter.sendMail({
+    to: startup.email,
+    subject: 'Project Completed',
+    html: `<p>The project ${problem.title} has been completed!</p>`
+  });
+}
+
+
     res.json({ message: "Milestone marked as complete", data: milestone });
   } catch (error) {
     console.error("Error marking milestone complete:", error);

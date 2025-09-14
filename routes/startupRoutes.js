@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get("/:id", async (req, res) => {
   try {
-    const startup = await User.findOne({ _id: req.params.id, role: "Startup" });
+    const startup = await User.findOne({ _id: req.params.id, role: "Startup" }).select('-certificates ');
     if (!startup) {
       return res.status(404).send("Startup not found");
     }

@@ -38,7 +38,12 @@ const ProblemSchema = new mongoose.Schema({
     type: String,
      
   },
-  progress: { type: Number, default: 0 }
+  progress: { type: Number, default: 0 },
+  completed: { 
+    type: Boolean, 
+    default: false 
+  },
+  completedAt: Date
 });
 
 export default mongoose.model("Problem", ProblemSchema);

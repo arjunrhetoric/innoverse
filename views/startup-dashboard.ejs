@@ -16,6 +16,8 @@
       --text-color: #ffffff;
       --text-muted: #a0a0a0;
       --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      --tab-active-border: #2575fc;
+      --tab-hover-bg: rgba(37, 117, 252, 0.1);
     }
     body {
       background-color: var(--bg-dark);
@@ -191,6 +193,74 @@
       background: var(--primary-color);
       border-radius: 4px;
     }
+    
+    /* New styles for tabs */
+    .nav-tabs {
+      border-bottom: 1px solid #333;
+      margin-bottom: 1.5rem;
+    }
+    .nav-tabs .nav-link {
+      color: var(--text-muted);
+      border: none;
+      border-bottom: 3px solid transparent;
+      background: transparent;
+      padding: 0.75rem 1.5rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      margin-right: 0.5rem;
+    }
+    .nav-tabs .nav-link:hover {
+      color: var(--text-color);
+      background-color: var(--tab-hover-bg);
+      border-color: transparent;
+    }
+    .nav-tabs .nav-link.active {
+      color: var(--primary-color);
+      background-color: transparent;
+      border-color: var(--tab-active-border);
+    }
+    .tab-content {
+      padding: 1rem 0;
+    }
+    .tab-pane {
+      animation: fadeIn 0.3s ease-out;
+    }
+    
+    /* Enhanced proposal card styling */
+    .proposal-card {
+      border-left: 4px solid var(--primary-color);
+      transition: all 0.3s ease;
+    }
+    .proposal-card:hover {
+      background-color: rgba(37, 117, 252, 0.05);
+    }
+    .proposal-link {
+      color: #58a6ff;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .proposal-link:hover {
+      color: #79c0ff;
+      text-decoration: underline;
+    }
+    .status-badge {
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    .status-pending {
+      background-color: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+    }
+    .status-approved {
+      background-color: rgba(40, 167, 69, 0.2);
+      color: #28a745;
+    }
+    .status-rejected {
+      background-color: rgba(220, 53, 69, 0.2);
+      color: #dc3545;
+    }
   </style>
 </head>
 <body>
@@ -201,10 +271,6 @@
     <a class="navbar-brand fw-bold" href="#">Innoverse</a>
     <div class="ms-auto d-flex align-items-center">
       <div class="position-relative me-4">
-        <input type="text" class="form-control" placeholder="Search proposals...">
-        <i class="fas fa-search position-absolute" style="right: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-      </div>
-      <i class="fa-solid fa-bell fs-5 me-4" style="color: var(--primary-color);"></i>
       <!-- My Account Dropdown -->
       <div class="dropdown">
         <button class="btn btn-dark dropdown-toggle d-flex align-items-center" type="button" id="accountDropdown" data-bs-toggle="dropdown">
@@ -264,136 +330,162 @@
     </div>
   </div>
 
-  <!-- Buttons -->
-  <div class="d-flex mb-4">
-    <button class="btn btn-outline-primary me-3" id="toggleChallengeForm">
-      <i class="fa-solid fa-plus me-2"></i> Post Challenges
-    </button>
-    <button class="btn btn-outline-secondary" id="viewProposalsBtn">
-      <i class="fa-solid fa-file-alt me-2"></i> View Proposals
-    </button>
-  </div>
-
-  <!-- Student Proposals Section -->
-  <h4 class="mt-4">Student Proposals</h4>
-  <% if (proposals.length > 0) { %>
-    <% proposals.forEach(proposal => { %>
-      <div class="card p-3 mb-3" id="proposal-<%= proposal._id %>">
-        <h5>
-          Submitted by:
-          <a href="/student-github-profile/<%= proposal.studentId._id %>">
-            <%= proposal.studentId.name %>
-          </a>
-        </h5>
-        <p>For: <strong><%= proposal.problemId.title %></strong></p>
-        <p><%= proposal.description %></p>
-        <p>Status: <%= proposal.status %></p>
-        <p><a href="<%= proposal.pptUrl %>" target="_blank">View Proposal PPT</a></p>
-        <% if (proposal.status === "Approved") { %>
-          <a href="/project-tracking-dashboard" class="btn btn-primary mt-3 tracking-link">
-            Go to Project Tracking Dashboard
-          </a>
-        <% } else if (proposal.status === "Rejected") { %>
-          <p class="text-danger mt-3 fw-bold">Proposal Rejected</p>
-        <% } else { %>
-          <div class="d-flex justify-content-between" id="reviewButtons-<%= proposal._id %>">
-            <button class="btn btn-success approve-btn" data-id="<%= proposal._id %>">
-              <i class="fa-solid fa-check me-2"></i> Approve
-            </button>
-            <button class="btn btn-danger reject-btn" data-id="<%= proposal._id %>">
-              <i class="fa-solid fa-times me-2"></i> Request Revision
-            </button>
-          </div>
-        <% } %>
-      </div>
-    <% }) %>
-  <% } else { %>
-    <p class="text-muted">No proposals available yet.</p>
-  <% } %>
-
-  <!-- Challenge Form -->
-  <div id="challengeForm" class="hidden">
-    <div class="card p-4 mb-4">
-      <h4 class="mb-4">Create New Challenge</h4>
-      <form id="postChallengeForm">
-        <div class="mb-3">
-          <label class="form-label">Challenge Title</label>
-          <input type="text" id="challengeTitle" class="form-control" placeholder="Enter challenge title" required>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Description</label>
-          <textarea id="challengeDescription" class="form-control" rows="4" placeholder="Describe your challenge" required></textarea>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Skills Required</label>
-          <input type="text" id="challengeSkills" class="form-control" placeholder="e.g., JavaScript, React, Node.js">
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Final Deadline</label>
-          <input type="date" id="finalDeadline" class="form-control" required>
-        </div>
-        <script>
-          document.getElementById("finalDeadline").addEventListener("click", function() {
-              this.showPicker(); 
-          });
-      </script>
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="createGithubRepo">
-          <label class="form-check-label">Create a GitHub Repository for this challenge</label>
-        </div>
-        <div id="githubRepoInput" class="mb-3 hidden">
-          <label class="form-label">GitHub Repository Name</label>
-          <input type="text" id="githubRepoName" class="form-control" placeholder="Enter repository name">
-        </div>
-        <button type="submit" class="btn btn-primary w-100">
-          <i class="fas fa-paper-plane me-2"></i> Post Challenge
-        </button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Active Challenges Section -->
-  <div class="mb-3 d-flex justify-content-between align-items-center">
-    <h4 class="mb-0">Active Challenges</h4>
-    <div class="dropdown">
-      <button class="btn btn-dark dropdown-toggle" type="button" data-bs-toggle="dropdown">
-        <i class="fas fa-sort me-2"></i> Sort by
-      </button>
-      <ul class="dropdown-menu dropdown-menu-dark">
-        <li><a class="dropdown-item" href="#">Newest First</a></li>
-        <li><a class="dropdown-item" href="#">Oldest First</a></li>
-        <li><a class="dropdown-item" href="#">Most Proposals</a></li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="challenge-list">
-    <% challenges.forEach(challenge => { %>
-      <div class="card p-4 mb-3">
-        <div class="d-flex justify-content-between align-items-start mb-3">
-          <h5 class="mb-0"><%= challenge.title %></h5>
-          <button class="btn btn-sm btn-outline-danger" onclick="openDeleteModal('<%= challenge._id %>')">
-            <i class="fas fa-trash-alt"></i>
+  <!-- Tabbed Interface -->
+  <div class="card mb-4">
+    <div class="card-body p-0">
+      <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="challenges-tab" data-bs-toggle="tab" data-bs-target="#challenges" type="button" role="tab" aria-controls="challenges" aria-selected="true">
+            <i class="fa-solid fa-flag me-2"></i>Active Challenges
           </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="post-challenge-tab" data-bs-toggle="tab" data-bs-target="#post-challenge" type="button" role="tab" aria-controls="post-challenge" aria-selected="false">
+            <i class="fa-solid fa-plus me-2"></i>Post Challenge
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="proposals-tab" data-bs-toggle="tab" data-bs-target="#proposals" type="button" role="tab" aria-controls="proposals" aria-selected="false">
+            <i class="fa-solid fa-file-alt me-2"></i>Student Proposals
+          </button>
+        </li>
+      </ul>
+      
+      <div class="tab-content p-4" id="dashboardTabsContent">
+        <!-- Active Challenges Tab -->
+        <div class="tab-pane fade show active" id="challenges" role="tabpanel" aria-labelledby="challenges-tab">
+          <div class="mb-3 d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Active Challenges</h4>
+            <div class="dropdown">
+              <button class="btn btn-dark dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-sort me-2"></i> Sort by
+              </button>
+              <ul class="dropdown-menu dropdown-menu-dark">
+                <li><a class="dropdown-item" href="#">Newest First</a></li>
+                <li><a class="dropdown-item" href="#">Oldest First</a></li>
+                <li><a class="dropdown-item" href="#">Most Proposals</a></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="challenge-list">
+            <% challenges.forEach(challenge => { %>
+              <div class="card p-4 mb-3" id="challenge-<%= challenge._id %>">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                  <h5 class="mb-0"><%= challenge.title %></h5>
+                  <button class="btn btn-sm btn-outline-danger" onclick="openDeleteModal('<%= challenge._id %>')">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </div>
+                <p class="mb-3"><%= challenge.description %></p>
+                <div class="d-flex flex-wrap gap-2">
+                  <% challenge.skillsRequired.forEach(skill => { %>
+                    <span class="badge"><%= skill %></span>
+                  <% }) %>
+                </div>
+                <p class="text-muted mt-2">
+                  <i class="fas fa-calendar-alt me-1"></i> Final Deadline:
+                  <%= new Date(challenge.finalDeadline).toDateString() %>
+                </p>
+                <% if (challenge.githubRepoUrl) { %>
+                  <p class="mt-2">
+                    <i class="fab fa-github"></i>
+                    <a href="<%= challenge.githubRepoUrl %>" target="_blank" class="proposal-link">GitHub Repo</a>
+                  </p>
+                <% } %>
+              </div>
+            <% }) %>
+          </div>
         </div>
-        <p class="mb-3"><%= challenge.description %></p>
-        <div class="d-flex flex-wrap gap-2">
-          <% challenge.skillsRequired.forEach(skill => { %>
-            <span class="badge"><%= skill %></span>
-          <% }) %>
+        
+        <!-- Post Challenge Tab -->
+        <div class="tab-pane fade" id="post-challenge" role="tabpanel" aria-labelledby="post-challenge-tab">
+          <h4 class="mb-4">Create New Challenge</h4>
+          <form id="postChallengeForm">
+            <div class="mb-3">
+              <label class="form-label">Challenge Title</label>
+              <input type="text" id="challengeTitle" class="form-control" placeholder="Enter challenge title" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Description</label>
+              <textarea id="challengeDescription" class="form-control" rows="4" placeholder="Describe your challenge" required></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Skills Required</label>
+              <input type="text" id="challengeSkills" class="form-control" placeholder="e.g., JavaScript, React, Node.js">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Final Deadline</label>
+              <input type="date" id="finalDeadline" class="form-control" required>
+            </div>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="createGithubRepo">
+              <label class="form-check-label">Create a GitHub Repository for this challenge</label>
+            </div>
+            <div id="githubRepoInput" class="mb-3 hidden">
+              <label class="form-label">GitHub Repository Name</label>
+              <input type="text" id="githubRepoName" class="form-control" placeholder="Enter repository name">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="fas fa-paper-plane me-2"></i> Post Challenge
+            </button>
+          </form>
         </div>
-        <p class="text-muted mt-2">
-          <i class="fas fa-calendar-alt me-1"></i> Final Deadline:
-          <%= new Date(challenge.finalDeadline).toDateString() %>
-        </p>
-        <% if (challenge.githubRepoUrl) { %>
-          <p class="mt-2">
-            <i class="fab fa-github"></i>
-            <a href="<%= challenge.githubRepoUrl %>" target="_blank">GitHub Repo</a>
-          </p>
-        <% } %>
+        
+        <!-- Student Proposals Tab -->
+        <div class="tab-pane fade" id="proposals" role="tabpanel" aria-labelledby="proposals-tab">
+          <h4 class="mb-4">Student Proposals</h4>
+          <% if (proposals.length > 0) { %>
+            <div class="row">
+              <% proposals.forEach(proposal => { %>
+                <div class="col-12 mb-3">
+                  <div class="card p-4 proposal-card" id="proposal-<%= proposal._id %>">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <h5 class="mb-0">
+                        Submitted by:
+                        <a href="/student-github-profile/<%= proposal.studentId._id %>" class="proposal-link">
+                          <%= proposal.studentId.name %>
+                        </a>
+                      </h5>
+                      <span class="status-badge <%= proposal.status === 'Approved' ? 'status-approved' : (proposal.status === 'Rejected' ? 'status-rejected' : 'status-pending') %>">
+                        <%= proposal.status %>
+                      </span>
+                    </div>
+                    <p class="mb-2"><strong>For:</strong> <%= proposal.problemId.title %></p>
+                    <p class="mb-3"><%= proposal.description %></p>
+                    <div class="d-flex align-items-center mb-3">
+                      <a href="<%= proposal.pptUrl %>" target="_blank" class="proposal-link d-flex align-items-center">
+                        <i class="fas fa-file-powerpoint me-2"></i> View Proposal PPT
+                      </a>
+                    </div>
+                    <% if (proposal.status === "Approved") { %>
+                      <a href="/project-tracking-dashboard/<%= proposal._id %>" class="btn btn-primary tracking-link">
+                        <i class="fas fa-chart-line me-2"></i> Go to Project Tracking Dashboard 
+                      </a>
+                    <% } else if (proposal.status === "Rejected") { %>
+                      <p class="text-danger mt-2 fw-bold">Proposal Rejected</p>
+                    <% } else { %>
+                      <div class="d-flex gap-2 mt-2" id="reviewButtons-<%= proposal._id %>">
+                        <button class="btn btn-success approve-btn" data-id="<%= proposal._id %>">
+                          <i class="fa-solid fa-check me-2"></i> Approve
+                        </button>
+                        <button class="btn btn-danger reject-btn" data-id="<%= proposal._id %>">
+                          <i class="fa-solid fa-times me-2"></i> Request Revision
+                        </button>
+                      </div>
+                    <% } %>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          <% } else { %>
+            <div class="alert alert-info">
+              <i class="fas fa-info-circle me-2"></i> No proposals available yet.
+            </div>
+          <% } %>
+        </div>
       </div>
-    <% }) %>
+    </div>
   </div>
 </div>
 
@@ -525,16 +617,9 @@
   </div>
 </div>
 
-
 <!-- JavaScript -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-  document.getElementById("toggleChallengeForm").addEventListener("click", function () {
-    const form = document.getElementById("challengeForm");
-    form.classList.toggle("hidden");
-    form.classList.toggle("show");
-  });
-  
   document.getElementById("createGithubRepo").addEventListener("change", function () {
     const githubRepoInput = document.getElementById("githubRepoInput");
     if (this.checked) {
@@ -542,6 +627,10 @@
     } else {
       githubRepoInput.classList.add("hidden");
     }
+  });
+  
+  document.getElementById("finalDeadline").addEventListener("click", function() {
+    this.showPicker(); 
   });
   
   document.getElementById("postChallengeForm").addEventListener("submit", async function (e) {

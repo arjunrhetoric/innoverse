@@ -226,10 +226,6 @@
       <a class="navbar-brand fw-bold" href="/">Innoverse</a>
       <div class="ms-auto d-flex align-items-center">
         <div class="position-relative me-4">
-          <input type="text" class="form-control" placeholder="Search proposals...">
-          <i class="fas fa-search position-absolute" style="right: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-        </div>
-        <i class="fa-solid fa-bell fs-5 me-4" style="color: var(--primary-color);"></i>
         <!-- My Account Dropdown -->
         <div class="dropdown">
           <button class="btn btn-dark dropdown-toggle d-flex align-items-center" type="button" id="accountDropdown" data-bs-toggle="dropdown">
@@ -387,9 +383,9 @@
                     <a href="<%= proposal.repoUrl %>" target="_blank" class="btn btn-success">
                       <i class="fab fa-github me-2"></i>View Repository
                         </a>
-                      <a href="/project-tracking-dashboard" 
+                      <a href="/project-tracking-dashboard/<%= proposal._id %>/" 
                        class="btn btn-primary">
-                      <i class="fas fa-tasks me-2"></i>Project Dashboard
+                      <i class="fas fa-tasks me-2"></i>Project Dashboard 
                         </a>
   </div>
                       <% } else if (proposal.status === "Rejected") { %>
