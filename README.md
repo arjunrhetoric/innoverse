@@ -1,214 +1,277 @@
-# 🚀 Innoverse
+<div align="center">
 
-> A full-stack startup & innovation ecosystem platform — connecting innovators, founders, and collaborators through a feature-rich web application.
+<br/>
 
----
+```
+██╗███╗   ██╗███╗   ██╗ ██████╗ ██╗   ██╗███████╗██████╗ ███████╗███████╗
+██║████╗  ██║████╗  ██║██╔═══██╗██║   ██║██╔════╝██╔══██╗██╔════╝██╔════╝
+██║██╔██╗ ██║██╔██╗ ██║██║   ██║██║   ██║█████╗  ██████╔╝███████╗█████╗  
+██║██║╚██╗██║██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║██╔══╝  
+██║██║ ╚████║██║ ╚████║╚██████╔╝ ╚████╔╝ ███████╗██║  ██║███████║███████╗
+╚═╝╚═╝  ╚═══╝╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝
+```
 
-## 📌 Table of Contents
+### *Where ideas meet execution.*
 
-- [About](#about)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Environment Variables](#environment-variables)
-  - [Running the App](#running-the-app)
-- [Deployment](#deployment)
-- [Contributing](#contributing)
-- [License](#license)
+<br/>
 
----
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+![EJS](https://img.shields.io/badge/EJS-B4CA65?style=for-the-badge&logo=ejs&logoColor=black)
+![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white)
+![Bootstrap](https://img.shields.io/badge/Bootstrap_5-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)
 
-## About
+![License](https://img.shields.io/badge/License-ISC-blue?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Active-success?style=flat-square)
+![Author](https://img.shields.io/badge/Author-Arjun_Singh-orange?style=flat-square)
 
-**Innoverse** is a full-stack web platform built for the innovation community. It enables users to discover and share startup ideas, connect with collaborators, upload documents, communicate in real-time, and authenticate securely via local credentials or OAuth providers (Google & GitHub).
-
-Built with Node.js, Express, EJS templating, and MongoDB, Innoverse follows an MVC architecture and is designed to be clean, scalable, and easy to deploy.
-
----
-
-## ✨ Features
-
-- 🔐 **Authentication & Authorization** — Local login with bcrypt password hashing, plus OAuth 2.0 via Google and GitHub using Passport.js
-- 📧 **Email Notifications** — Transactional emails via Nodemailer (registration, verification, alerts)
-- 💬 **Real-Time Communication** — Live chat and event broadcasting powered by Socket.io
-- 📁 **File Uploads** — Profile pictures and documents via Multer
-- 📄 **PDF Support** — View and interact with PDFs using pdfjs-dist
-- 🧠 **Session Management** — Persistent sessions stored in MongoDB via connect-mongo
-- 🏢 **Company Email Validation** — Restrict sign-ups to valid corporate email domains
-- 🎨 **Responsive UI** — Bootstrap 5-powered views rendered with EJS and ejs-mate layouts
-- 🔑 **JWT Support** — Token-based auth for API-level interactions
-- 🌐 **CORS-ready** — Configured for cross-origin requests
+</div>
 
 ---
 
-## 🛠 Tech Stack
+<br/>
 
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js |
-| Framework | Express.js |
-| Templating | EJS + ejs-mate |
-| Database | MongoDB (Mongoose) |
-| Authentication | Passport.js (Local, Google OAuth2, GitHub) |
-| Real-time | Socket.io |
-| File Uploads | Multer |
-| Emails | Nodemailer |
-| Sessions | express-session + connect-mongo |
-| Styling | Bootstrap 5 |
-| PDF Viewer | pdfjs-dist |
-| Dev Tools | Nodemon, dotenv |
+## ◈ What is Innoverse?
+
+**Innoverse** is a full-stack innovation ecosystem platform — a space where startup founders, developers, and collaborators come together. It combines secure authentication, real-time communication, document handling, and a modern content-rich UI into a single cohesive application.
+
+> Built on Node.js + Express with server-side EJS rendering, backed by MongoDB, and wired up with Socket.io for live interactions.
+
+<br/>
 
 ---
 
-## 📁 Project Structure
+## ◈ Feature Highlights
+
+<table>
+<tr>
+<td width="50%">
+
+**🔐 Auth & Identity**
+- Local login with `bcrypt` hashing
+- OAuth 2.0 via **Google** & **GitHub** (Passport.js)
+- JWT token support for API-level auth
+- Session persistence via `connect-mongo`
+
+</td>
+<td width="50%">
+
+**💬 Real-Time**
+- Live messaging & event broadcasting with **Socket.io**
+- Instant UI updates without page reload
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**📁 File & Document Handling**
+- Profile & document uploads via **Multer**
+- In-browser PDF viewing with **pdfjs-dist**
+
+</td>
+<td width="50%">
+
+**📧 Communication**
+- Transactional emails via **Nodemailer**
+- Company email domain validation
+- Registration, verification & alert flows
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**🎨 Frontend**
+- Fully responsive with **Bootstrap 5**
+- Reusable layouts via **ejs-mate**
+- Clean MVC separation of concerns
+
+</td>
+<td width="50%">
+
+**🛡 Security**
+- Password hashing, session secrets, CORS
+- Protected routes via custom middlewares
+- `.env`-driven config — nothing hardcoded
+
+</td>
+</tr>
+</table>
+
+<br/>
+
+---
+
+## ◈ Tech Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Runtime** | Node.js | Server environment |
+| **Framework** | Express.js | HTTP routing & middleware |
+| **Templating** | EJS + ejs-mate | Server-side HTML rendering |
+| **Database** | MongoDB + Mongoose | Data persistence & ODM |
+| **Auth** | Passport.js | Local, Google OAuth2, GitHub OAuth |
+| **Real-time** | Socket.io | WebSocket communication |
+| **File Uploads** | Multer | Multipart form handling |
+| **Email** | Nodemailer | Transactional email delivery |
+| **Sessions** | express-session + connect-mongo | Persistent user sessions |
+| **Security** | bcrypt, JWT | Password hashing & token auth |
+| **Styling** | Bootstrap 5 | Responsive UI components |
+| **PDF** | pdfjs-dist | In-browser document viewing |
+| **Dev** | Nodemon, dotenv | Hot reload & env management |
+
+<br/>
+
+---
+
+## ◈ Project Structure
 
 ```
 innoverse/
-├── config/             # DB connection, Passport strategy config
-├── controllers/        # Route handler logic (MVC controllers)
-├── middlewares/        # Custom Express middlewares (auth guards, etc.)
-├── models/             # Mongoose schemas & models
-├── public/
-│   └── css/            # Static stylesheets
-├── routes/             # Express router files
-├── uploads/            # User-uploaded files (gitignored in production)
-├── views/              # EJS templates & layouts
-├── .gitignore
-├── package.json
-├── server.js           # App entry point
-└── README.md
+│
+├── 📁 config/              → Database connection & Passport strategy setup
+├── 📁 controllers/         → Business logic (MVC controllers)
+├── 📁 middlewares/         → Auth guards & custom Express middleware
+├── 📁 models/              → Mongoose schemas & data models
+├── 📁 routes/              → Express router definitions
+├── 📁 views/               → EJS templates & ejs-mate layouts
+├── 📁 public/css/          → Static stylesheets
+├── 📁 uploads/             → User-uploaded files (use cloud storage in prod)
+│
+├── 📄 server.js            → App entry point
+├── 📄 package.json         → Dependencies & scripts
+└── 📄 .env                 → Environment config (never commit this)
 ```
+
+<br/>
 
 ---
 
-## 🚀 Getting Started
+## ◈ Getting Started
 
 ### Prerequisites
 
-Make sure you have the following installed:
+- [Node.js](https://nodejs.org/) v18+
+- [MongoDB](https://www.mongodb.com/) — local or [Atlas](https://cloud.mongodb.com)
+- npm
 
-- [Node.js](https://nodejs.org/) v18 or higher
-- [MongoDB](https://www.mongodb.com/) (local or cloud via MongoDB Atlas)
-- npm (comes with Node.js)
-
-### Installation
+### 1 · Clone & Install
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/arjunrhetoric/innoverse.git
-
-# 2. Navigate into the project
 cd innoverse
-
-# 3. Install dependencies
 npm install
 ```
 
-### Environment Variables
+### 2 · Configure Environment
 
-Create a `.env` file in the root of the project and fill in the following:
+Create a `.env` file in the project root:
 
 ```env
-# App
+# ── Server ──────────────────────────────
 PORT=3000
-SESSION_SECRET=your_session_secret_here
+SESSION_SECRET=your_super_secret_here
 
-# MongoDB
+# ── Database ─────────────────────────────
 MONGO_URI=mongodb://localhost:27017/innoverse
-# or your MongoDB Atlas connection string
 
-# Google OAuth
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+# ── Google OAuth ─────────────────────────
+GOOGLE_CLIENT_ID=xxxxxxxxxxxx
+GOOGLE_CLIENT_SECRET=xxxxxxxxxxxx
 GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
 
-# GitHub OAuth
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
+# ── GitHub OAuth ─────────────────────────
+GITHUB_CLIENT_ID=xxxxxxxxxxxx
+GITHUB_CLIENT_SECRET=xxxxxxxxxxxx
 GITHUB_CALLBACK_URL=http://localhost:3000/auth/github/callback
 
-# JWT
+# ── JWT ──────────────────────────────────
 JWT_SECRET=your_jwt_secret
 
-# Nodemailer (e.g., Gmail)
+# ── Email (SMTP) ─────────────────────────
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
-EMAIL_USER=your_email@gmail.com
+EMAIL_USER=your@email.com
 EMAIL_PASS=your_app_password
 ```
 
-> ⚠️ Never commit your `.env` file. It is already in `.gitignore`.
+> ⚠️ `.env` is already in `.gitignore` — never push secrets to GitHub.
 
-### Running the App
+### 3 · Run
 
 ```bash
-# Development (with auto-reload via nodemon)
 npm start
-
-# The app will be available at:
-# http://localhost:3000
+# → http://localhost:3000
 ```
 
----
-
-## ☁️ Deployment
-
-Innoverse is a server-side rendered EJS app and needs a Node.js hosting environment. Here are the recommended platforms:
-
-### Option 1 — Render (Recommended, Free Tier Available)
-
-1. Push your code to GitHub (already done ✅)
-2. Go to [render.com](https://render.com) and create a new **Web Service**
-3. Connect your GitHub repo `arjunrhetoric/innoverse`
-4. Set:
-   - **Build Command:** `npm install`
-   - **Start Command:** `node server.js`
-   - **Environment:** Node
-5. Add all your `.env` variables in the **Environment** tab
-6. Deploy 🎉
-
-### Option 2 — Railway
-
-1. Go to [railway.app](https://railway.app)
-2. Click **New Project → Deploy from GitHub Repo**
-3. Select `innoverse`
-4. Add environment variables
-5. Railway auto-detects Node.js and deploys
-
-### Option 3 — Cyclic / Vercel (Not Recommended)
-
-> ⚠️ Vercel is designed for serverless and does **not** support persistent Express servers, Socket.io, or Multer file storage well. Avoid unless you restructure the app.
-
-### Production Notes
-
-- Replace `nodemon` with `node` in the start command for production
-- Use **MongoDB Atlas** instead of a local MongoDB instance
-- Store uploaded files on **Cloudinary** or **AWS S3** rather than the local `uploads/` folder
-- Set `NODE_ENV=production` in your environment
+<br/>
 
 ---
 
-## 🤝 Contributing
+## ◈ Deployment
 
-Contributions are welcome! To get started:
+Innoverse requires a **persistent Node.js server** (Socket.io + sessions + file uploads). Do not deploy to Vercel or Netlify.
+
+<br/>
+
+### ▶ Render *(recommended — free tier available)*
+
+| Step | Action |
+|---|---|
+| 1 | Go to [render.com](https://render.com) → **New Web Service** |
+| 2 | Connect GitHub → select `innoverse` |
+| 3 | **Build Command:** `npm install` |
+| 4 | **Start Command:** `node server.js` |
+| 5 | Add all `.env` variables in the **Environment** tab |
+| 6 | Deploy 🚀 |
+
+<br/>
+
+### ▶ Railway *(zero-config Node.js deployment)*
+
+```
+railway.app → New Project → Deploy from GitHub → select innoverse → add env vars → done
+```
+
+<br/>
+
+### Production Checklist
+
+```
+✅  Switch MONGO_URI to MongoDB Atlas (cloud)
+✅  Use node server.js (not nodemon) in start command
+✅  Update OAuth callback URLs to your live domain
+✅  Move file uploads to Cloudinary or AWS S3
+✅  Set NODE_ENV=production
+```
+
+<br/>
+
+---
+
+## ◈ Contributing
 
 ```bash
-# Fork the repo, then:
-git checkout -b feature/your-feature-name
-git commit -m "Add: your feature description"
-git push origin feature/your-feature-name
-# Open a Pull Request
+# Fork → clone → branch
+git checkout -b feature/your-feature
+
+# Make changes, then
+git commit -m "feat: describe your change"
+git push origin feature/your-feature
+
+# Open a Pull Request on GitHub
 ```
 
----
-
-## 📄 License
-
-This project is licensed under the **ISC License**.
+<br/>
 
 ---
 
-<p align="center">Built with ❤️ by <a href="https://github.com/arjunrhetoric">Arjun Singh</a></p>
+<div align="center">
+
+---
+
+**Innoverse** · Built by [Arjun Singh](https://github.com/arjunrhetoric) · ISC License
+
+</div>
