@@ -134,3 +134,9 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+# Runtime user uploads (proposals, certificates, branding) — never commit
+apps/web/public/uploads/
+apps/web/public/certificates/
+
+# Turbo cache
+.turbo/

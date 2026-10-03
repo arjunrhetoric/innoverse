@@ -1,0 +1,23 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import axios from "axios";
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user || !session.accessToken) {
+      return NextResponse.json({ message: "GitHub token missing. Please log in again." }, { status: 401 });
+    }
+
+    const response = await axios.get("https://api.github.com/user", {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+    });
+
+    return NextResponse.json(response.data);
+  } catch (error: any) {
+    console.error("GitHub Profile Fetch Error:", error.response?.data || error.message);
+    return NextResponse.json({ message: "Error fetching GitHub profile" }, { status: 500 });
+  }
+}
