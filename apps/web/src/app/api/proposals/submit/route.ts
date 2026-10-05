@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, Proposal, Problem } from "@innoverse/database";
-import fs from "fs";
-import path from "path";
+import { uploadPublic } from "@/lib/storage";
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,21 +43,24 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    const MAX_BYTES = 15 * 1024 * 1024;
+    if (buffer.length > MAX_BYTES) {
+      return NextResponse.json({ message: "Proposal file must be under 15MB" }, { status: 400 });
     }
-    
-    const fileName = `${Date.now()}-${file.name}`;
-    const filePath = path.join(uploadsDir, fileName);
-    fs.writeFileSync(filePath, buffer);
+
+    const pptUrl = await uploadPublic(
+      buffer,
+      "uploads",
+      file.name || "proposal",
+      file.type || "application/octet-stream"
+    );
 
     const proposal = await Proposal.create({
       studentId,
       startupId,
       problemId,
       description,
-      pptUrl: `/uploads/${fileName}`,
+      pptUrl,
       status: "Pending",
       feedback: ""
     });

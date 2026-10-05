@@ -2,21 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, User } from "@innoverse/database";
-import fs from "fs";
-import path from "path";
+import { uploadPublic } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg"]);
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
-}
-
-function toPublicPath(absDir: string, fileName: string) {
-  return `/uploads/branding/${fileName}`;
-}
 
 async function saveImage(file: File, prefix: string): Promise<string> {
   if (!ALLOWED_TYPES.has(file.type)) {
@@ -26,13 +17,7 @@ async function saveImage(file: File, prefix: string): Promise<string> {
     throw new Error("Images must be under 5MB");
   }
   const buffer = Buffer.from(await file.arrayBuffer());
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "branding");
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-  const fileName = `${prefix}-${Date.now()}-${sanitizeFileName(file.name || "image.png")}`;
-  fs.writeFileSync(path.join(uploadDir, fileName), buffer);
-  return toPublicPath(uploadDir, fileName);
+  return uploadPublic(buffer, "uploads/branding", `${prefix}-${file.name || "image.png"}`, file.type);
 }
 
 export async function GET() {

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { certificates as certApi } from "@/lib/api";
-import { projectChannel } from "@/lib/realtime";
+import { projectChannel } from "@/lib/channels";
 import { useSSE } from "@/hooks/useSSE";
 import { useUser } from "@/hooks/useUser";
 import { formatDate } from "@/lib/utils";

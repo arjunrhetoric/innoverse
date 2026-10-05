@@ -2,15 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, Certificate, Proposal, User, Problem, Milestone } from "@innoverse/database";
-import fs from "fs";
-import path from "path";
 import nodemailer from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
 import mongoose from "mongoose";
 import axios from "axios";
 import { publish } from "@/lib/bus";
 import { projectChannel } from "@/lib/realtime";
-import { renderCertificatePdf, publicPathToAbs } from "@/lib/certificate-pdf";
+import { renderCertificatePdf } from "@/lib/certificate-pdf";
+import { readPublicBytes, uploadPublic } from "@/lib/storage";
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -153,6 +152,12 @@ export async function POST(req: NextRequest) {
     );
 
     const verificationCode = uuidv4();
+
+    const [startupLogoBytes, signatureBytes] = await Promise.all([
+      readPublicBytes(startup.startupLogo),
+      readPublicBytes(startup.signatureImage),
+    ]);
+
     const pdfBytes = await renderCertificatePdf({
       studentName: student.name,
       problemTitle: problem.title,
@@ -161,18 +166,18 @@ export async function POST(req: NextRequest) {
       issuedAt: new Date(),
       verificationCode,
       evidence,
-      startupLogoAbsPath: publicPathToAbs(startup.startupLogo),
-      signatureAbsPath: publicPathToAbs(startup.signatureImage),
+      startupLogoBytes,
+      signatureBytes,
       signatoryName: startup.signatoryName,
       signatoryTitle: startup.signatoryTitle || "",
     });
 
-    const uploadDir = path.join(process.cwd(), "public", "certificates");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    const fileName = `innoverse-cert-${Date.now()}-${String(studentId).slice(-6)}.pdf`;
-    fs.writeFileSync(path.join(uploadDir, fileName), Buffer.from(pdfBytes));
+    const certificateFile = await uploadPublic(
+      Buffer.from(pdfBytes),
+      "certificates",
+      `innoverse-cert-${String(studentId).slice(-6)}.pdf`,
+      "application/pdf"
+    );
 
     const certificate = await Certificate.create({
       studentId,
@@ -180,7 +185,7 @@ export async function POST(req: NextRequest) {
       problemId,
       rating,
       review: review.trim(),
-      certificateFile: `/certificates/${fileName}`,
+      certificateFile,
       verificationCode,
       evidence,
     });

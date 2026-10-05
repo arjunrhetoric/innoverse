@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { pr as prApi, type PrIdentifier } from "@/lib/api";
 import { parseDiff, type FileDiff as ParsedFile } from "@/lib/diff";
-import { prChannel } from "@/lib/realtime";
+import { prChannel } from "@/lib/channels";
 import { useSSE } from "@/hooks/useSSE";
 import { useUser } from "@/hooks/useUser";
 import { formatDate, formatRelativeTime } from "@/lib/utils";

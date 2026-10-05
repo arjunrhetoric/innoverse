@@ -74,6 +74,20 @@ npm run lint    # eslint
 
 See `.env.example`. Never commit real secrets — `.env*` files are gitignored.
 
+## Deploying to Vercel
+
+1. Push to GitHub, then import the repo in Vercel with **Root Directory `apps/web`**.
+2. Provision in Vercel Dashboard → Storage:
+   - **Blob** → `BLOB_READ_WRITE_TOKEN` (proposal files, certificates, branding images)
+   - **Upstash Redis / KV** → `REDIS_URL` (live updates across serverless instances)
+3. Use a **MongoDB Atlas** URI for `MONGODB_URI` with network access `0.0.0.0/0`.
+4. In your GitHub OAuth app, add the production callback
+   `https://<your-domain>/api/auth/callback/github`.
+5. Set `NEXTAUTH_URL=https://<your-domain>` and a generated `NEXTAUTH_SECRET`.
+6. Notes: the SSE stream reconnects automatically (serverless caps each
+   stream at ~60s); uploads require the Blob token since serverless
+   filesystems are read-only.
+
 ## License
 
 ISC · Built by [Arjun Singh](https://github.com/arjunrhetoric)

@@ -1,22 +1,7 @@
 import { publish } from "./bus";
+import { prChannel, projectChannel, type RealtimeEvent } from "./channels";
 
-export interface RealtimeEvent {
-  type: "pr" | "milestone" | "certificate";
-  action: string;
-  actorId?: string;
-  actorName?: string | null;
-  pullNumber?: number | string;
-  milestoneId?: string;
-  [key: string]: unknown;
-}
-
-export function prChannel(owner: string, repo: string, pullNumber: number | string) {
-  return `pr:${owner}/${repo}/${pullNumber}`;
-}
-
-export function projectChannel(problemId: string) {
-  return `project:${problemId}`;
-}
+export { prChannel, projectChannel, type RealtimeEvent };
 
 /** Publish to the PR channel and to every linked challenge channel. */
 export async function emitPr(

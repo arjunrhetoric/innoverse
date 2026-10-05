@@ -33,7 +33,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { projectTracking, milestones as milestonesApi } from "@/lib/api";
-import { projectChannel } from "@/lib/realtime";
+import { projectChannel } from "@/lib/channels";
 import { useSSE } from "@/hooks/useSSE";
 import { useUser } from "@/hooks/useUser";
 import { PrReview } from "@/components/pr-review";

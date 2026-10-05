@@ -1,7 +1,5 @@
 import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from "pdf-lib";
 import QRCode from "qrcode";
-import fs from "fs";
-import path from "path";
 
 export interface CertificateEvidence {
   mergedPRs: number;
@@ -18,8 +16,8 @@ export interface CertificateData {
   issuedAt: Date;
   verificationCode: string;
   evidence: CertificateEvidence;
-  startupLogoAbsPath: string;
-  signatureAbsPath: string;
+  startupLogoBytes: Uint8Array;
+  signatureBytes: Uint8Array;
   signatoryName: string;
   signatoryTitle: string;
 }
@@ -39,8 +37,7 @@ function isPng(bytes: Uint8Array) {
   return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
 }
 
-async function embedImage(doc: PDFDocument, absPath: string) {
-  const bytes = fs.readFileSync(absPath);
+async function embedImage(doc: PDFDocument, bytes: Uint8Array) {
   return isPng(bytes) ? doc.embedPng(bytes) : doc.embedJpg(bytes);
 }
 
@@ -112,7 +109,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Uint8
   let logoRight = 56;
   let logoBottom = headerTop - 40;
   try {
-    const logo = await embedImage(doc, data.startupLogoAbsPath);
+    const logo = await embedImage(doc, data.startupLogoBytes);
     const scale = Math.min(150 / logo.width, 50 / logo.height, 1);
     const w = logo.width * scale;
     const h = logo.height * scale;
@@ -212,7 +209,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Uint8
   const footTop = 158;
   // Signature
   try {
-    const sig = await embedImage(doc, data.signatureAbsPath);
+    const sig = await embedImage(doc, data.signatureBytes);
     const scale = Math.min(168 / sig.width, 52 / sig.height, 1);
     page.drawImage(sig, { x: 72, y: footTop - 52, width: sig.width * scale, height: sig.height * scale });
   } catch (err) {
@@ -281,8 +278,4 @@ export function getBaseUrl() {
     process.env.BASE_URL ||
     "http://localhost:3000"
   ).replace(/\/$/, "");
-}
-
-export function publicPathToAbs(publicPath: string) {
-  return path.join(process.cwd(), "public", publicPath.replace(/^\//, ""));
 }
