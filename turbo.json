@@ -1,5 +1,18 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "GITHUB_CLIENT_ID",
+    "GITHUB_CLIENT_SECRET",
+    "MONGODB_URI",
+    "MONGO_URI",
+    "NEXTAUTH_URL",
+    "NEXTAUTH_SECRET",
+    "EMAIL",
+    "EMAIL_PASSWORD",
+    "BLOB_READ_WRITE_TOKEN",
+    "REDIS_URL",
+    "KV_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
