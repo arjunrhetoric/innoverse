@@ -36,6 +36,14 @@ export async function uploadPublic(
     return blob.url;
   }
 
+  // Serverless filesystems are read-only — without a Blob token there is
+  // nowhere durable to put the file. Fail loudly instead of EROFS crash.
+  if (process.env.VERCEL) {
+    throw new Error(
+      "File storage is not configured (BLOB_READ_WRITE_TOKEN missing). Uploads are disabled."
+    );
+  }
+
   const dir = path.join(process.cwd(), "public", safeFolder);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });

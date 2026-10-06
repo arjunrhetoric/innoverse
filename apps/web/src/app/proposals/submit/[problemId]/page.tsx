@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { proposals } from "@/lib/api";
+import { uploadDirect } from "@/lib/blob-upload";
 import Link from "next/link";
 
 export default function SubmitProposalPage() {
@@ -19,6 +20,7 @@ export default function SubmitProposalPage() {
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -30,16 +32,36 @@ export default function SubmitProposalPage() {
       return;
     }
 
+    if (file.size > 15 * 1024 * 1024) {
+      setError("Presentation must be under 15MB.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
-    const formData = new FormData();
-    formData.append("problemId", problemId);
-    formData.append("description", description);
-    formData.append("proposalFile", file);
-
     try {
-      const data = await proposals.submit(formData);
+      // 1) Browser-direct upload to Blob (skips the serverless body limit).
+      //    Falls back to classic multipart when Blob isn't configured (local dev).
+      setUploadPhase("Uploading presentation…");
+      const directUrl = await uploadDirect(file, "proposal");
+
+      let data: any;
+      if (directUrl) {
+        data = await proposals.submitJson({
+          problemId,
+          description,
+          pptUrl: directUrl,
+        });
+      } else {
+        setUploadPhase("Submitting…");
+        const formData = new FormData();
+        formData.append("problemId", problemId);
+        formData.append("description", description);
+        formData.append("proposalFile", file);
+        data = await proposals.submit(formData);
+      }
+
       if (data.message?.includes("success") || data.proposal) {
         setSuccess(true);
         setTimeout(() => router.push("/dashboard/student"), 2000);
@@ -50,6 +72,7 @@ export default function SubmitProposalPage() {
       setError(err instanceof Error ? err.message : "Error submitting proposal");
     } finally {
       setLoading(false);
+      setUploadPhase("");
     }
   };
 
@@ -186,7 +209,7 @@ export default function SubmitProposalPage() {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
+                    {uploadPhase || "Submitting..."}
                   </>
                 ) : (
                   <>

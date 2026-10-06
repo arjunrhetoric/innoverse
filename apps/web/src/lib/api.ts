@@ -87,7 +87,17 @@ export const proposals = {
       method: "POST",
       credentials: "include",
       body: formData, // No JSON content-type for multipart
-    }).then((res) => res.json()),
+    }).then(async (res) => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.error || `Request failed: ${res.status}`);
+      return data;
+    }),
+
+  submitJson: (data: { problemId: string; description: string; pptUrl: string }) =>
+    request("/api/proposals/submit", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   review: (proposalId: string, status: string, feedback: string) =>
     request(`/api/proposals/${proposalId}/review`, {

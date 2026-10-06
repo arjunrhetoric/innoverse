@@ -59,18 +59,34 @@ export async function PUT(req: NextRequest) {
     const companyName = (formData.get("companyName") as string | null)?.trim() || null;
     const signatoryName = (formData.get("signatoryName") as string | null)?.trim() || null;
     const signatoryTitle = (formData.get("signatoryTitle") as string | null)?.trim() || null;
-    const logo = formData.get("logo") as File | null;
-    const signature = formData.get("signature") as File | null;
+    const logo = formData.get("logo") as File | string | null;
+    const signature = formData.get("signature") as File | string | null;
 
     await connectDB();
     const user = await User.findById(session.user.id);
     if (!user) return NextResponse.json({ message: "User not found" }, { status: 404 });
 
-    if (logo && typeof logo.arrayBuffer === "function" && logo.size > 0) {
-      user.startupLogo = await saveImage(logo, "logo");
+    const asUrl = (v: File | string | null) =>
+      typeof v === "string" && /^https?:\/\//.test(v) ? v : null;
+    const asFile = (v: File | string | null) =>
+      v && typeof v !== "string" && typeof v.arrayBuffer === "function" && v.size > 0
+        ? (v as File)
+        : null;
+
+    const logoUrl = asUrl(logo);
+    const logoFile = asFile(logo);
+    const sigUrl = asUrl(signature);
+    const sigFile = asFile(signature);
+
+    if (logoUrl) {
+      user.startupLogo = logoUrl;
+    } else if (logoFile) {
+      user.startupLogo = await saveImage(logoFile, "logo");
     }
-    if (signature && typeof signature.arrayBuffer === "function" && signature.size > 0) {
-      user.signatureImage = await saveImage(signature, "sign");
+    if (sigUrl) {
+      user.signatureImage = sigUrl;
+    } else if (sigFile) {
+      user.signatureImage = await saveImage(sigFile, "sign");
     }
     if (companyName !== null) user.companyName = companyName || null;
     if (signatoryName !== null) user.signatoryName = signatoryName || null;

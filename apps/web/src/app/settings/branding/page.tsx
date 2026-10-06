@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
+import { uploadDirect } from "@/lib/blob-upload";
 
 interface Branding {
   companyName: string | null;
@@ -90,8 +91,16 @@ function BrandingForm() {
       formData.append("companyName", companyName);
       formData.append("signatoryName", signatoryName);
       formData.append("signatoryTitle", signatoryTitle);
-      if (logo) formData.append("logo", logo);
-      if (signature) formData.append("signature", signature);
+      // Browser-direct upload first (no server body involved); fall back to
+      // multipart for local dev without Blob, where the server stores files.
+      if (logo) {
+        const url = await uploadDirect(logo, "branding");
+        formData.append("logo", url ?? logo);
+      }
+      if (signature) {
+        const url = await uploadDirect(signature, "branding");
+        formData.append("signature", url ?? signature);
+      }
 
       const res = await fetch("/api/settings/branding", {
         method: "PUT",
