@@ -19,7 +19,9 @@ export const bus: EventEmitter = g.__innoverseBus;
 export function getRedis(): Redis | null {
   if (g.__innoverseRedisTried) return g.__innoverseRedis ?? null;
   g.__innoverseRedisTried = true;
-  const url = process.env.REDIS_URL || process.env.KV_URL;
+  // Upstash via Vercel Marketplace exposes REDIS_KV_URL (protocol URL);
+  // REDIS_URL / KV_URL are supported as manual alternatives.
+  const url = process.env.REDIS_URL || process.env.KV_URL || process.env.REDIS_KV_URL;
   if (!url) {
     g.__innoverseRedis = null;
     return null;
@@ -38,7 +40,9 @@ export function getRedis(): Redis | null {
 }
 
 export function usesRedisBus(): boolean {
-  return Boolean(process.env.REDIS_URL || process.env.KV_URL);
+  return Boolean(
+    process.env.REDIS_URL || process.env.KV_URL || process.env.REDIS_KV_URL
+  );
 }
 
 /**
