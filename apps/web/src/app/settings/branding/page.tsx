@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
-import { uploadDirect } from "@/lib/blob-upload";
+import { uploadDirect, DirectUploadUnavailableError } from "@/lib/blob-upload";
 
 interface Branding {
   companyName: string | null;
@@ -93,13 +93,19 @@ function BrandingForm() {
       formData.append("signatoryTitle", signatoryTitle);
       // Browser-direct upload first (no server body involved); fall back to
       // multipart for local dev without Blob, where the server stores files.
+      const directOne = async (f: File): Promise<string | File> => {
+        try {
+          return await uploadDirect(f, "branding");
+        } catch (err: unknown) {
+          if (err instanceof DirectUploadUnavailableError) return f;
+          throw err;
+        }
+      };
       if (logo) {
-        const url = await uploadDirect(logo, "branding");
-        formData.append("logo", url ?? logo);
+        formData.append("logo", await directOne(logo));
       }
       if (signature) {
-        const url = await uploadDirect(signature, "branding");
-        formData.append("signature", url ?? signature);
+        formData.append("signature", await directOne(signature));
       }
 
       const res = await fetch("/api/settings/branding", {

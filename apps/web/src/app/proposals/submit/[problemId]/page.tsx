@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { proposals } from "@/lib/api";
-import { uploadDirect } from "@/lib/blob-upload";
+import { uploadDirect, DirectUploadUnavailableError } from "@/lib/blob-upload";
 import Link from "next/link";
 
 export default function SubmitProposalPage() {
@@ -44,15 +44,28 @@ export default function SubmitProposalPage() {
       // 1) Browser-direct upload to Blob (skips the serverless body limit).
       //    Falls back to classic multipart when Blob isn't configured (local dev).
       setUploadPhase("Uploading presentation…");
-      const directUrl = await uploadDirect(file, "proposal");
+      let directUrl: string | null = null;
+      let directError = "";
+      try {
+        directUrl = await uploadDirect(file, "proposal", (pct) =>
+          setUploadPhase(`Uploading presentation… ${pct}%`)
+        );
+      } catch (err: unknown) {
+        if (!(err instanceof DirectUploadUnavailableError)) {
+          directError = err instanceof Error ? err.message : "Direct upload failed";
+        }
+      }
 
       let data: any;
       if (directUrl) {
+        setUploadPhase("Submitting…");
         data = await proposals.submitJson({
           problemId,
           description,
           pptUrl: directUrl,
         });
+      } else if (directError) {
+        throw new Error(`Upload failed: ${directError}`);
       } else {
         setUploadPhase("Submitting…");
         const formData = new FormData();

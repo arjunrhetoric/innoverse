@@ -22,7 +22,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const body = (await req.json()) as HandleUploadBody;
+    const body = (await req.json()) as HandleUploadBody & { probe?: boolean };
+
+    // Lightweight availability probe so the browser can choose between
+    // direct upload and the multipart fallback without a cryptic failure.
+    if ((body as { probe?: boolean })?.probe) {
+      return NextResponse.json({
+        directUpload: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+      });
+    }
 
     return NextResponse.json(
       await handleUpload({
@@ -36,6 +44,7 @@ export async function POST(req: NextRequest) {
           }
           return {
             allowedContentTypes: isBranding ? [...IMAGE_TYPES] : [...PPT_TYPES],
+            maximumSizeInBytes: 15 * 1024 * 1024,
             addRandomSuffix: true,
             tokenPayload: JSON.stringify({ userId: session.user.id }),
           };
