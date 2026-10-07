@@ -77,13 +77,27 @@ export async function uploadDirect(
     throw new DirectUploadUnavailableError();
   }
 
-  const blob = await upload(folderFor(kind, file.name || "file"), file, {
-    access: "public",
-    contentType: contentTypeFor(file.name || "", file.type),
-    handleUploadUrl: "/api/uploads/token",
-    ...(onProgress ? { onUploadProgress: ({ percentage }) => onProgress(percentage) } : {}),
-  });
-  return blob.url;
+  // Bound the attempt: the client SDK retries failed parts internally,
+  // which otherwise looks like a hung loader when the API keeps refusing.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 180_000);
+  try {
+    const blob = await upload(folderFor(kind, file.name || "file"), file, {
+      access: "public",
+      contentType: contentTypeFor(file.name || "", file.type),
+      handleUploadUrl: "/api/uploads/token",
+      abortSignal: controller.signal,
+      ...(onProgress ? { onUploadProgress: ({ percentage }) => onProgress(percentage) } : {}),
+    });
+    return blob.url;
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Upload timed out — the storage service kept refusing the file. Check its size (under 15MB) and try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export { MAX_BYTES as BLOB_MAX_BYTES };

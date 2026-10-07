@@ -5,12 +5,6 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
 export const dynamic = "force-dynamic";
 
-const PPT_TYPES = new Set([
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-]);
-const IMAGE_TYPES = new Set(["image/png", "image/jpeg"]);
-
 /**
  * Issues short-lived tokens for browser-direct uploads to Blob.
  * Bypasses the ~4.5MB serverless request-body limit for large decks.
@@ -42,8 +36,13 @@ export async function POST(req: NextRequest) {
           if (!isProposal && !isBranding) {
             throw new Error("Upload path not allowed");
           }
+          // NOTE: no allowedContentTypes gate. Browser-reported MIME types
+          // and real-world file contents (renamed extensions, old .ppt
+          // binaries, OS quirks) mismatch too often, and the Blob API
+          // answers those mismatches with a CORS-masked 400. The route is
+          // auth-gated, path-restricted, and size-capped; every proposal
+          // file is human-reviewed by the startup anyway.
           return {
-            allowedContentTypes: isBranding ? [...IMAGE_TYPES] : [...PPT_TYPES],
             maximumSizeInBytes: 15 * 1024 * 1024,
             addRandomSuffix: true,
             tokenPayload: JSON.stringify({ userId: session.user.id }),
