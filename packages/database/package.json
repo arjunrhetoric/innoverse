@@ -4,9 +4,9 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "dependencies": {
-    "mongoose": "^8.0.0"
+    "mongoose": "^8.24.7"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
-  } 
+  }
 }

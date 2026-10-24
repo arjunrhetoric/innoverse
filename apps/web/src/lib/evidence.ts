@@ -148,7 +148,7 @@ export async function collectEvidence(
  */
 export function computeConfidence(stats: EvidenceStats): ConfidenceResult {
   const reasons: string[] = [];
-  let score = 40;
+  let score = 35;
 
   const totalCommits = Math.max(stats.commits, stats.commitsByStudent + stats.commitsByOthers);
   const share =
@@ -167,7 +167,10 @@ export function computeConfidence(stats: EvidenceStats): ConfidenceResult {
   }
 
   if (stats.mergedPRs > 0) {
-    const points = Math.round((Math.min(stats.mergedPRs, 5) / 5) * 15);
+    // Merged PRs count for less when attribution is weak; a PR is only
+    // strong evidence if the commits behind it are the student's.
+    const attributionFactor = Math.max(share, 0.25);
+    const points = Math.round((Math.min(stats.mergedPRs, 5) / 5) * 15 * attributionFactor);
     score += points;
     reasons.push(`${stats.mergedPRs} merged pull request(s) by the student (+${points})`);
   } else {

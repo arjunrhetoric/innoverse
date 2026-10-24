@@ -17,6 +17,7 @@ import {
   MessagesSquare,
   ShieldCheck,
   Building2,
+  Users,
 } from "lucide-react";
 import { GithubIcon as Github } from "@/components/ui/icons";
 import { signOut } from "next-auth/react";
@@ -42,7 +43,10 @@ const productLinks = [
   { href: "/#community", label: "Community", desc: "Builders shipping real work", icon: MessagesSquare },
 ];
 
-const publicLinks = [{ href: "/#contact", label: "Contact" }];
+const publicLinks = [
+  { href: "/explore", label: "Explore" },
+  { href: "/#contact", label: "Contact" },
+];
 
 export function Navbar() {
   const { user, isAuthenticated, isLoading, dashboardPath } = useUser();
@@ -226,6 +230,12 @@ export function Navbar() {
                           <Link href="/settings/branding">
                             <Building2 className="mr-2 h-4 w-4" />
                             Company Branding
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/candidates">
+                            <Users className="mr-2 h-4 w-4" />
+                            Candidates
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
