@@ -64,10 +64,29 @@ export interface Certificate {
   revocationReason?: string | null;
   evidence?: {
     mergedPRs: number;
+    prsOpened?: number;
     commits: number;
+    commitsByStudent?: number;
+    commitsByOthers?: number;
+    activeDays?: number;
+    linesAdded?: number;
+    linesDeleted?: number;
+    reviewsGiven?: number;
     milestonesCompleted: number;
     milestonesTotal: number;
+    snapshotAt?: string | null;
   };
+  rubric?: {
+    rows: Array<{ key: string; label: string; score: number; weight: number; weighted: number }>;
+    overall: number;
+  };
+  confidence?: {
+    score: number;
+    level: "high" | "medium" | "low";
+    reasons: string[];
+  };
+  summary?: string;
+  publicToken?: string | null;
 }
 
 export interface Milestone {

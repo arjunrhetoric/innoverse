@@ -89,6 +89,13 @@ export default function VerifyResultPage() {
                 <div className="pt-1">
                   <CopyButton value={result.certificate.verificationCode} />
                 </div>
+                {result.certificate.publicToken && (
+                  <div className="pt-2">
+                    <Link href={`/r/${result.certificate.publicToken}`} className="text-sm font-medium text-primary underline underline-offset-4">
+                      Open the full Proof-of-Work Report →
+                    </Link>
+                  </div>
+                )}
               </div>
               {result.certificate.certificateFile && (
                 <Button variant="outline" asChild>

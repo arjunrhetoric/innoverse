@@ -5,15 +5,20 @@ import { connectDB, Certificate, Proposal, User, Problem, Milestone } from "@inn
 import nodemailer from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
 import mongoose from "mongoose";
-import axios from "axios";
 import { publish } from "@/lib/bus";
 import { projectChannel } from "@/lib/channels";
-import { renderCertificatePdf } from "@/lib/certificate-pdf";
+import { renderCertificatePdf, getBaseUrl } from "@/lib/certificate-pdf";
 import { readPublicBytes, uploadPublic } from "@/lib/storage";
 import { getGithubToken } from "@/lib/github-token";
 import { canIssueCertificate, type Actor } from "@/lib/policy";
 import { audit } from "@/lib/audit";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  collectEvidence,
+  computeConfidence,
+  computeRubricScore,
+  RUBRIC_CRITERIA,
+} from "@/lib/evidence";
 import crypto from "crypto";
 
 const transporter = nodemailer.createTransport({
@@ -23,55 +28,6 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASSWORD,
   },
 });
-
-async function countStudentEvidence(
-  owner: string | undefined,
-  repo: string | undefined,
-  username: string | undefined,
-  token: string,
-  problemId: string
-) {
-  const evidence = { mergedPRs: 0, commits: 0, milestonesCompleted: 0, milestonesTotal: 0 };
-
-  const milestones = (await Milestone.find({ problemId }).lean()) as any[];
-  evidence.milestonesTotal = milestones.length;
-  evidence.milestonesCompleted = milestones.filter((m) => m.completed).length;
-
-  if (!owner || !repo || !username) return evidence;
-
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    Accept: "application/vnd.github+json",
-  };
-
-  try {
-    const prs = (
-      await axios.get(
-        `https://api.github.com/repos/${owner}/${encodeURIComponent(repo)}/pulls`,
-        { headers, params: { state: "closed", per_page: 100 } }
-      )
-    ).data;
-    evidence.mergedPRs = (Array.isArray(prs) ? prs : []).filter(
-      (pr: any) => pr.merged_at && pr.user?.login?.toLowerCase() === username.toLowerCase()
-    ).length;
-  } catch (err) {
-    console.error("Evidence PR fetch failed:", err);
-  }
-
-  try {
-    const commits = (
-      await axios.get(
-        `https://api.github.com/repos/${owner}/${encodeURIComponent(repo)}/commits`,
-        { headers, params: { author: username, per_page: 100 } }
-      )
-    ).data;
-    evidence.commits = Array.isArray(commits) ? commits.length : 0;
-  } catch (err) {
-    console.error("Evidence commit fetch failed:", err);
-  }
-
-  return evidence;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -98,6 +54,13 @@ export async function POST(req: NextRequest) {
     const studentId = formData.get("studentId") as string;
     const rating = Number(formData.get("rating"));
     const review = formData.get("review") as string;
+    const summary = (formData.get("summary") as string | null)?.trim() || "";
+
+    const rubricScores: Record<string, number> = {};
+    for (const criterion of RUBRIC_CRITERIA) {
+      const raw = formData.get(`rubric.${criterion.key}`);
+      if (raw !== null) rubricScores[criterion.key] = Number(raw);
+    }
 
     if (!problemId || !mongoose.Types.ObjectId.isValid(problemId)) {
       return NextResponse.json({ message: "A valid problemId is required" }, { status: 400 });
@@ -163,16 +126,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Student not found" }, { status: 404 });
     }
 
-    // Freeze the evidence trail into the certificate.
-    const evidence = await countStudentEvidence(
+    // Freeze the evidence trail into the certificate/report.
+    const milestoneDocs = (await Milestone.find({ problemId }).lean()) as any[];
+    const evidenceStats = await collectEvidence(
       problem.githubOwner,
       problem.githubRepoName,
       student.githubUsername,
       accessToken,
-      String(problemId)
+      milestoneDocs
     );
+    const confidence = computeConfidence(evidenceStats);
+    const rubric = computeRubricScore(rubricScores);
+    const evidence = { ...evidenceStats, snapshotAt: new Date() };
 
     const verificationCode = uuidv4();
+    const publicToken = crypto.randomBytes(9).toString("hex");
+    const reportUrl = `${getBaseUrl()}/r/${publicToken}`;
 
     const [startupLogoBytes, signatureBytes] = await Promise.all([
       readPublicBytes(startup.startupLogo),
@@ -191,6 +160,10 @@ export async function POST(req: NextRequest) {
       signatureBytes,
       signatoryName: startup.signatoryName,
       signatoryTitle: startup.signatoryTitle || "",
+      rubric,
+      confidence,
+      summary: summary || review.trim(),
+      reportUrl,
     });
 
     const certificateFile = await uploadPublic(
@@ -212,6 +185,10 @@ export async function POST(req: NextRequest) {
       verificationCode,
       evidence,
       sha256,
+      rubric,
+      confidence,
+      summary: summary || review.trim(),
+      publicToken,
     });
 
     student.projectsCompleted = (student.projectsCompleted || 0) + 1;

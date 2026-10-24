@@ -25,6 +25,14 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
   const [expanded, setExpanded] = useState<string | null>(null);
   const [rating, setRating] = useState(5);
   const [review, setReview] = useState("");
+  const [rubric, setRubric] = useState<Record<string, number>>({
+    codeQuality: 4,
+    delivery: 4,
+    communication: 4,
+    testing: 4,
+  });
+  const [summary, setSummary] = useState("");
+  const [lastReport, setLastReport] = useState<string | null>(null);
   const [issuing, setIssuing] = useState(false);
   const [done, setDone] = useState("");
   const [brandingComplete, setBrandingComplete] = useState<boolean | null>(null);
@@ -87,10 +95,21 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
       formData.append("studentId", String(studentId));
       formData.append("rating", String(rating));
       formData.append("review", review);
-      await certApi.submit(formData);
-      setDone("Official Innoverse certificate issued successfully.");
+      formData.append("summary", summary);
+      for (const [key, value] of Object.entries(rubric)) {
+        formData.append(`rubric.${key}`, String(value));
+      }
+      const result = await certApi.submit(formData);
+      const token = result?.certificate?.publicToken ?? null;
+      setLastReport(token);
+      setDone(
+        token
+          ? "Proof-of-Work Report generated. Open it with the link below."
+          : "Official Innoverse certificate issued successfully."
+      );
       setExpanded(null);
       setReview("");
+      setSummary("");
       setRating(5);
       await fetchData();
     } catch (err: unknown) {
@@ -158,9 +177,14 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
         </div>
       )}
       {done && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex items-center gap-2">
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex items-center gap-2 flex-wrap">
           <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
           <p className="text-sm text-emerald-500">{done}</p>
+          {lastReport && (
+            <Link href={`/r/${lastReport}`} className="text-sm font-medium text-primary underline underline-offset-4">
+              Open report →
+            </Link>
+          )}
         </div>
       )}
 
@@ -231,8 +255,52 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
                         className="min-h-10"
                       />
                     </div>
+                    <div>
+                      <Label className="text-xs mb-1.5 block">Reviewer rubric</Label>
+                      <div className="space-y-2">
+                        {[
+                          { key: "codeQuality", label: "Code quality" },
+                          { key: "delivery", label: "Delivery & reliability" },
+                          { key: "communication", label: "Communication" },
+                          { key: "testing", label: "Testing & robustness" },
+                        ].map((criterion) => (
+                          <div key={criterion.key} className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-muted-foreground">{criterion.label}</span>
+                            <div className="flex gap-0.5">
+                              {[1, 2, 3, 4, 5].map((n) => (
+                                <button
+                                  key={n}
+                                  type="button"
+                                  aria-label={`${criterion.label} ${n}`}
+                                  onClick={() =>
+                                    setRubric((prev) => ({ ...prev, [criterion.key]: n }))
+                                  }
+                                  className={cn(
+                                    "h-6 w-6 rounded border text-[11px] transition-colors",
+                                    rubric[criterion.key] >= n
+                                      ? "border-primary bg-primary/15 text-foreground"
+                                      : "border-border text-muted-foreground hover:border-primary/50"
+                                  )}
+                                >
+                                  {n}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs mb-1.5 block">Reviewer summary (appears on the report)</Label>
+                      <Textarea
+                        value={summary}
+                        onChange={(e) => setSummary(e.target.value)}
+                        placeholder="What did this contributor deliver? Strengths, growth areas, evidence."
+                        className="min-h-14"
+                      />
+                    </div>
                     <p className="text-[11px] text-muted-foreground">
-                      The official Innoverse certificate is generated automatically with your branding, the contribution evidence (merged PRs, commits, milestones), and a verification QR.
+                      The report snapshots merged PRs, commits, attribution, milestones and your rubric, then publishes it at a shareable link with a QR code.
                     </p>
                     <Button size="sm" variant="gradient" onClick={() => handleIssue(proposal)} disabled={issuing}>
                       {issuing ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Award className="mr-1 h-3.5 w-3.5" />}
@@ -261,6 +329,14 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
                         <Badge variant="destructive" className="text-[10px]">Revoked</Badge>
                       ) : (
                         <Badge variant="success" className="text-[10px]">Valid</Badge>
+                      )}
+                      {c.publicToken && (
+                        <Link
+                          href={`/r/${c.publicToken}`}
+                          className="text-[11px] font-medium text-primary underline underline-offset-2"
+                        >
+                          Report
+                        </Link>
                       )}
                       <span className="text-muted-foreground">
                         {c.issuedAt ? formatDate(c.issuedAt) : ""}
