@@ -58,6 +58,10 @@ export interface Certificate {
   certificateFile: string;
   issuedAt: string;
   verificationCode: string;
+  sha256?: string | null;
+  revoked?: boolean;
+  revokedAt?: string | null;
+  revocationReason?: string | null;
   evidence?: {
     mergedPRs: number;
     commits: number;

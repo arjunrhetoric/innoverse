@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { connectDB, Milestone } from "@innoverse/database";
 import { requireMilestoneOwner } from "@/lib/repo-access";
 import { emitMilestone } from "@/lib/realtime";
+import { audit } from "@/lib/audit";
 import { z } from "zod";
 
 const UpdateMilestoneSchema = z.object({
@@ -45,6 +46,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       { id: session.user.id, name: session.user.name }
     );
 
+    await audit({
+      actorId: session.user.id,
+      actorName: session.user.name ?? null,
+      action: "milestone.updated",
+      resourceType: "Milestone",
+      resourceId: id,
+      metadata: { problemId: existing.problemId ? String(existing.problemId) : null },
+      request: req,
+    });
+
     return NextResponse.json({ message: "Milestone updated", milestone });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });
@@ -74,6 +85,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       "deleted",
       { id: session.user.id, name: session.user.name }
     );
+
+    await audit({
+      actorId: session.user.id,
+      actorName: session.user.name ?? null,
+      action: "milestone.deleted",
+      resourceType: "Milestone",
+      resourceId: id,
+      metadata: { problemId: existing.problemId ? String(existing.problemId) : null },
+      request: req,
+    });
 
     return NextResponse.json({ message: "Milestone deleted" });
   } catch (error: any) {

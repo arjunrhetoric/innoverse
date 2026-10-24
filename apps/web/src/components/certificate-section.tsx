@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Award, Star, Loader2, Fingerprint, AlertCircle, CheckCircle2, Building2 } from "lucide-react";
+import { Award, Star, Loader2, Fingerprint, AlertCircle, CheckCircle2, Building2, Ban } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +29,9 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
   const [done, setDone] = useState("");
   const [brandingComplete, setBrandingComplete] = useState<boolean | null>(null);
   const [brandingMissing, setBrandingMissing] = useState<string[]>([]);
+  const [revoking, setRevoking] = useState<string | null>(null);
+  const [revokeReason, setRevokeReason] = useState("");
+  const [revokeBusy, setRevokeBusy] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -69,7 +72,8 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
   });
 
   const handleIssue = async (proposal: any) => {
-    const studentId = typeof proposal.studentId === "object" ? proposal.studentId._id : proposal.studentId;
+    const studentId =
+      typeof proposal.studentId === "object" ? proposal.studentId._id : proposal.studentId;
     if (!review.trim()) {
       setError("A review is required.");
       return;
@@ -93,6 +97,26 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
       setError(err instanceof Error ? err.message : "Failed to issue certificate");
     } finally {
       setIssuing(false);
+    }
+  };
+
+  const handleRevoke = async (id: string) => {
+    if (revokeReason.trim().length < 5) {
+      setError("Give a revocation reason of at least 5 characters.");
+      return;
+    }
+    setRevokeBusy(true);
+    setError("");
+    try {
+      await certApi.revoke(id, revokeReason.trim());
+      setRevoking(null);
+      setRevokeReason("");
+      setDone("Certificate revoked. Its verification page now reports REVOKED.");
+      await fetchData();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to revoke certificate");
+    } finally {
+      setRevokeBusy(false);
     }
   };
 
@@ -229,9 +253,63 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
             {issued.map((c: any) => {
               const s = typeof c.studentId === "object" ? c.studentId : null;
               return (
-                <div key={c._id} className="rounded-lg border border-border/60 bg-card p-3 flex items-center justify-between gap-3 text-xs">
-                  <span className="font-medium">{s?.name || "Student"}</span>
-                  <span className="text-muted-foreground">{c.issuedAt ? formatDate(c.issuedAt) : ""}</span>
+                <div key={c._id} className="rounded-lg border border-border/60 bg-card p-3 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">{s?.name || "Student"}</span>
+                    <div className="flex items-center gap-2">
+                      {c.revoked ? (
+                        <Badge variant="destructive" className="text-[10px]">Revoked</Badge>
+                      ) : (
+                        <Badge variant="success" className="text-[10px]">Valid</Badge>
+                      )}
+                      <span className="text-muted-foreground">
+                        {c.issuedAt ? formatDate(c.issuedAt) : ""}
+                      </span>
+                      {!c.revoked && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-[11px] text-destructive hover:text-destructive"
+                          onClick={() => {
+                            setRevoking(revoking === c._id ? null : c._id);
+                            setRevokeReason("");
+                            setError("");
+                          }}
+                        >
+                          <Ban className="mr-1 h-3 w-3" />
+                          Revoke
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {revoking === c._id && (
+                    <div className="mt-3 border-t border-border/60 pt-3">
+                      <Label className="mb-1.5 block text-[11px]">Reason for revocation</Label>
+                      <Textarea
+                        value={revokeReason}
+                        onChange={(e) => setRevokeReason(e.target.value)}
+                        placeholder="e.g. Issued against the wrong student"
+                        className="min-h-10 text-xs"
+                      />
+                      <div className="mt-2 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={revokeBusy || revokeReason.trim().length < 5}
+                          onClick={() => handleRevoke(c._id)}
+                        >
+                          {revokeBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm revocation"}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setRevoking(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Revocation is permanent and is recorded in your audit log.
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}

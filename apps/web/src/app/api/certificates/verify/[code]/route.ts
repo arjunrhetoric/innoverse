@@ -31,7 +31,7 @@ export async function GET(
     const problem = typeof certificate.problemId === "object" ? certificate.problemId : null;
 
     return NextResponse.json({
-      valid: true,
+      valid: !certificate.revoked,
       certificate: {
         studentName: student?.name ?? "Student",
         studentGithub: student?.githubUsername ?? null,
@@ -43,6 +43,10 @@ export async function GET(
         verificationCode: certificate.verificationCode,
         certificateFile: certificate.certificateFile,
         evidence: certificate.evidence ?? null,
+        sha256: certificate.sha256 ?? null,
+        revoked: Boolean(certificate.revoked),
+        revokedAt: certificate.revokedAt ?? null,
+        revocationReason: certificate.revocationReason ?? null,
       },
     });
   } catch (error: any) {

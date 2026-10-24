@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { connectDB, Milestone, Problem } from "@innoverse/database";
 import { requireMilestoneOwner } from "@/lib/repo-access";
 import { emitMilestone } from "@/lib/realtime";
+import { audit } from "@/lib/audit";
 import { z } from "zod";
 
 const CreateMilestoneSchema = z.object({
@@ -74,6 +75,16 @@ export async function POST(req: NextRequest) {
     void emitMilestone(milestone.toObject?.() ?? milestone, "created", {
       id: session.user.id,
       name: session.user.name,
+    });
+
+    await audit({
+      actorId: session.user.id,
+      actorName: session.user.name ?? null,
+      action: "milestone.created",
+      resourceType: "Milestone",
+      resourceId: String(milestone._id),
+      metadata: { problemId: String(resolvedProblemId), title },
+      request: req,
     });
 
     return NextResponse.json({ message: "Milestone created", milestone }, { status: 201 });

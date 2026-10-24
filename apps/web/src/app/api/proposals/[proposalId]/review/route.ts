@@ -6,6 +6,7 @@ import axios from "axios";
 import nodemailer from "nodemailer";
 import { getGithubToken } from "@/lib/github-token";
 import { audit } from "@/lib/audit";
+import { canReviewProposal, type Actor } from "@/lib/policy";
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -51,11 +52,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pr
     }
 
     // ── Authorization: only the startup that owns the challenge may review. ──
-    if (String(problem.createdBy) !== String(session.user.id)) {
-      return NextResponse.json(
-        { message: "Only the startup that posted this challenge can review its proposals" },
-        { status: 403 }
-      );
+    const actor: Actor = {
+      id: session.user.id,
+      role: session.user.role as Actor["role"],
+      isVerified: true,
+    };
+    const decision = canReviewProposal(actor, problem);
+    if (!decision.allowed) {
+      return NextResponse.json({ message: decision.reason }, { status: 403 });
     }
 
     // ── Idempotency: repeating the same decision must not re-run side effects. ──

@@ -5,6 +5,8 @@ import { connectDB, Problem, User } from "@innoverse/database";
 import axios from "axios";
 import { getGithubToken } from "@/lib/github-token";
 import { testBypassEnabled } from "@/lib/flags";
+import { canCreateChallenge, type Actor } from "@/lib/policy";
+import { audit } from "@/lib/audit";
 import { z } from "zod";
 
 const ProblemSchema = z.object({
@@ -51,11 +53,14 @@ export async function POST(req: NextRequest) {
 
     // Unverified startups cannot post challenges (certificate integrity).
     const startup = (await User.findById(session.user.id).select("isVerified").lean()) as any;
-    if (!startup?.isVerified && !testBypassEnabled()) {
-      return NextResponse.json(
-        { message: "Verify your startup with a business email before posting challenges" },
-        { status: 403 }
-      );
+    const actor: Actor = {
+      id: session.user.id,
+      role: session.user.role as Actor["role"],
+      isVerified: Boolean(startup?.isVerified) || testBypassEnabled(),
+    };
+    const decision = canCreateChallenge(actor);
+    if (!decision.allowed) {
+      return NextResponse.json({ message: decision.reason }, { status: 403 });
     }
 
     let repoUrl = null;
@@ -96,6 +101,19 @@ export async function POST(req: NextRequest) {
       githubRepoName: createGithubRepo ? githubRepoName : null,
       githubRepoUrl: repoUrl,
       githubOwner: githubOwner,
+    });
+
+    await audit({
+      actorId: actor.id,
+      actorName: session.user.name ?? null,
+      action: "challenge.created",
+      resourceType: "Problem",
+      resourceId: String(problem._id),
+      metadata: {
+        title: problem.title,
+        githubRepo: problem.githubRepoName ?? null,
+      },
+      request: req,
     });
 
     return NextResponse.json({ message: "Problem Statement posted successfully", problem }, { status: 201 });

@@ -11,8 +11,10 @@ import { projectChannel } from "@/lib/channels";
 import { renderCertificatePdf } from "@/lib/certificate-pdf";
 import { readPublicBytes, uploadPublic } from "@/lib/storage";
 import { getGithubToken } from "@/lib/github-token";
-import { testBypassEnabled } from "@/lib/flags";
+import { canIssueCertificate, type Actor } from "@/lib/policy";
+import { audit } from "@/lib/audit";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import crypto from "crypto";
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -116,21 +118,18 @@ export async function POST(req: NextRequest) {
     if (!problem) {
       return NextResponse.json({ message: "Challenge not found" }, { status: 404 });
     }
-    if (String(problem.createdBy) !== String(session.user.id)) {
-      return NextResponse.json(
-        { message: "Only the startup that posted this challenge can issue certificates" },
-        { status: 403 }
-      );
+    const startup = (await User.findById(session.user.id)) as any;
+    const actor: Actor = {
+      id: session.user.id,
+      role: session.user.role as Actor["role"],
+      isVerified: Boolean(startup?.isVerified),
+    };
+    const decision = canIssueCertificate(actor, problem);
+    if (!decision.allowed) {
+      return NextResponse.json({ message: decision.reason }, { status: 403 });
     }
 
     // Branding is mandatory — no placeholders.
-    const startup = (await User.findById(session.user.id)) as any;
-    if (!startup?.isVerified && !testBypassEnabled()) {
-      return NextResponse.json(
-        { message: "Verify your startup with a business email before issuing certificates" },
-        { status: 403 }
-      );
-    }
     if (!startup?.startupLogo || !startup?.signatureImage || !startup?.signatoryName) {
       return NextResponse.json(
         { message: "Complete your Company Branding (logo, signature, signatory) before issuing certificates" },
@@ -201,6 +200,8 @@ export async function POST(req: NextRequest) {
       "application/pdf"
     );
 
+    const sha256 = crypto.createHash("sha256").update(Buffer.from(pdfBytes)).digest("hex");
+
     const certificate = await Certificate.create({
       studentId,
       startupId: session.user.id,
@@ -210,6 +211,7 @@ export async function POST(req: NextRequest) {
       certificateFile,
       verificationCode,
       evidence,
+      sha256,
     });
 
     student.projectsCompleted = (student.projectsCompleted || 0) + 1;
@@ -238,6 +240,22 @@ export async function POST(req: NextRequest) {
       actorId: session.user.id,
       actorName: session.user.name,
       studentId: String(studentId),
+    });
+
+    await audit({
+      actorId: actor.id,
+      actorName: session.user.name ?? null,
+      action: "certificate.issued",
+      resourceType: "Certificate",
+      resourceId: String(certificate._id),
+      metadata: {
+        problemId: String(problemId),
+        studentId: String(studentId),
+        rating,
+        evidence,
+        sha256,
+      },
+      request: req,
     });
 
     return NextResponse.json(

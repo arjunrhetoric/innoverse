@@ -40,6 +40,25 @@ const CertificateSchema = new mongoose.Schema({
     unique: true,
     default: () => crypto.randomBytes(16).toString('hex') // Add default value
   },
+  sha256: {
+    // Fingerprint of the generated PDF (integrity).
+    type: String,
+    default: null,
+  },
+  revoked: {
+    type: Boolean,
+    default: false,
+  },
+  revokedAt: Date,
+  revokedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+  },
+  revocationReason: {
+    type: String,
+    default: null,
+  },
   evidence: {
     mergedPRs: { type: Number, default: 0 },
     commits: { type: Number, default: 0 },

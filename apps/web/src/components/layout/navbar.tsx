@@ -221,12 +221,20 @@ export function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                     {user?.role === "Startup" && (
-                      <DropdownMenuItem asChild>
-                        <Link href="/settings/branding">
-                          <Building2 className="mr-2 h-4 w-4" />
-                          Company Branding
-                        </Link>
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link href="/settings/branding">
+                            <Building2 className="mr-2 h-4 w-4" />
+                            Company Branding
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/settings/audit">
+                            <ShieldCheck className="mr-2 h-4 w-4" />
+                            Audit Log
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
                     )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
