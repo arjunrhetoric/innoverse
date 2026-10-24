@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, User } from "@innoverse/database";
 import { uploadPublic } from "@/lib/storage";
+import { detectType, validateRemoteFile, IMAGE_TYPES } from "@/lib/file-signature";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,10 @@ async function saveImage(file: File, prefix: string): Promise<string> {
     throw new Error("Images must be under 5MB");
   }
   const buffer = Buffer.from(await file.arrayBuffer());
+  const detected = detectType(buffer);
+  if (!IMAGE_TYPES.includes(detected)) {
+    throw new Error("Logo and signature must be PNG or JPG images");
+  }
   return uploadPublic(buffer, "uploads/branding", `${prefix}-${file.name || "image.png"}`, file.type);
 }
 
@@ -79,11 +84,19 @@ export async function PUT(req: NextRequest) {
     const sigFile = asFile(signature);
 
     if (logoUrl) {
+      const check = await validateRemoteFile(logoUrl, IMAGE_TYPES);
+      if (!check.ok) {
+        return NextResponse.json({ message: check.reason || "Invalid logo image" }, { status: 400 });
+      }
       user.startupLogo = logoUrl;
     } else if (logoFile) {
       user.startupLogo = await saveImage(logoFile, "logo");
     }
     if (sigUrl) {
+      const check = await validateRemoteFile(sigUrl, IMAGE_TYPES);
+      if (!check.ok) {
+        return NextResponse.json({ message: check.reason || "Invalid signature image" }, { status: 400 });
+      }
       user.signatureImage = sigUrl;
     } else if (sigFile) {
       user.signatureImage = await saveImage(sigFile, "sign");

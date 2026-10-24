@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, Proposal, Problem } from "@innoverse/database";
 import { uploadPublic } from "@/lib/storage";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { detectType, validateRemoteFile, PROPOSAL_TYPES } from "@/lib/file-signature";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +12,9 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
+
+    const limit = await checkRateLimit(`proposal:${session.user.id}`, 20, 60);
+    if (!limit.ok) return rateLimitResponse(limit);
 
     const contentType = req.headers.get("content-type") || "";
 
@@ -35,6 +40,13 @@ export async function POST(req: NextRequest) {
     const MAX_BYTES = 15 * 1024 * 1024;
     if (buffer.length > MAX_BYTES) {
       return NextResponse.json({ message: "Proposal file must be under 15MB" }, { status: 400 });
+    }
+    const detected = detectType(buffer);
+    if (!PROPOSAL_TYPES.includes(detected)) {
+      return NextResponse.json(
+        { message: "Upload a real PPT, PPTX, or PDF file" },
+        { status: 400 }
+      );
     }
 
     const pptUrl = await uploadPublic(
@@ -91,6 +103,13 @@ async function submitProposal({
 
     if (!pptUrl || typeof pptUrl !== "string" || !/^https?:\/\//.test(pptUrl)) {
       return NextResponse.json({ message: "A valid uploaded file URL is required" }, { status: 400 });
+    }
+    const fileCheck = await validateRemoteFile(pptUrl, PROPOSAL_TYPES);
+    if (!fileCheck.ok) {
+      return NextResponse.json(
+        { message: fileCheck.reason || "Invalid uploaded file" },
+        { status: 400 }
+      );
     }
     if (!description || !description.trim()) {
       return NextResponse.json({ message: "Proposal description is required" }, { status: 400 });

@@ -5,6 +5,16 @@ import { authOptions } from "@/lib/auth";
 import { connectDB, Milestone, Problem } from "@innoverse/database";
 import { requireMilestoneOwner } from "@/lib/repo-access";
 import { emitMilestone } from "@/lib/realtime";
+import { z } from "zod";
+
+const CreateMilestoneSchema = z.object({
+  problemId: z.string().regex(/^[a-f0-9]{24}$/i).optional(),
+  title: z.string().trim().min(2).max(200),
+  description: z.string().trim().max(2000).optional(),
+  deadline: z.string().optional(),
+  repoOwner: z.string().trim().max(100).optional(),
+  repoName: z.string().trim().max(100).optional(),
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,10 +36,14 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-    const { problemId, title, description, deadline, repoOwner, repoName } = await req.json();
-    if (!title || !String(title).trim()) {
-      return NextResponse.json({ message: "Title is required" }, { status: 400 });
+    const parsed = CreateMilestoneSchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json(
+        { message: "Invalid milestone", issues: parsed.error.issues.map((i) => i.message) },
+        { status: 400 }
+      );
     }
+    const { problemId, title, description, deadline, repoOwner, repoName } = parsed.data;
 
     const access = await requireMilestoneOwner({ problemId, repoOwner, repoName }, session.user.id);
     if (access instanceof NextResponse) return access;

@@ -1,6 +1,8 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import GithubProvider from "next-auth/providers/github";
 import { connectDB, User } from "@innoverse/database";
+import { encryptSecret } from "./crypto";
+import { clearGithubTokenCache } from "./github-token";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -36,24 +38,33 @@ export const authOptions: NextAuthOptions = {
           githubUsername: githubProfile?.login || user.name,
           name: user.name || githubProfile?.login,
           email,
-          accessToken: account?.access_token,
+          githubTokenEnc: account?.access_token
+            ? encryptSecret(account.access_token)
+            : undefined,
           role: null,
         });
       } else {
-        dbUser.accessToken = account?.access_token;
+        if (account?.access_token) {
+          dbUser.githubTokenEnc = encryptSecret(account.access_token);
+          dbUser.accessToken = undefined;
+        }
         dbUser.githubUsername = githubProfile?.login || dbUser.githubUsername;
         await dbUser.save();
+        // The legacy plaintext token must not linger once encrypted.
+        await User.updateOne({ _id: dbUser._id }, { $unset: { accessToken: 1 } });
       }
+
+      clearGithubTokenCache(String(dbUser._id));
 
       return true;
     },
     async jwt({ token, account, user }) {
       if (account && user) {
-        token.accessToken = account.access_token;
         token.githubId = user.id;
       }
 
-      // Fetch user from DB to get the latest role
+      // Fetch user from DB to get the latest role. The GitHub token is
+      // deliberately NOT placed in the JWT/session — see getGithubToken().
       await connectDB();
       const dbUser = await User.findOne({ githubId: token.githubId });
       
@@ -73,7 +84,6 @@ export const authOptions: NextAuthOptions = {
         role: token.role as string | null,
         githubUsername: token.githubUsername as string,
       };
-      session.accessToken = token.accessToken as string;
       
       return session;
     },

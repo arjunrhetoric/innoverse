@@ -7,9 +7,12 @@ import { v4 as uuidv4 } from "uuid";
 import mongoose from "mongoose";
 import axios from "axios";
 import { publish } from "@/lib/bus";
-import { projectChannel } from "@/lib/realtime";
+import { projectChannel } from "@/lib/channels";
 import { renderCertificatePdf } from "@/lib/certificate-pdf";
 import { readPublicBytes, uploadPublic } from "@/lib/storage";
+import { getGithubToken } from "@/lib/github-token";
+import { testBypassEnabled } from "@/lib/flags";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -71,9 +74,22 @@ async function countStudentEvidence(
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.accessToken || session.user.role !== "Startup") {
+    if (!session) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    if (session.user.role !== "Startup") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
     }
+    const accessToken = await getGithubToken(session.user.id);
+    if (!accessToken) {
+      return NextResponse.json(
+        { message: "GitHub authorization expired. Please sign in again." },
+        { status: 401 }
+      );
+    }
+
+    const limit = await checkRateLimit(`cert-issue:${session.user.id}`, 10, 60);
+    if (!limit.ok) return rateLimitResponse(limit);
 
     const formData = await req.formData();
     const problemId = formData.get("problemId") as string;
@@ -109,6 +125,12 @@ export async function POST(req: NextRequest) {
 
     // Branding is mandatory — no placeholders.
     const startup = (await User.findById(session.user.id)) as any;
+    if (!startup?.isVerified && !testBypassEnabled()) {
+      return NextResponse.json(
+        { message: "Verify your startup with a business email before issuing certificates" },
+        { status: 403 }
+      );
+    }
     if (!startup?.startupLogo || !startup?.signatureImage || !startup?.signatoryName) {
       return NextResponse.json(
         { message: "Complete your Company Branding (logo, signature, signatory) before issuing certificates" },
@@ -147,7 +169,7 @@ export async function POST(req: NextRequest) {
       problem.githubOwner,
       problem.githubRepoName,
       student.githubUsername,
-      session.accessToken,
+      accessToken,
       String(problemId)
     );
 

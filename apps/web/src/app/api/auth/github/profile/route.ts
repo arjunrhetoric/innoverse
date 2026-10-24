@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { getGithubToken } from "@/lib/github-token";
 import axios from "axios";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || !session.user || !session.accessToken) {
-      return NextResponse.json({ message: "GitHub token missing. Please log in again." }, { status: 401 });
-    }
+    if (!session) {
+          return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+    
+        const accessToken = await getGithubToken(session.user.id);
+        if (!accessToken) {
+          return NextResponse.json({ message: "GitHub authorization expired. Please sign in again." }, { status: 401 });
+        }
 
     const response = await axios.get("https://api.github.com/user", {
-      headers: { Authorization: `Bearer ${session.accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     return NextResponse.json(response.data);

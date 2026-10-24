@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,9 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
+
+    const limit = await checkRateLimit(`upload-token:${session.user.id}`, 30, 60);
+    if (!limit.ok) return rateLimitResponse(limit);
 
     const body = (await req.json()) as HandleUploadBody & { probe?: boolean };
 
