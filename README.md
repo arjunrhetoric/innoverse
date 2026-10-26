@@ -45,6 +45,7 @@ The evidence snapshot is frozen into the report. Later changes to the repo do no
 - **Verified startups only** can post challenges or mint certificates (business-email domain validation; dev bypass is disabled in production builds).
 - **Audit trail** of role selection, proposals, milestones, and certificate issue/revoke, viewable by the owner.
 - **Input validation** with Zod on mutating routes; uploads are checked by magic bytes and HTML/SVG is rejected.
+- **Private file storage:** proposals and branding assets are never served directly from storage. Downloads go through authorized routes (`/api/proposals/[id]/file`, `/api/branding/[kind]`); public certificates are served by verification code. The storage access mode is auto-detected or pinned with `BLOB_ACCESS`.
 - **Rate limits** on authentication, uploads, proposals, certificates, and GitHub write actions.
 - **Certificate integrity:** SHA-256 fingerprint stored, public revocation with reason.
 - CI runs typecheck, unit tests, and a production build on every push.

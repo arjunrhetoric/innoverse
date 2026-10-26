@@ -216,7 +216,7 @@ export default function ReportPage() {
               <div className="flex flex-wrap items-center gap-3">
                 {report.certificateFile && (
                   <Button variant="outline" asChild>
-                    <a href={report.certificateFile} target="_blank" rel="noopener noreferrer">
+                    <a href={`/api/certificates/verify/${report.verificationCode}/file`} target="_blank" rel="noopener noreferrer">
                       <Download className="mr-2 h-4 w-4" />
                       Download certificate (PDF)
                     </a>

@@ -374,7 +374,7 @@ export default function StartupDashboard() {
                             {proposal.pptUrl && (
                               <Button variant="outline" size="sm" asChild>
                                 <a
-                                  href={proposal.pptUrl}
+                                  href={`/api/proposals/${proposal._id}/file`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >

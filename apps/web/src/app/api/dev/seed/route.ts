@@ -3,7 +3,7 @@ import { connectDB, Certificate, Problem, Proposal, User } from "@innoverse/data
 import crypto from "crypto";
 import QRCode from "qrcode";
 import { renderCertificatePdf, getBaseUrl } from "@/lib/certificate-pdf";
-import { uploadPublic } from "@/lib/storage";
+import { uploadFile } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -187,7 +187,7 @@ export async function POST() {
         summary,
         reportUrl: `${getBaseUrl()}/r/${publicToken}`,
       });
-      const certificateFile = await uploadPublic(
+      const certificateFile = await uploadFile(
         Buffer.from(pdfBytes),
         "certificates",
         "demo-proof-of-work-report.pdf",

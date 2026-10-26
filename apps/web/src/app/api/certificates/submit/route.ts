@@ -8,7 +8,7 @@ import mongoose from "mongoose";
 import { publish } from "@/lib/bus";
 import { projectChannel } from "@/lib/channels";
 import { renderCertificatePdf, getBaseUrl } from "@/lib/certificate-pdf";
-import { readPublicBytes, uploadPublic } from "@/lib/storage";
+import { readStoredBytes, uploadFile } from "@/lib/storage";
 import { getGithubToken } from "@/lib/github-token";
 import { canIssueCertificate, type Actor } from "@/lib/policy";
 import { audit } from "@/lib/audit";
@@ -144,8 +144,8 @@ export async function POST(req: NextRequest) {
     const reportUrl = `${getBaseUrl()}/r/${publicToken}`;
 
     const [startupLogoBytes, signatureBytes] = await Promise.all([
-      readPublicBytes(startup.startupLogo),
-      readPublicBytes(startup.signatureImage),
+      readStoredBytes(startup.startupLogo),
+      readStoredBytes(startup.signatureImage),
     ]);
 
     const pdfBytes = await renderCertificatePdf({
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
       reportUrl,
     });
 
-    const certificateFile = await uploadPublic(
+    const certificateFile = await uploadFile(
       Buffer.from(pdfBytes),
       "certificates",
       `innoverse-cert-${String(studentId).slice(-6)}.pdf`,

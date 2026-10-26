@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, Proposal, Problem } from "@innoverse/database";
-import { uploadPublic } from "@/lib/storage";
+import { uploadFile, readStoredBytes } from "@/lib/storage";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { detectType, validateRemoteFile, PROPOSAL_TYPES } from "@/lib/file-signature";
+import { detectType, validateBytes, PROPOSAL_TYPES } from "@/lib/file-signature";
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const pptUrl = await uploadPublic(
+    const pptUrl = await uploadFile(
       buffer,
       "uploads",
       file.name || "proposal",
@@ -104,7 +104,13 @@ async function submitProposal({
     if (!pptUrl || typeof pptUrl !== "string" || !/^https?:\/\//.test(pptUrl)) {
       return NextResponse.json({ message: "A valid uploaded file URL is required" }, { status: 400 });
     }
-    const fileCheck = await validateRemoteFile(pptUrl, PROPOSAL_TYPES);
+    let fileCheck;
+    try {
+      const bytes = await readStoredBytes(pptUrl);
+      fileCheck = validateBytes(bytes.subarray(0, 64), PROPOSAL_TYPES);
+    } catch {
+      fileCheck = { ok: false, detected: "unknown" as const, reason: "Could not read the uploaded file" };
+    }
     if (!fileCheck.ok) {
       return NextResponse.json(
         { message: fileCheck.reason || "Invalid uploaded file" },

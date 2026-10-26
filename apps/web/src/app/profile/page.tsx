@@ -302,7 +302,7 @@ export default function ProfilePage() {
               {selectedCert.certificateFile && (
                 <Button variant="outline" asChild className="w-full">
                   <a
-                    href={selectedCert.certificateFile}
+                    href={`/api/certificates/verify/${selectedCert.verificationCode}/file`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

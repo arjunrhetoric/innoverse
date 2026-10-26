@@ -195,7 +195,7 @@ function BrandingForm() {
               <Label className="mb-1.5 block text-sm">Company logo (PNG/JPG, under 5MB)</Label>
               <div className="flex items-center gap-4">
                 {branding?.startupLogo && (
-                  <Image src={branding.startupLogo} alt="Company logo" width={80} height={80} className="rounded-lg border border-border object-contain bg-white h-20 w-20" />
+                  <Image src={`/api/branding/logo?v=${encodeURIComponent(branding.startupLogo)}`} alt="Company logo" width={80} height={80} unoptimized className="rounded-lg border border-border object-contain bg-white h-20 w-20" />
                 )}
                 <label className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground cursor-pointer hover:border-primary/50">
                   <Upload className="h-3.5 w-3.5" />
@@ -220,7 +220,7 @@ function BrandingForm() {
               <Label className="mb-1.5 block text-sm">Signature image (PNG/JPG, under 5MB)</Label>
               <div className="flex items-center gap-4">
                 {branding?.signatureImage && (
-                  <Image src={branding.signatureImage} alt="Signature" width={120} height={60} className="rounded-lg border border-border object-contain bg-white h-15 w-30" />
+                  <Image src={`/api/branding/signature?v=${encodeURIComponent(branding.signatureImage)}`} alt="Signature" width={120} height={60} unoptimized className="rounded-lg border border-border object-contain bg-white h-15 w-30" />
                 )}
                 <label className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground cursor-pointer hover:border-primary/50">
                   <PenLine className="h-3.5 w-3.5" />

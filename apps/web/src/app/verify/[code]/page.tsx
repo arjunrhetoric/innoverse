@@ -99,7 +99,7 @@ export default function VerifyResultPage() {
               </div>
               {result.certificate.certificateFile && (
                 <Button variant="outline" asChild>
-                  <a href={result.certificate.certificateFile} target="_blank" rel="noopener noreferrer">
+                  <a href={`/api/certificates/verify/${result.certificate.verificationCode}/file`} target="_blank" rel="noopener noreferrer">
                     <Download className="mr-2 h-4 w-4" />
                     Download Certificate
                   </a>

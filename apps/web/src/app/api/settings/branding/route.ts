@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, User } from "@innoverse/database";
-import { uploadPublic } from "@/lib/storage";
-import { detectType, validateRemoteFile, IMAGE_TYPES } from "@/lib/file-signature";
+import { uploadFile, readStoredBytes } from "@/lib/storage";
+import { detectType, validateBytes, IMAGE_TYPES } from "@/lib/file-signature";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ async function saveImage(file: File, prefix: string): Promise<string> {
   if (!IMAGE_TYPES.includes(detected)) {
     throw new Error("Logo and signature must be PNG or JPG images");
   }
-  return uploadPublic(buffer, "uploads/branding", `${prefix}-${file.name || "image.png"}`, file.type);
+  return uploadFile(buffer, "uploads/branding", `${prefix}-${file.name || "image.png"}`, file.type);
 }
 
 export async function GET() {
@@ -84,7 +84,13 @@ export async function PUT(req: NextRequest) {
     const sigFile = asFile(signature);
 
     if (logoUrl) {
-      const check = await validateRemoteFile(logoUrl, IMAGE_TYPES);
+      let check;
+      try {
+        const bytes = await readStoredBytes(logoUrl);
+        check = validateBytes(bytes.subarray(0, 64), IMAGE_TYPES);
+      } catch {
+        check = { ok: false, detected: "unknown" as const, reason: "Could not read the uploaded logo" };
+      }
       if (!check.ok) {
         return NextResponse.json({ message: check.reason || "Invalid logo image" }, { status: 400 });
       }
@@ -93,7 +99,13 @@ export async function PUT(req: NextRequest) {
       user.startupLogo = await saveImage(logoFile, "logo");
     }
     if (sigUrl) {
-      const check = await validateRemoteFile(sigUrl, IMAGE_TYPES);
+      let check;
+      try {
+        const bytes = await readStoredBytes(sigUrl);
+        check = validateBytes(bytes.subarray(0, 64), IMAGE_TYPES);
+      } catch {
+        check = { ok: false, detected: "unknown" as const, reason: "Could not read the uploaded signature" };
+      }
       if (!check.ok) {
         return NextResponse.json({ message: check.reason || "Invalid signature image" }, { status: 400 });
       }

@@ -140,3 +140,6 @@ apps/web/public/certificates/
 
 # Turbo cache
 .turbo/
+
+# Local private uploads (dev fallback)
+apps/web/.private-uploads/

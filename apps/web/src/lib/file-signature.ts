@@ -48,6 +48,21 @@ export interface FileValidation {
 export const PROPOSAL_TYPES: DetectedType[] = ["pptx", "ppt", "pdf"];
 export const IMAGE_TYPES: DetectedType[] = ["png", "jpeg"];
 
+/** Validate an in-memory header, used after reading from storage. */
+export function validateBytes(
+  bytes: Uint8Array,
+  allowed: DetectedType[]
+): FileValidation {
+  const detected = detectType(bytes);
+  if (detected === "html" || detected === "svg") {
+    return { ok: false, detected, reason: "Executable web content is not allowed" };
+  }
+  if (!allowed.includes(detected)) {
+    return { ok: false, detected, reason: `Unsupported file content (detected ${detected})` };
+  }
+  return { ok: true, detected };
+}
+
 /** Download a small header range and inspect it. */
 export async function validateRemoteFile(
   url: string,

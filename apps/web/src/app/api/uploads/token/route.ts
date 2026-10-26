@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { blobAccess, resolveBlobAccess } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     if ((body as { probe?: boolean })?.probe) {
       return NextResponse.json({
         directUpload: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+        access: await resolveBlobAccess(),
       });
     }
 
