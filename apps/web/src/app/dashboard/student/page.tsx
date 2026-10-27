@@ -48,7 +48,7 @@ export default function StudentDashboard() {
       return;
     }
     if (user.role !== "Student") {
-      router.push("/dashboard/startup");
+      router.push("/dashboard");
     }
   }, [authLoading, isAuthenticated, user, router]);
 

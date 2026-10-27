@@ -9,7 +9,7 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { testBypassEnabled } from "@/lib/flags";
 
 const RoleSchema = z.object({
-  role: z.enum(["Student", "Startup"]),
+  role: z.enum(["Student", "Startup", "Institution"]),
   businessEmail: z.string().trim().email().max(254).optional(),
 });
 
@@ -83,11 +83,19 @@ export async function POST(req: NextRequest) {
       request: req,
     });
 
-    const redirectPath = role === "Student" ? "/dashboard/student" : "/dashboard/startup";
+    const redirectPath =
+      role === "Student"
+        ? "/dashboard/student"
+        : role === "Startup"
+          ? "/dashboard/startup"
+          : "/dashboard/institution";
     return NextResponse.json({
-      message: isVerified || role === "Student"
-        ? "Role selected successfully"
-        : "Role selected, but your startup is unverified until a valid business email is provided",
+      message:
+        role === "Student" || isVerified
+          ? "Role selected successfully"
+          : role === "Institution"
+            ? "Institution account created"
+            : "Role selected, but your startup is unverified until a valid business email is provided",
       redirectPath,
       isVerified,
     });

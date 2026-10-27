@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { connectDB, Certificate, Problem, Proposal, User } from "@innoverse/database";
+import { connectDB, Certificate, Cohort, CohortMember, Problem, Proposal, User } from "@innoverse/database";
 import crypto from "crypto";
 import QRCode from "qrcode";
 import { renderCertificatePdf, getBaseUrl } from "@/lib/certificate-pdf";
@@ -98,6 +98,40 @@ export async function POST() {
         { upsert: true, new: true }
       );
       studentDocs.push(doc);
+    }
+
+    const institution = await User.findOneAndUpdate(
+      { email: "coordinator@statetech.edu" },
+      {
+        $setOnInsert: {
+          githubId: "seed-coordinator@statetech.edu",
+          name: "State Tech University",
+          role: "Institution",
+          isVerified: true,
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    const cohort = await Cohort.findOneAndUpdate(
+      { joinCode: "INNOV26" },
+      {
+        $setOnInsert: {
+          name: "CSE 2026 · Capstone Batch A",
+          description: "Industry-sponsored capstones, autumn term.",
+          institutionId: institution._id,
+          joinCode: "INNOV26",
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    for (const student of studentDocs) {
+      await CohortMember.updateOne(
+        { cohortId: cohort._id, studentId: student._id },
+        { $setOnInsert: { cohortId: cohort._id, studentId: student._id } },
+        { upsert: true }
+      );
     }
 
     const challenges = [
@@ -260,6 +294,7 @@ export async function POST() {
       proposals: proposals.length,
       backfilledReports: missing.length,
       demoReportToken: demoToken,
+      institution: { email: "coordinator@statetech.edu", joinCode: cohort.joinCode },
       logins: {
         startups: startups.map((s) => s.email),
         students: students.map((s) => s.email),

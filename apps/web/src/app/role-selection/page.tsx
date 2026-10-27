@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { GraduationCap, Building2, ArrowRight, CheckCircle2, Mail } from "lucide-react";
+import { GraduationCap, Building2, ArrowRight, CheckCircle2, Mail, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +44,18 @@ const roles = [
       "Rate and certify contributors",
     ],
   },
+  {
+    id: "Institution",
+    icon: Landmark,
+    title: "University / Program",
+    description: "Run industry-sponsored capstones and track verified student outcomes across a cohort.",
+    benefits: [
+      "Create cohorts with join codes",
+      "See every student's reports",
+      "Accreditation-ready evidence",
+      "Placement-ready profiles",
+    ],
+  },
 ];
 
 export default function RoleSelectionPage() {
@@ -64,7 +76,6 @@ export default function RoleSelectionPage() {
       await submitRole(roleId);
     }
   };
-
   const submitRole = async (role: string, email?: string) => {
     setLoading(true);
     setError("");
@@ -97,7 +108,7 @@ export default function RoleSelectionPage() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {roles.map((role, i) => (
             <motion.div
               key={role.id}

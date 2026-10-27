@@ -19,6 +19,8 @@ export default async function DashboardRouter() {
     redirect("/dashboard/student");
   } else if (role === "Startup") {
     redirect("/dashboard/startup");
+  } else if (role === "Institution") {
+    redirect("/dashboard/institution");
   }
 
   // Fallback if role is invalid

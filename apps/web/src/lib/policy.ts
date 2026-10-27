@@ -8,7 +8,7 @@
 
 export interface Actor {
   id: string;
-  role: "Student" | "Startup" | null;
+  role: "Student" | "Startup" | "Institution" | null;
   isVerified?: boolean;
 }
 
@@ -107,4 +107,24 @@ export function isApprovedContributorFlag(value: boolean): Decision {
   return value
     ? allow
     : deny("Only the challenge owner or approved contributors can comment here");
+}
+
+/** Institution accounts manage cohorts. */
+export function requireInstitution(actor: Actor): Decision {
+  if (actor.role !== "Institution") {
+    return deny("Only institution accounts can manage cohorts");
+  }
+  return allow;
+}
+
+export function canManageCohort(
+  actor: Actor,
+  cohort: { institutionId: unknown }
+): Decision {
+  const role = requireInstitution(actor);
+  if (!role.allowed) return role;
+  if (!sameId(actor.id, cohort.institutionId)) {
+    return deny("Only the institution that created this cohort can manage it");
+  }
+  return allow;
 }

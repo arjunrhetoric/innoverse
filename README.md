@@ -24,6 +24,8 @@ Résumés and slide decks don't prove anything. Innoverse runs a hiring pipeline
 5. Innoverse snapshots the evidence from GitHub and issues a two-page PDF: the certificate, plus an evidence report with a **confidence score and its reasons**.
 6. Anyone can open `/r/{token}` or scan the QR to audit the evidence — no account required. Certificates can be revoked, and the public page then says so.
 
+**Universities** create a cohort with a join code; students enrol themselves, and the institution sees each member's reports, confidence, merged PRs, and cohort-wide participation — evidence that maps directly to accreditation and placement reporting.
+
 ## What makes the claim falsifiable
 
 | Signal | Source |

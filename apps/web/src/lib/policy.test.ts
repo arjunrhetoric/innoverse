@@ -3,9 +3,11 @@ import {
   canCreateChallenge,
   canDeleteChallenge,
   canIssueCertificate,
+  canManageCohort,
   canManageMilestones,
   canReviewProposal,
   canRevokeCertificate,
+  requireInstitution,
   type Actor,
 } from "./policy";
 
@@ -60,5 +62,22 @@ describe("milestones and revocation", () => {
     const certificate = { startupId: "u1" };
     expect(canRevokeCertificate(owner, certificate).allowed).toBe(true);
     expect(canRevokeCertificate(otherStartup, certificate).allowed).toBe(false);
+  });
+});
+
+describe("institution cohorts", () => {
+  const institution: Actor = { id: "i1", role: "Institution" };
+  const otherInstitution: Actor = { id: "i2", role: "Institution" };
+  const cohort = { institutionId: "i1" };
+
+  it("requires the institution role", () => {
+    expect(requireInstitution(institution).allowed).toBe(true);
+    expect(requireInstitution(owner).allowed).toBe(false);
+  });
+
+  it("only the owning institution manages a cohort", () => {
+    expect(canManageCohort(institution, cohort).allowed).toBe(true);
+    expect(canManageCohort(otherInstitution, cohort).allowed).toBe(false);
+    expect(canManageCohort(owner, cohort).allowed).toBe(false);
   });
 });

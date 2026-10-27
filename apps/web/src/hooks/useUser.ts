@@ -16,6 +16,8 @@ export function useUser() {
       ? "/role-selection"
       : role === "Student"
         ? "/dashboard/student"
-        : "/dashboard/startup",
+        : role === "Startup"
+          ? "/dashboard/startup"
+          : "/dashboard/institution",
   };
 }

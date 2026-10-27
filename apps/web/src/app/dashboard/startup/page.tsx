@@ -88,7 +88,7 @@ export default function StartupDashboard() {
       return;
     }
     if (user.role !== "Startup") {
-      router.push("/dashboard/student");
+      router.push("/dashboard");
     }
   }, [authLoading, isAuthenticated, user, router]);
 

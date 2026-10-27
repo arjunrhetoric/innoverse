@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
 
@@ -35,6 +36,10 @@ export default function ProfileSettingsPage() {
   const [location, setLocation] = useState("");
   const [skills, setSkills] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [cohorts, setCohorts] = useState<Array<{ id: string; name: string; description: string }>>([]);
+  const [joinCode, setJoinCode] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [cohortMessage, setCohortMessage] = useState("");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -60,7 +65,35 @@ export default function ProfileSettingsPage() {
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
+
+    fetch("/api/cohorts/mine", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => setCohorts(data.cohorts ?? []))
+      .catch(() => null);
   }, [isAuthenticated, user]);
+
+  const joinCohort = async () => {
+    setJoining(true);
+    setCohortMessage("");
+    try {
+      const res = await fetch("/api/cohorts/join", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: joinCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not join cohort");
+      setCohortMessage(data.message);
+      setJoinCode("");
+      const mine = await fetch("/api/cohorts/mine", { credentials: "include" }).then((r) => r.json());
+      setCohorts(mine.cohorts ?? []);
+    } catch (err: unknown) {
+      setCohortMessage(err instanceof Error ? err.message : "Could not join cohort");
+    } finally {
+      setJoining(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -190,6 +223,46 @@ export default function ProfileSettingsPage() {
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save profile
             </Button>
+          </div>
+
+          <div className="mt-5 space-y-4 rounded-2xl border border-border bg-card p-6">
+            <div>
+              <h2 className="text-sm font-medium">Cohort</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Join your university cohort with the code your coordinator shared.
+              </p>
+            </div>
+
+            {cohorts.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {cohorts.map((c) => (
+                  <Badge key={c.id} variant="secondary" className="text-[10px]">
+                    {c.name}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Input
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="JOIN CODE"
+                className="h-11 font-mono uppercase"
+              />
+              <Button
+                variant="outline"
+                onClick={joinCohort}
+                disabled={joining || joinCode.trim().length < 6}
+                className="shrink-0"
+              >
+                {joining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Join
+              </Button>
+            </div>
+            {cohortMessage && (
+              <p className="text-xs text-muted-foreground">{cohortMessage}</p>
+            )}
           </div>
         </div>
       </div>

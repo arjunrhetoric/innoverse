@@ -7,7 +7,7 @@ export interface User {
   name: string;
   email: string;
   accessToken?: string;
-  role: "Student" | "Startup" | null;
+  role: "Student" | "Startup" | "Institution" | null;
   githubRepoName?: string | null;
   businessEmail?: string | null;
   companyName?: string | null;

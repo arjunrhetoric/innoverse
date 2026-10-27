@@ -8,3 +8,5 @@ export { default as Notification } from './models/Notification';
 export { default as InlineComment } from './models/InlineComment';
 export { default as AuditEvent } from './models/AuditEvent';
 export { default as Shortlist } from './models/Shortlist';
+export { default as Cohort } from './models/Cohort';
+export { default as CohortMember } from './models/CohortMember';
