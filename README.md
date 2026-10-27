@@ -44,7 +44,7 @@ The evidence snapshot is frozen into the report. Later changes to the repo do no
 
 ## Security model
 
-- **GitHub tokens are never sent to the browser.** They are encrypted at rest (AES-256-GCM) and resolved server-side per request.
+- **GitHub tokens are never sent to the browser.** They are encrypted at rest (AES-256-GCM) and resolved server-side per request. Repository operations prefer a **GitHub App installation token** (1-hour, repo-scoped) when configured; see `docs/github-app-setup.md`.
 - **Object-level authorization in one place** (`lib/policy.ts`): only the challenge owner can review proposals, manage milestones, issue or revoke certificates.
 - **Verified startups only** can post challenges or mint certificates (business-email domain validation; dev bypass is disabled in production builds).
 - **Audit trail** of role selection, proposals, milestones, and certificate issue/revoke, viewable by the owner.

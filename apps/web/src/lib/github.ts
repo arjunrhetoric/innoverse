@@ -1,5 +1,37 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
+import { getInstallationToken, isGithubAppConfigured } from "./github-app";
+
+/**
+ * Extract owner/repo from a GitHub API URL, e.g.
+ * https://api.github.com/repos/acme/app/pulls/1
+ */
+export function repoFromGithubUrl(url: string): { owner: string; repo: string } | null {
+  const match = url.match(/^https:\/\/api\.github\.com\/repos\/([^/]+)\/([^/?#]+)(?:[/?#]|$)/);
+  if (!match) return null;
+  try {
+    return {
+      owner: decodeURIComponent(match[1]),
+      repo: decodeURIComponent(match[2]),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Prefer a GitHub App installation token (short-lived, repo-scoped) for
+ * repository operations. Falls back to the caller's OAuth token, so this is
+ * a no-op until the app is configured and installed.
+ */
+async function resolveToken(url: string, fallbackToken: string): Promise<string> {
+  if (!isGithubAppConfigured()) return fallbackToken;
+  const target = repoFromGithubUrl(url);
+  if (!target) return fallbackToken;
+
+  const appToken = await getInstallationToken(target.owner, target.repo);
+  return appToken ?? fallbackToken;
+}
 
 export interface PrParams {
   repoOwner: string;
@@ -57,10 +89,11 @@ export async function githubFetch(
   token: string,
   options?: { method?: string; data?: unknown; accept?: string }
 ) {
+  const effectiveToken = await resolveToken(url, token);
   const response = await axios({
     method: options?.method ?? "GET",
     url,
-    headers: githubHeaders(token, options?.accept),
+    headers: githubHeaders(effectiveToken, options?.accept),
     ...(options?.data !== undefined ? { data: options.data } : {}),
   });
   return response.data;
