@@ -50,5 +50,8 @@ describe("ChallengeSchema", () => {
     expect(
       ChallengeSchema.safeParse({ ...base, description: "too short" }).success
     ).toBe(false);
+    expect(
+      ChallengeSchema.safeParse({ ...base, description: "ten chars!" }).success
+    ).toBe(true);
   });
 });

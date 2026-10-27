@@ -120,7 +120,32 @@ export default function StartupDashboard() {
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const handlePostChallenge = async () => {
+    const title = formData.title.trim();
+    const description = formData.description.trim();
+
+    if (title.length < 5) {
+      setError("Give the challenge a title of at least 5 characters.");
+      return;
+    }
+    if (description.length < 10) {
+      setError("Describe the challenge in at least 10 characters (scope, stack, expectations).");
+      return;
+    }
+    if (!formData.finalDeadline) {
+      setError("Choose a final deadline.");
+      return;
+    }
+    if (new Date(formData.finalDeadline) <= new Date()) {
+      setError("The final deadline must be in the future.");
+      return;
+    }
+    if (formData.createGithubRepo && !formData.githubRepoName.trim()) {
+      setError("Enter a repository name, or turn off repository creation.");
+      return;
+    }
+
     setPosting(true);
+    setError("");
     try {
       await projects.post({
         ...formData,
@@ -466,8 +491,11 @@ export default function StartupDashboard() {
                 }
                 placeholder="Describe the challenge in detail..."
                 className="mt-1.5 min-h-[100px]"
-                minLength={20}
+                minLength={10}
               />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                At least 10 characters — scope, stack, and what “done” looks like.
+              </p>
             </div>
             <div>
               <Label htmlFor="skills">Required Skills</Label>

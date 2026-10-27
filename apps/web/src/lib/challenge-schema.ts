@@ -10,7 +10,7 @@ import { z } from "zod";
 export const ChallengeSchema = z
   .object({
     title: z.string().trim().min(5).max(160),
-    description: z.string().trim().min(20).max(5000),
+    description: z.string().trim().min(10).max(5000),
     skillsRequired: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
     finalDeadline: z.string().min(1),
     createGithubRepo: z.boolean().optional(),
