@@ -22,7 +22,11 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(error.message || `Request failed: ${res.status}`);
+    const details =
+      Array.isArray(error.issues) && error.issues.length
+        ? ` (${error.issues.join("; ")})`
+        : "";
+    throw new Error(`${error.message || `Request failed: ${res.status}`}${details}`);
   }
 
   return res.json();

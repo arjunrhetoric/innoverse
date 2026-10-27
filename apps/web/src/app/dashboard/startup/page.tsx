@@ -453,6 +453,7 @@ export default function StartupDashboard() {
                 }
                 placeholder="e.g., Build a Real-Time Dashboard"
                 className="mt-1.5"
+                minLength={5}
               />
             </div>
             <div>
@@ -465,6 +466,7 @@ export default function StartupDashboard() {
                 }
                 placeholder="Describe the challenge in detail..."
                 className="mt-1.5 min-h-[100px]"
+                minLength={20}
               />
             </div>
             <div>
@@ -484,6 +486,7 @@ export default function StartupDashboard() {
               <Input
                 id="deadline"
                 type="date"
+                min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
                 value={formData.finalDeadline}
                 onChange={(e) =>
                   setFormData((p) => ({ ...p, finalDeadline: e.target.value }))

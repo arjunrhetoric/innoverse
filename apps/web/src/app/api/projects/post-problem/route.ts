@@ -7,20 +7,7 @@ import { getGithubToken } from "@/lib/github-token";
 import { testBypassEnabled } from "@/lib/flags";
 import { canCreateChallenge, type Actor } from "@/lib/policy";
 import { audit } from "@/lib/audit";
-import { z } from "zod";
-
-const ProblemSchema = z.object({
-  title: z.string().trim().min(5).max(160),
-  description: z.string().trim().min(20).max(5000),
-  skillsRequired: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
-  finalDeadline: z.string().min(1),
-  createGithubRepo: z.boolean().optional(),
-  githubRepoName: z
-    .string()
-    .trim()
-    .regex(/^[A-Za-z0-9._-]{1,100}$/)
-    .optional(),
-});
+import { ChallengeSchema } from "@/lib/challenge-schema";
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,14 +19,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized: Only startups can post challenges" }, { status: 403 });
     }
 
-    const parsed = ProblemSchema.safeParse(await req.json().catch(() => null));
+    const parsed = ChallengeSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {
       return NextResponse.json(
-        { message: "Invalid challenge data", issues: parsed.error.issues.map((i) => i.message) },
+        {
+          message: "Invalid challenge data",
+          issues: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+        },
         { status: 400 }
       );
     }
     const { title, description, skillsRequired, finalDeadline, createGithubRepo, githubRepoName } = parsed.data;
+
+    if (createGithubRepo && !githubRepoName) {
+      return NextResponse.json(
+        { message: "Provide a repository name, or turn off “Create a private GitHub repo”." },
+        { status: 400 }
+      );
+    }
 
     const deadline = new Date(finalDeadline);
     if (Number.isNaN(deadline.getTime())) {
