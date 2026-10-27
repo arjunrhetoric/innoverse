@@ -127,11 +127,16 @@ export async function POST(
       .select("name companyName signatoryName signatoryTitle signatureImage")
       .lean()) as any;
 
-    // Grant READ access only. Contributions go through forks and PRs.
-    const token = await getGithubToken(session.user.id);
-    if (!token) {
+    // Repository operations must run as the startup (repo admin), not the
+    // student: a private repo returns 404 to a non-collaborator, and only
+    // admins can invite collaborators or assign issues.
+    const startupToken = await getGithubToken(String(problem.createdBy));
+    if (!startupToken) {
       return NextResponse.json(
-        { message: "GitHub authorization expired. Please sign in again." },
+        {
+          message:
+            "The startup's GitHub authorization has expired. Ask the startup to sign in again, then retry.",
+        },
         { status: 401 }
       );
     }
@@ -141,7 +146,7 @@ export async function POST(
 
     const isIssue = problem.contributionType === "issue";
     const headers = {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${startupToken}`,
       Accept: "application/vnd.github+json",
     };
     const repoApi = `https://api.github.com/repos/${problem.githubOwner}/${problem.githubRepoName}`;
