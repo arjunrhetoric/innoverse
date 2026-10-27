@@ -80,7 +80,7 @@ export default function CollaborationAgreementPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not sign the agreement");
-      if (typeof json.warning === "string") setWarning(json.warning);
+      if (typeof json.message === "string") setWarning(json.message);
       setDone(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not sign the agreement");
@@ -171,7 +171,7 @@ export default function CollaborationAgreementPage() {
                     <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
                       <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                       <p className="text-sm text-emerald-500">
-                        Agreement signed. Read access has been granted.
+                        Agreement signed.
                       </p>
                     </div>
                     {warning && (

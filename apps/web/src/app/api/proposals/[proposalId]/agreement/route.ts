@@ -175,30 +175,66 @@ export async function POST(
     const isRepoOwner = studentLogin === repoOwner;
     const isPublicRepo = repo.private === false;
 
-    let accessWarning: string | null = null;
+    type AccessState = "owner" | "collaborator" | "invited" | "public" | "granted";
+    let accessState: AccessState = "granted";
+
+    const existingAccess = async (): Promise<"collaborator" | "invited" | "none"> => {
+      try {
+        await axios.get(
+          `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}`,
+          { headers }
+        );
+        return "collaborator";
+      } catch {
+        // Not a collaborator (yet).
+      }
+      try {
+        const invitations = await axios.get(`${repoApi}/invitations?per_page=100`, { headers });
+        const pending = (invitations.data ?? []).some(
+          (inv: any) => inv.invitee?.login?.toLowerCase() === studentLogin
+        );
+        if (pending) return "invited";
+      } catch {
+        // Invitations list may be unavailable.
+      }
+      return "none";
+    };
 
     if (isRepoOwner) {
       // Owners already have access; GitHub rejects inviting them.
-      accessWarning = "The student owns this repository, so no invitation was needed.";
+      accessState = "owner";
     } else {
       try {
-        await axios.put(
+        const invite = await axios.put(
           `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}`,
           { permission: "pull" },
           { headers }
         );
+        // 204 = already a collaborator; 201 = invitation created.
+        accessState = invite.status === 204 ? "collaborator" : isPublicRepo ? "public" : "invited";
       } catch (error: any) {
         const status = error.response?.status;
         const githubMessage = error.response?.data?.message;
         console.error("Read access grant failed:", error.response?.data || error.message);
 
         if (status === 422) {
-          // Usually "already a collaborator" or an invitation already pending.
-          accessWarning = "The student was already invited or is already a collaborator.";
+          // Verify the real state instead of guessing from the status code.
+          const state = await existingAccess();
+          if (state === "collaborator") accessState = "collaborator";
+          else if (state === "invited") accessState = "invited";
+          else {
+            return NextResponse.json(
+              {
+                message: `GitHub rejected the invitation (422)${
+                  githubMessage ? `: ${githubMessage}` : ""
+                }. Check that the student's GitHub username is correct.`,
+              },
+              { status: 502 }
+            );
+          }
         } else if (isPublicRepo) {
           // Forking a public repository does not require an invitation.
-          accessWarning =
-            "Public repository: read access is open, so the student can fork without an invitation.";
+          accessState = "public";
         } else {
           return NextResponse.json(
             {
@@ -212,6 +248,18 @@ export async function POST(
       }
     }
 
+    // A private-repo invitation must be accepted before the repo link works.
+    let accessMessage =
+      accessState === "owner"
+        ? "You own this repository, so no invitation was needed."
+        : accessState === "collaborator"
+          ? "You already have access to this repository."
+          : accessState === "public"
+            ? "This is a public repository — fork it and open a pull request without an invitation."
+            : accessState === "invited"
+              ? "Invitation sent. Accept it on GitHub (email or notifications); the repository link returns 404 until you do."
+              : "Read access granted.";
+
     if (isIssue) {
       try {
         await axios.post(
@@ -223,9 +271,10 @@ export async function POST(
         const status = error.response?.status;
         const githubMessage = error.response?.data?.message;
         console.error("Issue assignment failed:", error.response?.data || error.message);
-        accessWarning = `The issue could not be assigned automatically (${status ?? "no response"}${
-          githubMessage ? `: ${githubMessage}` : ""
-        }). The student can still comment on it and open a pull request.`;
+        accessMessage +=
+          ` The issue could not be assigned automatically (${status ?? "no response"}${
+            githubMessage ? `: ${githubMessage}` : ""
+          }).`;
       }
     }
 
@@ -266,7 +315,8 @@ export async function POST(
 
     proposal.termsAcceptedAt = acceptedAt;
     proposal.termsAcceptedName = student.name;
-    proposal.accessGrantedAt = acceptedAt;
+    // For private repos, access is not active until the invitation is accepted.
+    proposal.accessGrantedAt = accessState === "invited" ? null : acceptedAt;
     proposal.agreementCode = agreementCode;
     proposal.agreementFile = agreementFile;
     await proposal.save();
@@ -282,11 +332,9 @@ export async function POST(
     });
 
     return NextResponse.json({
-      message: isIssue
-        ? "Agreement signed. The issue is assigned to you — fork the repo, open a pull request, and reference the issue."
-        : "Agreement signed. Read access granted — fork the repo and open a pull request.",
+      message: accessMessage,
       agreementCode,
-      ...(accessWarning ? { warning: accessWarning } : {}),
+      access: accessState,
     });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });

@@ -337,9 +337,14 @@ export default function StartupDashboard() {
                                 Awaiting student signature — repository access not granted yet.
                               </p>
                             )}
-                            {proposal.status === "Approved" && proposal.termsAcceptedAt && (
+                            {proposal.status === "Approved" && proposal.termsAcceptedAt && proposal.accessGrantedAt && (
                               <p className="mt-1 text-[11px] text-emerald-500">
                                 Agreement signed — read access granted.
+                              </p>
+                            )}
+                            {proposal.status === "Approved" && proposal.termsAcceptedAt && !proposal.accessGrantedAt && (
+                              <p className="mt-1 text-[11px] text-amber-500">
+                                Agreement signed — waiting for the student to accept the GitHub invitation.
                               </p>
                             )}
                           </div>

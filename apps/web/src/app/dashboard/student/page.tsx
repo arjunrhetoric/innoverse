@@ -299,7 +299,10 @@ function ProposalRow({ proposal, last }: { proposal: Proposal; last?: boolean })
             <Link href={`/project/${problemId}`}>Track</Link>
           </Button>
         )}
-        {proposal.status === "Approved" && proposal.termsAcceptedAt && proposal.repoUrl && (
+        {proposal.status === "Approved" && proposal.termsAcceptedAt && !proposal.accessGrantedAt && (
+          <span className="text-[11px] text-amber-500">Invite pending</span>
+        )}
+        {proposal.status === "Approved" && proposal.accessGrantedAt && proposal.repoUrl && (
           <Button size="sm" variant="ghost" asChild>
             <a href={proposal.repoUrl} target="_blank" rel="noopener noreferrer">
               Repo
