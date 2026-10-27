@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NEXTAUTH_SECRET: ci-secret-not-used
+      NEXTAUTH_URL: http://localhost:3000
+      TOKEN_ENCRYPTION_KEY: ci-key-not-used
+      GITHUB_CLIENT_ID: ci
+      GITHUB_CLIENT_SECRET: ci
+      MONGO_URI: mongodb://127.0.0.1:27017/innoverse-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit -p apps/web
+      - name: Unit tests
+        run: npm test --workspace apps/web
+      - name: Production build
+        run: npm run build --workspace apps/web

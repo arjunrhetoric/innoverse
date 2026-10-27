@@ -24,46 +24,25 @@ import { Progress } from "@/components/ui/progress";
 import { Hero } from "@/components/landing/hero";
 import { AppPreview } from "@/components/landing/app-preview";
 import { Workflow } from "@/components/landing/workflow";
+import { LiveMetrics } from "@/components/landing/live-metrics";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const metrics = [
-  { value: "500+", label: "Active students" },
-  { value: "120+", label: "Startup partners" },
-  { value: "350+", label: "Projects shipped" },
-  { value: "98%", label: "Satisfaction" },
-];
-
-const testimonials = [
+const reportPillars = [
   {
-    quote:
-      "INNOVERSE gave me a chance to work on real startup problems. The experience was 10x better than any classroom project.",
-    name: "Prakriti Tiwari",
-    title: "Computer Science Student",
+    title: "Evidence snapshot",
+    description:
+      "Merged pull requests, commits authored by the student, active days, lines changed, review comments and milestones — captured at sign-off and frozen.",
   },
   {
-    quote:
-      "We found amazing talent through this platform. The GitHub integration made collaboration seamless from day one.",
-    name: "Rahul Mehta",
-    title: "Founder, TechStart AI",
+    title: "Reviewer rubric",
+    description:
+      "The startup scores code quality, delivery, communication and testing on a weighted rubric. The overall score is shown, not hidden.",
   },
   {
-    quote:
-      "The certificate system and ratings helped me land my first internship. Recruiters loved seeing real project contributions.",
-    name: "Arjun Singh",
-    title: "Full-Stack Developer",
-  },
-  {
-    quote:
-      "As a startup with limited resources, INNOVERSE connected us with passionate students who delivered exceptional work.",
-    name: "Sarah Chen",
-    title: "CTO, DataFlow Labs",
-  },
-  {
-    quote:
-      "The milestone tracking and real-time dashboards kept everyone aligned. It felt like a professional dev environment.",
-    name: "Vikram Singh",
-    title: "Backend Developer Intern",
+    title: "Contribution confidence",
+    description:
+      "An explainable 0–100 score built from attribution signals, with every contributing reason printed on the report.",
   },
 ];
 
@@ -94,24 +73,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Metrics ───────────────────────────────────────────────── */}
+      {/* ─── Metrics (live from the database) ──────────────────────── */}
       <section className="border-b border-border">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 px-4 sm:px-6 lg:grid-cols-4">
-          {metrics.map((m, i) => (
-            <Reveal
-              key={m.label}
-              delay={i * 60}
-              className={`py-8 ${i !== 0 ? "border-l border-border pl-6 sm:pl-8" : ""} ${
-                i === 2 ? "max-lg:border-l-0 max-lg:pl-0" : ""
-              }`}
-            >
-              <p className="font-mono text-3xl font-medium tracking-tight text-foreground tabular-nums">
-                {m.value}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">{m.label}</p>
-            </Reveal>
-          ))}
-        </div>
+        <LiveMetrics />
       </section>
 
       {/* ─── Platform bento ────────────────────────────────────────── */}
@@ -264,33 +228,34 @@ export default function LandingPage() {
       <section id="community" className="scroll-mt-16 border-b border-border">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
           <SectionHeading
-            eyebrow="Community"
-            title="Built by people shipping real work"
+            eyebrow="Proof of work"
+            title="Evidence, not adjectives"
+            description="Every completed project produces a shareable report a hirer can audit in under a minute."
           />
           <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {testimonials.map((t, i) => (
-              <Reveal key={t.name} delay={(i % 3) * 60}>
-                <figure className="flex h-full flex-col rounded-lg border border-border bg-card p-6 transition-colors duration-100 hover:border-foreground/20">
-                  <blockquote className="flex-1 text-[15px] leading-relaxed text-foreground">
-                    &ldquo;{t.quote}&rdquo;
-                  </blockquote>
-                  <figcaption className="mt-5 border-t border-border pt-4">
-                    <p className="text-sm font-medium text-foreground">{t.name}</p>
-                    <p className="mt-0.5 font-mono text-xs text-muted-foreground">{t.title}</p>
-                  </figcaption>
-                </figure>
+            {reportPillars.map((pillar, i) => (
+              <Reveal key={pillar.title} delay={(i % 3) * 60}>
+                <div className="flex h-full flex-col rounded-lg border border-border bg-card p-6 transition-colors duration-100 hover:border-foreground/20">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    0{i + 1}
+                  </p>
+                  <h3 className="mt-3 text-[15px] font-medium text-foreground">{pillar.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {pillar.description}
+                  </p>
+                </div>
               </Reveal>
             ))}
             <Reveal delay={120}>
               <Link
-                href="/login"
+                href="/verify"
                 className="group flex h-full min-h-44 flex-col justify-between rounded-lg border border-dashed border-border p-6 transition-colors duration-100 hover:border-foreground/25 hover:bg-white/[0.02]"
               >
                 <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Join 500+ students
+                  Verify a credential
                 </p>
                 <span className="flex items-center gap-1.5 text-[15px] font-medium text-foreground">
-                  Start your first challenge
+                  Open the public report
                   <ArrowRight className="h-4 w-4 transition-transform duration-100 group-hover:translate-x-0.5" />
                 </span>
               </Link>

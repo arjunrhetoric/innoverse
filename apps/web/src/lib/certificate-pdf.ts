@@ -3,7 +3,14 @@ import QRCode from "qrcode";
 
 export interface CertificateEvidence {
   mergedPRs: number;
+  prsOpened?: number;
   commits: number;
+  commitsByStudent?: number;
+  commitsByOthers?: number;
+  activeDays?: number;
+  linesAdded?: number;
+  linesDeleted?: number;
+  reviewsGiven?: number;
   milestonesCompleted: number;
   milestonesTotal: number;
 }
@@ -20,6 +27,17 @@ export interface CertificateData {
   signatureBytes: Uint8Array;
   signatoryName: string;
   signatoryTitle: string;
+  rubric?: {
+    rows: Array<{ key: string; label: string; score: number; weight: number; weighted: number }>;
+    overall: number;
+  };
+  confidence?: {
+    score: number;
+    level: "high" | "medium" | "low";
+    reasons: string[];
+  };
+  summary?: string;
+  reportUrl?: string;
 }
 
 const NAVY = rgb(0.09, 0.13, 0.24);
@@ -269,6 +287,9 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Uint8
     color: GRAY,
   });
 
+  // ── Page 2: Proof-of-Work Report ──
+  await drawReportPage(doc, data, { serif, serifBold, sans, sansBold, mono });
+
   return doc.save();
 }
 
@@ -278,4 +299,186 @@ export function getBaseUrl() {
     process.env.BASE_URL ||
     "http://localhost:3000"
   ).replace(/\/$/, "");
+}
+
+function drawReportPage(
+  doc: PDFDocument,
+  data: CertificateData,
+  fonts: { serif: PDFFont; serifBold: PDFFont; sans: PDFFont; sansBold: PDFFont; mono: PDFFont }
+) {
+  const page = doc.addPage([841.89, 595.28]);
+  const W = page.getWidth();
+  const H = page.getHeight();
+  const { serifBold, sans, sansBold, mono } = fonts;
+  const ev = data.evidence;
+
+  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: IVORY });
+  page.drawRectangle({ x: 18, y: 18, width: W - 36, height: H - 36, borderColor: NAVY, borderWidth: 2.5 });
+  page.drawRectangle({ x: 26, y: 26, width: W - 52, height: H - 52, borderColor: GOLD, borderWidth: 1 });
+
+  page.drawText("INNOVERSE", { x: 56, y: H - 62, size: 12, font: sansBold, color: NAVY });
+  page.drawText(spaced("PROOF-OF-WORK REPORT"), { x: 56, y: H - 76, size: 6.5, font: sans, color: GRAY });
+  page.drawText(data.studentName, {
+    x: W - 56 - sansBold.widthOfTextAtSize(data.studentName, 11),
+    y: H - 62,
+    size: 11,
+    font: sansBold,
+    color: NAVY,
+  });
+  page.drawLine({ start: { x: 56, y: H - 92 }, end: { x: W - 56, y: H - 92 }, thickness: 0.75, color: GOLD_LIGHT });
+
+  page.drawText("Evidence snapshot", { x: 56, y: H - 118, size: 13, font: serifBold, color: NAVY });
+  page.drawText(data.problemTitle, { x: 56, y: H - 134, size: 9, font: sans, color: GRAY });
+
+  // ── Evidence table (left) ──
+  const attribution = ev.commits > 0
+    ? Math.round(((ev.commitsByStudent ?? 0) / Math.max(ev.commits, 1)) * 100)
+    : 0;
+  const rows: Array<[string, string]> = [
+    ["Merged pull requests", String(ev.mergedPRs)],
+    ["Pull requests opened", String(ev.prsOpened ?? 0)],
+    ["Commits authored by student", String(ev.commitsByStudent ?? 0)],
+    ["Commit attribution", `${attribution}%`],
+    ["Active contribution days", String(ev.activeDays ?? 0)],
+    ["Lines added / removed", `${ev.linesAdded ?? 0} / ${ev.linesDeleted ?? 0}`],
+    ["Review comments given", String(ev.reviewsGiven ?? 0)],
+    ["Milestones completed", `${ev.milestonesCompleted}/${ev.milestonesTotal}`],
+  ];
+
+  let rowY = H - 164;
+  for (const [label, value] of rows) {
+    page.drawText(label, { x: 56, y: rowY, size: 9, font: sans, color: GRAY });
+    page.drawText(value, {
+      x: 330 - sansBold.widthOfTextAtSize(value, 9),
+      y: rowY,
+      size: 9,
+      font: sansBold,
+      color: NAVY,
+    });
+    page.drawLine({
+      start: { x: 56, y: rowY - 5 },
+      end: { x: 330, y: rowY - 5 },
+      thickness: 0.25,
+      color: GOLD_LIGHT,
+    });
+    rowY -= 22;
+  }
+
+  // ── Rubric bars (right) ──
+  const barX = 400;
+  const barW = 220;
+  const barRight = barX + barW;
+  page.drawText("Reviewer rubric", { x: barX, y: H - 118, size: 13, font: serifBold, color: NAVY });
+
+  let rubricY = H - 152;
+  for (const row of data.rubric?.rows ?? []) {
+    page.drawText(row.label, { x: barX, y: rubricY, size: 8.5, font: sans, color: NAVY });
+    page.drawText(`${row.score.toFixed(1)} / 5`, {
+      x: barRight - sans.widthOfTextAtSize(`${row.score.toFixed(1)} / 5`, 8),
+      y: rubricY,
+      size: 8,
+      font: sans,
+      color: GRAY,
+    });
+    page.drawRectangle({
+      x: barX,
+      y: rubricY - 12,
+      width: barW,
+      height: 6,
+      color: rgb(0.9, 0.89, 0.86),
+    });
+    page.drawRectangle({
+      x: barX,
+      y: rubricY - 12,
+      width: Math.max(0, Math.min(1, row.score / 5)) * barW,
+      height: 6,
+      color: NAVY,
+    });
+    page.drawText(`weight ${Math.round(row.weight * 100)}%`, {
+      x: barX,
+      y: rubricY - 23,
+      size: 6.5,
+      font: sans,
+      color: GRAY,
+    });
+    rubricY -= 38;
+  }
+
+  if (data.rubric) {
+    page.drawText("Overall rubric score", { x: barX, y: rubricY - 6, size: 9, font: sans, color: GRAY });
+    page.drawText(`${data.rubric.overall.toFixed(2)} / 5`, {
+      x: barRight - sansBold.widthOfTextAtSize(`${data.rubric.overall.toFixed(2)} / 5`, 11),
+      y: rubricY - 8,
+      size: 11,
+      font: sansBold,
+      color: NAVY,
+    });
+  }
+
+  // ── Confidence block (bottom left) ──
+  const conf = data.confidence;
+  if (conf) {
+    page.drawText("Contribution confidence", { x: 56, y: 236, size: 11, font: serifBold, color: NAVY });
+    page.drawText(`${conf.score}`, { x: 56, y: 200, size: 30, font: serifBold, color: NAVY });
+    page.drawText("/ 100", { x: 56 + serifBold.widthOfTextAtSize(`${conf.score}`, 30) + 4, y: 202, size: 9, font: sans, color: GRAY });
+    page.drawRectangle({
+      x: 130,
+      y: 208,
+      width: 180,
+      height: 8,
+      color: rgb(0.9, 0.89, 0.86),
+    });
+    page.drawRectangle({
+      x: 130,
+      y: 208,
+      width: (conf.score / 100) * 180,
+      height: 8,
+      color: conf.level === "high" ? rgb(0.13, 0.55, 0.36) : conf.level === "medium" ? GOLD : rgb(0.7, 0.25, 0.25),
+    });
+    page.drawText(
+      conf.level.toUpperCase(),
+      { x: 132, y: 220, size: 7, font: sansBold, color: GRAY }
+    );
+
+    let reasonY = 180;
+    for (const reason of conf.reasons.slice(0, 4)) {
+      for (const line of wrapText(`• ${reason}`, sans, 7.5, 330).slice(0, 2)) {
+        page.drawText(line, { x: 56, y: reasonY, size: 7.5, font: sans, color: GRAY });
+        reasonY -= 10;
+      }
+    }
+  }
+
+  // ── Reviewer summary + verification footer ──
+  if (data.summary) {
+    page.drawText("Reviewer summary", { x: 420, y: 236, size: 9, font: sansBold, color: NAVY });
+    let summaryY = 220;
+    for (const line of wrapText(data.summary, sans, 8, 340).slice(0, 6)) {
+      page.drawText(line, { x: 420, y: summaryY, size: 8, font: sans, color: GRAY });
+      summaryY -= 11;
+    }
+  }
+
+  page.drawLine({ start: { x: 56, y: 74 }, end: { x: W - 56, y: 74 }, thickness: 0.5, color: GOLD_LIGHT });
+  page.drawText(
+    `Evidence captured ${data.issuedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} · Immutable snapshot`,
+    { x: 56, y: 58, size: 7, font: sans, color: GRAY }
+  );
+
+  const verifyUrl = data.reportUrl || `${getBaseUrl()}/r/${data.verificationCode}`;
+  page.drawText(verifyUrl, {
+    x: W - 56 - mono.widthOfTextAtSize(verifyUrl, 7),
+    y: 58,
+    size: 7,
+    font: mono,
+    color: GRAY,
+  });
+
+  page.drawText(spaced("INNOVERSE • VERIFIED EVIDENCE"), {
+    x: (W - sans.widthOfTextAtSize(spaced("INNOVERSE • VERIFIED EVIDENCE"), 6.5)) / 2,
+    y: 42,
+    size: 6.5,
+    font: sans,
+    color: GOLD,
+  });
 }

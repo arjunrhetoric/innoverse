@@ -40,12 +40,65 @@ const CertificateSchema = new mongoose.Schema({
     unique: true,
     default: () => crypto.randomBytes(16).toString('hex') // Add default value
   },
+  sha256: {
+    // Fingerprint of the generated PDF (integrity).
+    type: String,
+    default: null,
+  },
+  revoked: {
+    type: Boolean,
+    default: false,
+  },
+  revokedAt: Date,
+  revokedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+  },
+  revocationReason: {
+    type: String,
+    default: null,
+  },
   evidence: {
     mergedPRs: { type: Number, default: 0 },
+    prsOpened: { type: Number, default: 0 },
     commits: { type: Number, default: 0 },
+    commitsByStudent: { type: Number, default: 0 },
+    commitsByOthers: { type: Number, default: 0 },
+    activeDays: { type: Number, default: 0 },
+    linesAdded: { type: Number, default: 0 },
+    linesDeleted: { type: Number, default: 0 },
+    reviewsGiven: { type: Number, default: 0 },
     milestonesCompleted: { type: Number, default: 0 },
     milestonesTotal: { type: Number, default: 0 },
-  }
+    snapshotAt: { type: Date, default: null },
+  },
+  rubric: {
+    rows: [
+      {
+        key: String,
+        label: String,
+        score: Number,
+        weight: Number,
+        weighted: Number,
+      },
+    ],
+    overall: { type: Number, default: 0 },
+  },
+  confidence: {
+    score: { type: Number, default: 0 },
+    level: { type: String, enum: ["high", "medium", "low"], default: "low" },
+    reasons: { type: [String], default: [] },
+  },
+  summary: {
+    type: String,
+    default: "",
+  },
+  publicToken: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
 }, {
   toJSON: { virtuals: true },
   toObject: { virtuals: true }

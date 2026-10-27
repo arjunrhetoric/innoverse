@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, User } from "@innoverse/database";
-import { uploadPublic } from "@/lib/storage";
+import { uploadFile, readStoredBytes } from "@/lib/storage";
+import { detectType, validateBytes, IMAGE_TYPES } from "@/lib/file-signature";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,11 @@ async function saveImage(file: File, prefix: string): Promise<string> {
     throw new Error("Images must be under 5MB");
   }
   const buffer = Buffer.from(await file.arrayBuffer());
-  return uploadPublic(buffer, "uploads/branding", `${prefix}-${file.name || "image.png"}`, file.type);
+  const detected = detectType(buffer);
+  if (!IMAGE_TYPES.includes(detected)) {
+    throw new Error("Logo and signature must be PNG or JPG images");
+  }
+  return uploadFile(buffer, "uploads/branding", `${prefix}-${file.name || "image.png"}`, file.type);
 }
 
 export async function GET() {
@@ -79,11 +84,31 @@ export async function PUT(req: NextRequest) {
     const sigFile = asFile(signature);
 
     if (logoUrl) {
+      let check;
+      try {
+        const bytes = await readStoredBytes(logoUrl);
+        check = validateBytes(bytes.subarray(0, 64), IMAGE_TYPES);
+      } catch {
+        check = { ok: false, detected: "unknown" as const, reason: "Could not read the uploaded logo" };
+      }
+      if (!check.ok) {
+        return NextResponse.json({ message: check.reason || "Invalid logo image" }, { status: 400 });
+      }
       user.startupLogo = logoUrl;
     } else if (logoFile) {
       user.startupLogo = await saveImage(logoFile, "logo");
     }
     if (sigUrl) {
+      let check;
+      try {
+        const bytes = await readStoredBytes(sigUrl);
+        check = validateBytes(bytes.subarray(0, 64), IMAGE_TYPES);
+      } catch {
+        check = { ok: false, detected: "unknown" as const, reason: "Could not read the uploaded signature" };
+      }
+      if (!check.ok) {
+        return NextResponse.json({ message: check.reason || "Invalid signature image" }, { status: 400 });
+      }
       user.signatureImage = sigUrl;
     } else if (sigFile) {
       user.signatureImage = await saveImage(sigFile, "sign");

@@ -9,84 +9,89 @@
 ╚═╝╚═╝  ╚═══╝╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝
 ```
 
-### *Where ideas meet execution.*
+**The evidence layer for early-career hiring.**
 
 </div>
 
-## What is Innoverse?
+Résumés and slide decks don't prove anything. Innoverse runs a hiring pipeline where the proof is **merged code**: startups post real work, students ship it through GitHub pull requests, and every claim ends in a verifiable **Proof-of-Work Report** — not a certificate with nothing behind it.
 
-**Innoverse** connects student developers with startup founders. Startups post real innovation challenges (backed by GitHub repos), students submit proposals, collaborate through pull requests with inline review, track milestones on live dashboards, and earn verifiable certificates on completion.
+## The loop
 
-## Tech Stack
+1. A startup posts a challenge. Innoverse creates a private GitHub repo and adds the approved student as a collaborator.
+2. Work happens on GitHub. Innoverse provides PR review with inline comments, file/commit/diff views, approvals, reviewer requests, and live updates.
+3. Milestones track delivery; only the startup that owns the challenge can manage or complete them.
+4. At sign-off the startup scores a weighted rubric and writes a summary.
+5. Innoverse snapshots the evidence from GitHub and issues a two-page PDF: the certificate, plus an evidence report with a **confidence score and its reasons**.
+6. Anyone can open `/r/{token}` or scan the QR to audit the evidence — no account required. Certificates can be revoked, and the public page then says so.
 
-| Layer | Technology |
+## What makes the claim falsifiable
+
+| Signal | Source |
 |---|---|
-| Framework | Next.js 16 (App Router) + React 19 |
-| Monorepo | npm workspaces + Turborepo |
-| Database | MongoDB + Mongoose (`packages/database`) |
-| Shared types | TypeScript (`packages/types`) |
-| Auth | NextAuth (GitHub OAuth) |
-| Real-time | Server-Sent Events (`/api/events`) |
-| Styling | Tailwind CSS + shadcn-style components |
-| Certificates | Server-generated PDFs (`pdf-lib`) with QR verification |
+| Merged pull requests by the student | GitHub API, captured at sign-off |
+| Commit attribution (student vs others) | GitHub commits |
+| Active days, lines added/removed | GitHub API |
+| Review comments given | GitHub issue comments |
+| Milestones completed | Innoverse database |
+| Reviewer rubric (quality, delivery, communication, testing) | Startup, weighted |
+| Confidence score 0–100 with printed reasons | Deterministic and explainable |
 
-## Project Structure
+The evidence snapshot is frozen into the report. Later changes to the repo do not rewrite history.
+
+## Security model
+
+- **GitHub tokens are never sent to the browser.** They are encrypted at rest (AES-256-GCM) and resolved server-side per request.
+- **Object-level authorization in one place** (`lib/policy.ts`): only the challenge owner can review proposals, manage milestones, issue or revoke certificates.
+- **Verified startups only** can post challenges or mint certificates (business-email domain validation; dev bypass is disabled in production builds).
+- **Audit trail** of role selection, proposals, milestones, and certificate issue/revoke, viewable by the owner.
+- **Input validation** with Zod on mutating routes; uploads are checked by magic bytes and HTML/SVG is rejected.
+- **Private file storage:** proposals and branding assets are never served directly from storage. Downloads go through authorized routes (`/api/proposals/[id]/file`, `/api/branding/[kind]`); public certificates are served by verification code. The storage access mode is auto-detected or pinned with `BLOB_ACCESS`.
+- **Rate limits** on authentication, uploads, proposals, certificates, and GitHub write actions.
+- **Certificate integrity:** SHA-256 fingerprint stored, public revocation with reason.
+- CI runs typecheck, unit tests, and a production build on every push.
+
+## Stack
+
+Next.js 16 (App Router) · React 19 · TypeScript · MongoDB/Mongoose · NextAuth (GitHub OAuth) · Tailwind · pdf-lib · Vercel Blob · Redis pub/sub + SSE · Vitest
 
 ```
-innoverse/
-├── apps/web/                 → Next.js app (pages + API routes)
-│   └── src/
-│       ├── app/              → routes, incl. api/pr/*, milestones, certificates
-│       ├── components/       → UI, incl. pr-review, certificate-section
-│       └── lib/              → auth, api client, github, realtime, diff
-├── packages/
-│   ├── database/             → Mongoose models + connection
-│   └── types/                → shared TypeScript types
-├── turbo.json
-└── .env.example              → required environment variables
+apps/web          Next.js app (pages + API routes)
+packages/database Mongoose models and connection
+packages/types    Shared TypeScript contracts
 ```
 
-## Getting Started
-
-Prerequisites: Node.js v18+, MongoDB (local or Atlas), npm.
+## Run it
 
 ```bash
 git clone https://github.com/arjunrhetoric/innoverse.git
 cd innoverse
 npm install
-cp .env.example apps/web/.env.local   # then fill in values
-npm run dev
-# → http://localhost:3000
+cp .env.example apps/web/.env.local   # fill in values
+npm run dev                            # http://localhost:3000
 ```
 
-Create a GitHub OAuth app with authorization callback URL
+Requires Node 18+, MongoDB, and a GitHub OAuth app whose callback is
 `http://localhost:3000/api/auth/callback/github`.
 
-## Scripts
+Seed a demo dataset locally (development only):
 
 ```bash
-npm run dev     # all workspaces (turbo)
-npm run build   # production build
-npm run lint    # eslint
+curl -X POST http://localhost:3000/api/dev/seed
 ```
 
-## Environment
+## Tests
 
-See `.env.example`. Never commit real secrets — `.env*` files are gitignored.
+```bash
+npm test --workspace apps/web
+npx tsc --noEmit -p apps/web
+```
 
-## Deploying to Vercel
+## Roadmap
 
-1. Push to GitHub, then import the repo in Vercel with **Root Directory `apps/web`**.
-2. Provision in Vercel Dashboard → Storage:
-   - **Blob** → `BLOB_READ_WRITE_TOKEN` (proposal files, certificates, branding images)
-   - **Upstash Redis / KV** → `REDIS_URL` (live updates across serverless instances)
-3. Use a **MongoDB Atlas** URI for `MONGODB_URI` with network access `0.0.0.0/0`.
-4. In your GitHub OAuth app, add the production callback
-   `https://<your-domain>/api/auth/callback/github`.
-5. Set `NEXTAUTH_URL=https://<your-domain>` and a generated `NEXTAUTH_SECRET`.
-6. Notes: the SSE stream reconnects automatically (serverless caps each
-   stream at ~60s); uploads require the Blob token since serverless
-   filesystems are read-only.
+- **Now:** challenge-based hiring — companies use reports instead of résumés.
+- **Next:** university capstone cohorts; the same report becomes accreditation evidence.
+- **Later:** paid micro-internships with escrow; the report becomes the deliverable.
+- **Platform:** GitHub App (short-lived per-repo tokens instead of OAuth `repo` scope), organizations with team roles, SSO for enterprise buyers.
 
 ## License
 

@@ -6,3 +6,4 @@ export { default as Certificate } from './models/Certificate';
 export { default as Milestone } from './models/Milestone';
 export { default as Notification } from './models/Notification';
 export { default as InlineComment } from './models/InlineComment';
+export { default as AuditEvent } from './models/AuditEvent';

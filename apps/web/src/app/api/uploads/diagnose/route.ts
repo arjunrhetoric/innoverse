@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { put, del } from "@vercel/blob";
+import { resolveBlobAccess } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +27,11 @@ export async function GET() {
       });
     }
 
+    const access = await resolveBlobAccess();
     const probeName = `innoverse/__healthcheck-${Date.now()}.txt`;
     try {
       const blob = await put(probeName, "innoverse-blob-healthcheck", {
-        access: "public",
+        access,
         contentType: "text/plain",
         token,
       });
@@ -37,8 +39,9 @@ export async function GET() {
       return NextResponse.json({
         tokenPresent: true,
         putOk: true,
+        access,
         url: blob.url,
-        message: "Blob store is reachable and accepting uploads.",
+        message: `Blob store is reachable and accepting ${access} uploads.`,
       });
     } catch (err: any) {
       return NextResponse.json({

@@ -133,8 +133,19 @@ export const certificates = {
         issuedAt: string;
         verificationCode: string;
         certificateFile: string;
+        sha256?: string | null;
+        revoked?: boolean;
+        revokedAt?: string | null;
+        revocationReason?: string | null;
+        evidence?: { mergedPRs: number; commits: number; milestonesCompleted: number; milestonesTotal: number } | null;
       };
     }>(`/api/certificates/verify/${encodeURIComponent(code)}`),
+
+  revoke: (id: string, reason: string) =>
+    request(`/api/certificates/${id}/revoke`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
 
   submit: (formData: FormData) =>
     fetch("/api/certificates/submit", {

@@ -19,8 +19,13 @@ const UserSchema  = new mongoose.Schema({
     required: true,
   },
   accessToken: {
+    // Legacy plaintext field — migrated to githubTokenEnc on next sign-in.
     type: String,
-  }, 
+  },
+  githubTokenEnc: {
+    // AES-256-GCM ciphertext; never leaves the server.
+    type: String,
+  },
   role: {
     type: String,
     enum: ['Student', 'Startup', null],

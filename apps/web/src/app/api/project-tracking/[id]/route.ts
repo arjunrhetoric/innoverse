@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, Problem, Milestone } from "@innoverse/database";
+import { getGithubToken } from "@/lib/github-token";
 
 export async function GET(
   req: NextRequest,
@@ -12,6 +13,7 @@ export async function GET(
     if (!session) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
+    const accessToken = await getGithubToken(session.user.id);
 
     const { id } = await params;
     await connectDB();
@@ -38,13 +40,13 @@ export async function GET(
 
     // 4. Fetch pull requests from GitHub if repo info is available
     let pullRequests: any[] = [];
-    if (problem.githubOwner && problem.githubRepoName && session.accessToken) {
+    if (problem.githubOwner && problem.githubRepoName && accessToken) {
       try {
         const res = await fetch(
           `https://api.github.com/repos/${problem.githubOwner}/${problem.githubRepoName}/pulls?state=all&per_page=50`,
           {
             headers: {
-              Authorization: `Bearer ${session.accessToken}`,
+              Authorization: `Bearer ${accessToken}`,
               Accept: "application/vnd.github.v3+json",
             },
           }

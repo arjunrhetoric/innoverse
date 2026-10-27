@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, XCircle, Star, Download } from "lucide-react";
+import { ShieldCheck, XCircle, Star, Download, Ban } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,27 @@ export default function VerifyResultPage() {
         <div className="mx-auto max-w-lg">
           {loading ? (
             <Skeleton className="h-64 w-full rounded-xl" />
+          ) : result?.certificate?.revoked ? (
+            <div className="rounded-xl border border-red-500/30 bg-card p-8 text-center">
+              <Ban className="mx-auto mb-4 h-12 w-12 text-red-500" />
+              <h1 className="mb-1 text-xl font-medium tracking-tight text-red-500">Certificate Revoked</h1>
+              <p className="mb-6 text-sm text-muted-foreground">
+                This certificate was issued by {result.certificate.startupName} and has since been revoked.
+              </p>
+              <div className="mb-6 space-y-2 rounded-lg border border-border bg-background p-4 text-left text-sm">
+                <p><span className="text-muted-foreground">Awarded to:</span> <span className="font-medium">{result.certificate.studentName}</span></p>
+                <p><span className="text-muted-foreground">Project:</span> <span className="font-medium">{result.certificate.problemTitle}</span></p>
+                {result.certificate.revokedAt && (
+                  <p><span className="text-muted-foreground">Revoked:</span> {formatDate(result.certificate.revokedAt)}</p>
+                )}
+                {result.certificate.revocationReason && (
+                  <p><span className="text-muted-foreground">Reason:</span> {result.certificate.revocationReason}</p>
+                )}
+              </div>
+              <Button variant="outline" asChild>
+                <Link href="/verify">Verify another code</Link>
+              </Button>
+            </div>
           ) : result?.valid ? (
             <div className="rounded-xl border border-emerald-500/30 bg-card p-8 text-center">
               <ShieldCheck className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
@@ -59,13 +80,26 @@ export default function VerifyResultPage() {
                     </p>
                   </div>
                 )}
+                {result.certificate.sha256 && (
+                  <div className="pt-2 mt-2 border-t border-border/60">
+                    <p className="text-muted-foreground mb-1">Document fingerprint (SHA-256):</p>
+                    <p className="font-mono text-[10px] break-all text-muted-foreground">{result.certificate.sha256}</p>
+                  </div>
+                )}
                 <div className="pt-1">
                   <CopyButton value={result.certificate.verificationCode} />
                 </div>
+                {result.certificate.publicToken && (
+                  <div className="pt-2">
+                    <Link href={`/r/${result.certificate.publicToken}`} className="text-sm font-medium text-primary underline underline-offset-4">
+                      Open the full Proof-of-Work Report →
+                    </Link>
+                  </div>
+                )}
               </div>
               {result.certificate.certificateFile && (
                 <Button variant="outline" asChild>
-                  <a href={result.certificate.certificateFile} target="_blank" rel="noopener noreferrer">
+                  <a href={`/api/certificates/verify/${result.certificate.verificationCode}/file`} target="_blank" rel="noopener noreferrer">
                     <Download className="mr-2 h-4 w-4" />
                     Download Certificate
                   </a>

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { blobAccess, resolveBlobAccess } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    const limit = await checkRateLimit(`upload-token:${session.user.id}`, 30, 60);
+    if (!limit.ok) return rateLimitResponse(limit);
+
     const body = (await req.json()) as HandleUploadBody & { probe?: boolean };
 
     // Lightweight availability probe so the browser can choose between
@@ -23,6 +28,7 @@ export async function POST(req: NextRequest) {
     if ((body as { probe?: boolean })?.probe) {
       return NextResponse.json({
         directUpload: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+        access: await resolveBlobAccess(),
       });
     }
 

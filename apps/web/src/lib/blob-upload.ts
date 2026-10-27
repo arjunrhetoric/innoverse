@@ -76,6 +76,7 @@ export async function uploadDirect(
   if (!probe?.directUpload) {
     throw new DirectUploadUnavailableError();
   }
+  const access: "public" | "private" = probe.access === "public" ? "public" : "private";
 
   // Bound the attempt: the client SDK retries failed parts internally,
   // which otherwise looks like a hung loader when the API keeps refusing.
@@ -83,7 +84,7 @@ export async function uploadDirect(
   const timeout = setTimeout(() => controller.abort(), 180_000);
   try {
     const blob = await upload(folderFor(kind, file.name || "file"), file, {
-      access: "public",
+      access,
       contentType: contentTypeFor(file.name || "", file.type),
       handleUploadUrl: "/api/uploads/token",
       abortSignal: controller.signal,

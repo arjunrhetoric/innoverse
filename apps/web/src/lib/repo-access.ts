@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectDB, Problem, Proposal } from "@innoverse/database";
 import mongoose from "mongoose";
+import { checkRateLimit, rateLimitResponse } from "./rate-limit";
+
+/** Write actions per user per minute across the GitHub proxy. */
+const PR_WRITE_LIMIT = 60;
 
 function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -23,6 +27,9 @@ export async function requireRepoRole(
   userId: string,
   role: "participant" | "maintainer"
 ): Promise<{ problems: any[] } | NextResponse> {
+  const limit = await checkRateLimit(`pr-write:${userId}`, PR_WRITE_LIMIT, 60);
+  if (!limit.ok) return rateLimitResponse(limit);
+
   await connectDB();
 
   let problems = (await Problem.find({

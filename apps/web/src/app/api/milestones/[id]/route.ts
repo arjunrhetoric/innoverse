@@ -5,13 +5,28 @@ import { authOptions } from "@/lib/auth";
 import { connectDB, Milestone } from "@innoverse/database";
 import { requireMilestoneOwner } from "@/lib/repo-access";
 import { emitMilestone } from "@/lib/realtime";
+import { audit } from "@/lib/audit";
+import { z } from "zod";
+
+const UpdateMilestoneSchema = z.object({
+  title: z.string().trim().min(2).max(200).optional(),
+  description: z.string().trim().max(2000).optional(),
+  deadline: z.string().optional(),
+});
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     const { id } = await params;
-    const { title, description, deadline } = await req.json();
+    const parsed = UpdateMilestoneSchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json(
+        { message: "Invalid milestone update", issues: parsed.error.issues.map((i) => i.message) },
+        { status: 400 }
+      );
+    }
+    const { title, description, deadline } = parsed.data;
 
     await connectDB();
     const existing = (await Milestone.findById(id).lean()) as any;
@@ -30,6 +45,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       "updated",
       { id: session.user.id, name: session.user.name }
     );
+
+    await audit({
+      actorId: session.user.id,
+      actorName: session.user.name ?? null,
+      action: "milestone.updated",
+      resourceType: "Milestone",
+      resourceId: id,
+      metadata: { problemId: existing.problemId ? String(existing.problemId) : null },
+      request: req,
+    });
 
     return NextResponse.json({ message: "Milestone updated", milestone });
   } catch (error: any) {
@@ -60,6 +85,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       "deleted",
       { id: session.user.id, name: session.user.name }
     );
+
+    await audit({
+      actorId: session.user.id,
+      actorName: session.user.name ?? null,
+      action: "milestone.deleted",
+      resourceType: "Milestone",
+      resourceId: id,
+      metadata: { problemId: existing.problemId ? String(existing.problemId) : null },
+      request: req,
+    });
 
     return NextResponse.json({ message: "Milestone deleted" });
   } catch (error: any) {

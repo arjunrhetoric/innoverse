@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { getGithubToken } from "@/lib/github-token";
 import { getPrParams, githubError, githubFetch } from "@/lib/github";
 import { requireRepoRole } from "@/lib/repo-access";
 import { emitPr } from "@/lib/realtime";
@@ -9,9 +10,14 @@ import { emitPr } from "@/lib/realtime";
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.accessToken) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    if (!session) {
+          return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+    
+        const accessToken = await getGithubToken(session.user.id);
+        if (!accessToken) {
+          return NextResponse.json({ message: "GitHub authorization expired. Please sign in again." }, { status: 401 });
+        }
 
     const body = await req.json();
     const params = getPrParams({
@@ -42,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     const data = await githubFetch(
       `https://api.github.com/repos/${params.repoOwner}/${encodeURIComponent(params.repoName)}/pulls/${params.pullNumber}/requested_reviewers`,
-      session.accessToken,
+      accessToken,
       { method: "POST", data: { reviewers } }
     );
     void emitPr(params.repoOwner, params.repoName, params.pullNumber, {
