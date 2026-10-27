@@ -128,3 +128,49 @@ export function canManageCohort(
   }
   return allow;
 }
+
+/** Paid engagements: one startup + one student, both must be a party. */
+export function canCreateEngagement(
+  actor: Actor,
+  challenge: { createdBy: unknown }
+): Decision {
+  const role = requireStartup(actor);
+  if (!role.allowed) return role;
+  if (!isChallengeOwner(actor, challenge)) {
+    return deny("Only the startup that posted this challenge can create an engagement");
+  }
+  return allow;
+}
+
+export function canViewEngagement(
+  actor: Actor,
+  engagement: { startupId: unknown; studentId: unknown }
+): Decision {
+  if (sameId(actor.id, engagement.startupId) || sameId(actor.id, engagement.studentId)) {
+    return allow;
+  }
+  return deny("Only the two parties can view this engagement");
+}
+
+export function canAcceptEngagement(
+  actor: Actor,
+  engagement: { studentId: unknown }
+): Decision {
+  if (actor.role !== "Student") return deny("Only the student can accept this engagement");
+  if (!sameId(actor.id, engagement.studentId)) {
+    return deny("Only the invited student can accept this engagement");
+  }
+  return allow;
+}
+
+export function canManageEngagement(
+  actor: Actor,
+  engagement: { startupId: unknown }
+): Decision {
+  const role = requireStartup(actor);
+  if (!role.allowed) return role;
+  if (!sameId(actor.id, engagement.startupId)) {
+    return deny("Only the startup party can manage this engagement");
+  }
+  return allow;
+}

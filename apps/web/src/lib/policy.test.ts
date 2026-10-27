@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  canAcceptEngagement,
   canCreateChallenge,
+  canCreateEngagement,
   canDeleteChallenge,
   canIssueCertificate,
   canManageCohort,
+  canManageEngagement,
   canManageMilestones,
   canReviewProposal,
   canRevokeCertificate,
+  canViewEngagement,
   requireInstitution,
   type Actor,
 } from "./policy";
@@ -79,5 +83,34 @@ describe("institution cohorts", () => {
     expect(canManageCohort(institution, cohort).allowed).toBe(true);
     expect(canManageCohort(otherInstitution, cohort).allowed).toBe(false);
     expect(canManageCohort(owner, cohort).allowed).toBe(false);
+  });
+});
+
+describe("paid engagements", () => {
+  const engagement = { startupId: "u1", studentId: "s1" };
+  const otherStudent: Actor = { id: "s2", role: "Student" };
+
+  it("only parties can view an engagement", () => {
+    expect(canViewEngagement(owner, engagement).allowed).toBe(true);
+    expect(canViewEngagement(student, engagement).allowed).toBe(true);
+    expect(canViewEngagement(otherStudent, engagement).allowed).toBe(false);
+    expect(canViewEngagement(otherStartup, engagement).allowed).toBe(false);
+  });
+
+  it("only the invited student can accept", () => {
+    expect(canAcceptEngagement(student, engagement).allowed).toBe(true);
+    expect(canAcceptEngagement(otherStudent, engagement).allowed).toBe(false);
+    expect(canAcceptEngagement(owner, engagement).allowed).toBe(false);
+  });
+
+  it("only the startup party manages payments", () => {
+    expect(canManageEngagement(owner, engagement).allowed).toBe(true);
+    expect(canManageEngagement(otherStartup, engagement).allowed).toBe(false);
+    expect(canManageEngagement(student, engagement).allowed).toBe(false);
+  });
+
+  it("only the challenge owner can create an engagement", () => {
+    expect(canCreateEngagement(owner, challenge).allowed).toBe(true);
+    expect(canCreateEngagement(otherStartup, challenge).allowed).toBe(false);
   });
 });

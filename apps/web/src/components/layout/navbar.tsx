@@ -20,6 +20,7 @@ import {
   Users,
   UserCircle2,
   Bookmark,
+  Handshake,
 } from "lucide-react";
 import { GithubIcon as Github } from "@/components/ui/icons";
 import { signOut } from "next-auth/react";
@@ -228,12 +229,20 @@ export function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                     {user?.role === "Student" && (
-                      <DropdownMenuItem asChild>
-                        <Link href="/settings/profile">
-                          <UserCircle2 className="mr-2 h-4 w-4" />
-                          Public Profile
-                        </Link>
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link href="/settings/profile">
+                            <UserCircle2 className="mr-2 h-4 w-4" />
+                            Public Profile
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/engagements">
+                            <Handshake className="mr-2 h-4 w-4" />
+                            Engagements
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
                     )}
                     {user?.role === "Startup" && (
                       <>
@@ -253,6 +262,12 @@ export function Navbar() {
                           <Link href="/shortlist">
                             <Bookmark className="mr-2 h-4 w-4" />
                             Shortlist
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/engagements">
+                            <Handshake className="mr-2 h-4 w-4" />
+                            Engagements
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>

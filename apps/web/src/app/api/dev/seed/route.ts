@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { connectDB, Certificate, Cohort, CohortMember, Problem, Proposal, User } from "@innoverse/database";
+import { connectDB, Certificate, Cohort, CohortMember, Engagement, Problem, Proposal, User } from "@innoverse/database";
 import crypto from "crypto";
 import QRCode from "qrcode";
 import { renderCertificatePdf, getBaseUrl } from "@/lib/certificate-pdf";
+import { renderContractPdf } from "@/lib/engagement-pdf";
 import { uploadFile } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
@@ -269,6 +270,104 @@ export async function POST() {
         evidence,
         rubric,
         confidence,
+      });
+    }
+
+    // Paid engagement demo: active, with mixed milestone states.
+    const existingEngagement = await Engagement.findOne({
+      problemId: problemDocs[0]._id,
+      studentId: studentDocs[0]._id,
+    });
+    if (!existingEngagement) {
+      const contractCode = `INV-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+      const acceptedAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+      const contractMilestones = [
+        { title: "Ingestion service + schema", amount: 20000, dueDate: new Date(Date.now() - 20 * 864e5).toISOString() },
+        { title: "Realtime dashboard", amount: 25000, dueDate: new Date(Date.now() - 5 * 864e5).toISOString() },
+        { title: "Load test + handover", amount: 15000, dueDate: new Date(Date.now() + 10 * 864e5).toISOString() },
+      ];
+      const contractPdf = await renderContractPdf({
+        contractCode,
+        title: "Telemetry pipeline delivery",
+        description:
+          "Build the ingestion service and realtime dashboard for fleet telemetry, then load-test and hand over.",
+        challengeTitle: problemDocs[0].title,
+        startupName: "Acme Labs",
+        studentName: studentDocs[0].name,
+        currency: "INR",
+        totalAmount: 60000,
+        milestones: contractMilestones,
+        issuedAt: acceptedAt,
+        startupSignatoryName: "Demo Founder",
+        startupSignatoryTitle: "CEO",
+        signatureBytes: null,
+        studentAcceptedName: studentDocs[0].name,
+        studentAcceptedAt: acceptedAt,
+      });
+      const contractFile = await uploadFile(
+        Buffer.from(contractPdf),
+        "contracts",
+        `engagement-${contractCode}.pdf`,
+        "application/pdf"
+      );
+
+      await Engagement.create({
+        problemId: problemDocs[0]._id,
+        startupId: startupDocs[0]._id,
+        studentId: studentDocs[0]._id,
+        title: "Telemetry pipeline delivery",
+        description:
+          "Build the ingestion service and realtime dashboard for fleet telemetry, then load-test and hand over.",
+        currency: "INR",
+        totalAmount: 60000,
+        milestones: [
+          {
+            title: "Ingestion service + schema",
+            amount: 20000,
+            dueDate: new Date(Date.now() - 20 * 864e5),
+            status: "Confirmed",
+            paidAt: new Date(Date.now() - 18 * 864e5),
+            confirmedAt: new Date(Date.now() - 17 * 864e5),
+          },
+          {
+            title: "Realtime dashboard",
+            amount: 25000,
+            dueDate: new Date(Date.now() - 5 * 864e5),
+            status: "Paid",
+            paidAt: new Date(Date.now() - 2 * 864e5),
+            paidReference: "UTR-8842",
+          },
+          {
+            title: "Load test + handover",
+            amount: 15000,
+            dueDate: new Date(Date.now() + 10 * 864e5),
+            status: "Pending",
+          },
+        ],
+        status: "Active",
+        ipAssignmentAccepted: true,
+        studentAcceptedAt: acceptedAt,
+        studentAcceptedName: studentDocs[0].name,
+        contractCode,
+        contractFile,
+      });
+    }
+
+    // Draft invitation, ready to accept during the demo.
+    if (!(await Engagement.exists({ problemId: problemDocs[1]._id, studentId: studentDocs[1]._id }))) {
+      await Engagement.create({
+        problemId: problemDocs[1]._id,
+        startupId: startupDocs[0]._id,
+        studentId: studentDocs[1]._id,
+        title: "Document ingestion pipeline",
+        description: "Extract, chunk and summarise PDFs with cited summaries.",
+        currency: "INR",
+        totalAmount: 45000,
+        milestones: [
+          { title: "Ingestion + extraction", amount: 20000, status: "Pending" },
+          { title: "Summaries with citations", amount: 25000, status: "Pending" },
+        ],
+        status: "Draft",
       });
     }
 

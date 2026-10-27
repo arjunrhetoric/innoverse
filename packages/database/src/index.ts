@@ -10,3 +10,4 @@ export { default as AuditEvent } from './models/AuditEvent';
 export { default as Shortlist } from './models/Shortlist';
 export { default as Cohort } from './models/Cohort';
 export { default as CohortMember } from './models/CohortMember';
+export { default as Engagement } from './models/Engagement';

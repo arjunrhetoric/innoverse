@@ -26,6 +26,8 @@ Résumés and slide decks don't prove anything. Innoverse runs a hiring pipeline
 
 **Universities** create a cohort with a join code; students enrol themselves, and the institution sees each member's reports, confidence, merged PRs, and cohort-wide participation — evidence that maps directly to accreditation and placement reporting.
 
+**Paid engagements** turn a completed project into a transaction: the startup scopes milestones with amounts, the student accepts the IP-assignment terms, and acceptance generates a signed one-page agreement. Payments are recorded manually with a reference (no gateway yet) and confirmed by the student; the engagement closes when every milestone is confirmed.
+
 ## What makes the claim falsifiable
 
 | Signal | Source |
