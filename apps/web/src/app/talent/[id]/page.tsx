@@ -17,6 +17,7 @@ import { Footer } from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUser } from "@/hooks/useUser";
 import { formatDate } from "@/lib/utils";
 
 interface Profile {
@@ -47,9 +48,12 @@ interface Profile {
 export default function TalentProfilePage() {
   const params = useParams();
   const id = params.id as string;
+  const { user } = useUser();
   const [data, setData] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [shortlisted, setShortlisted] = useState(false);
+  const [savingShortlist, setSavingShortlist] = useState(false);
 
   useEffect(() => {
     fetch(`/api/talent/${id}`)
@@ -61,6 +65,41 @@ export default function TalentProfilePage() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Profile not found"))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (user?.role !== "Startup") return;
+    fetch("/api/shortlist", { credentials: "include" })
+      .then((res) => res.json())
+      .then((json) =>
+        setShortlisted(
+          (json.shortlist ?? []).some((entry: any) => entry.student?.id === id)
+        )
+      )
+      .catch(() => null);
+  }, [user, id]);
+
+  const toggleShortlist = async () => {
+    setSavingShortlist(true);
+    setError("");
+    try {
+      const res = await fetch(
+        shortlisted ? `/api/shortlist/${id}` : "/api/shortlist",
+        {
+          method: shortlisted ? "DELETE" : "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          ...(shortlisted ? {} : { body: JSON.stringify({ studentId: id }) }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Could not update shortlist");
+      setShortlisted(!shortlisted);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not update shortlist");
+    } finally {
+      setSavingShortlist(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -118,12 +157,28 @@ export default function TalentProfilePage() {
                     </div>
                   </div>
                   {data.reports[0] && (
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/r/${data.reports[0].token}`}>
-                        Open latest report
-                        <ExternalLink className="ml-1 h-3 w-3" />
-                      </Link>
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/r/${data.reports[0].token}`}>
+                          Open latest report
+                          <ExternalLink className="ml-1 h-3 w-3" />
+                        </Link>
+                      </Button>
+                      {user?.role === "Startup" && (
+                        <Button
+                          size="sm"
+                          variant={shortlisted ? "ghost" : "gradient"}
+                          onClick={toggleShortlist}
+                          disabled={savingShortlist}
+                        >
+                          {savingShortlist
+                            ? "Saving…"
+                            : shortlisted
+                              ? "Remove from shortlist"
+                              : "Shortlist"}
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
 

@@ -19,6 +19,7 @@ import {
   Building2,
   Users,
   UserCircle2,
+  Bookmark,
 } from "lucide-react";
 import { GithubIcon as Github } from "@/components/ui/icons";
 import { signOut } from "next-auth/react";
@@ -246,6 +247,12 @@ export function Navbar() {
                           <Link href="/candidates">
                             <Users className="mr-2 h-4 w-4" />
                             Candidates
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/shortlist">
+                            <Bookmark className="mr-2 h-4 w-4" />
+                            Shortlist
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
