@@ -44,6 +44,17 @@ export async function GET(
       .sort({ createdAt: 1 })
       .lean()) as any[];
 
+    const skillCounts = new Map<string, number>();
+    for (const m of memberships) {
+      for (const skill of m.studentId?.skills ?? []) {
+        skillCounts.set(skill, (skillCounts.get(skill) ?? 0) + 1);
+      }
+    }
+    const skills = [...skillCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([name, count]) => ({ name, count }));
+
     const studentIds = memberships.map((m) => m.studentId?._id).filter(Boolean);
     const certificates = (await Certificate.find({
       studentId: { $in: studentIds },
@@ -107,6 +118,7 @@ export async function GET(
           ? Math.round((withReports.length / members.length) * 100)
           : 0,
       },
+      skills,
       members,
     });
   } catch (error: any) {

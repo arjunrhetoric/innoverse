@@ -18,6 +18,11 @@ const UserSchema  = new mongoose.Schema({
     unique: true,
     required: true,
   },
+  passwordHash: {
+    // Credentials auth (institutions). GitHub accounts leave this null.
+    type: String,
+    default: null,
+  },
   accessToken: {
     // Legacy plaintext field — migrated to githubTokenEnc on next sign-in.
     type: String,

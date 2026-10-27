@@ -1,8 +1,11 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import GithubProvider from "next-auth/providers/github";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { connectDB, User } from "@innoverse/database";
 import { encryptSecret } from "./crypto";
 import { clearGithubTokenCache } from "./github-token";
+import { verifyPassword } from "./password";
+import { checkRateLimit } from "./rate-limit";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -15,12 +18,42 @@ export const authOptions: NextAuthOptions = {
         },
       },
     }),
+    CredentialsProvider({
+      id: "credentials",
+      name: "Institution",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email?.trim().toLowerCase();
+        const password = credentials?.password ?? "";
+        if (!email || !password) return null;
+
+        // Throttle credential stuffing without revealing whether the account exists.
+        const limit = await checkRateLimit(`login:${email}`, 8, 60);
+        if (!limit.ok) return null;
+
+        await connectDB();
+        const user = (await User.findOne({ email }).select("+passwordHash")) as any;
+        if (!user?.passwordHash) return null;
+        if (user.role !== "Institution") return null;
+
+        const valid = await verifyPassword(password, user.passwordHash);
+        if (!valid) return null;
+
+        return { id: String(user._id), name: user.name, email: user.email };
+      },
+    }),
   ],
   session: {
     strategy: "jwt",
   },
   callbacks: {
     async signIn({ user, account, profile }) {
+      // GitHub-specific upsert; credentials users are created at registration.
+      if (account?.provider !== "github") return true;
+
       await connectDB();
 
       const githubProfile = profile as any;
@@ -60,13 +93,21 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, account, user }) {
       if (account && user) {
-        token.githubId = user.id;
+        if (account.provider === "github") {
+          token.githubId = user.id;
+        } else {
+          token.userId = user.id;
+        }
       }
 
       // Fetch user from DB to get the latest role. The GitHub token is
       // deliberately NOT placed in the JWT/session — see getGithubToken().
       await connectDB();
-      const dbUser = await User.findOne({ githubId: token.githubId });
+      const dbUser = token.userId
+        ? await User.findById(token.userId)
+        : token.githubId
+          ? await User.findOne({ githubId: token.githubId })
+          : null;
       
       if (dbUser) {
         token.role = dbUser.role;

@@ -4,6 +4,7 @@ import crypto from "crypto";
 import QRCode from "qrcode";
 import { renderCertificatePdf, getBaseUrl } from "@/lib/certificate-pdf";
 import { renderContractPdf } from "@/lib/engagement-pdf";
+import { hashPassword } from "@/lib/password";
 import { uploadFile } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
@@ -109,6 +110,10 @@ export async function POST() {
           name: "State Tech University",
           role: "Institution",
           isVerified: true,
+        },
+        $set: {
+          companyName: "State Tech University",
+          passwordHash: await hashPassword("Innoverse2026"),
         },
       },
       { upsert: true, new: true }
@@ -393,7 +398,7 @@ export async function POST() {
       proposals: proposals.length,
       backfilledReports: missing.length,
       demoReportToken: demoToken,
-      institution: { email: "coordinator@statetech.edu", joinCode: cohort.joinCode },
+      institution: { email: "coordinator@statetech.edu", password: "Innoverse2026", joinCode: cohort.joinCode },
       logins: {
         startups: startups.map((s) => s.email),
         students: students.map((s) => s.email),

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, Users, FileCheck2, GitPullRequest, ShieldCheck, ExternalLink } from "lucide-react";
+import { ArrowLeft, Users, FileCheck2, GitPullRequest, ShieldCheck, ExternalLink, Download } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ interface Detail {
     avgConfidence: number | null;
     participation: number;
   };
+  skills: Array<{ name: string; count: number }>;
   members: Array<{
     id: string;
     name: string;
@@ -99,6 +100,12 @@ export default function CohortDetailPage() {
                   <span className="font-mono text-sm font-medium">{data.cohort.joinCode}</span>
                   <CopyButton value={data.cohort.joinCode} />
                   <span className="text-muted-foreground">Share this with students to enrol them.</span>
+                  <Button size="sm" variant="outline" asChild className="ml-auto">
+                    <a href={`/api/cohorts/${data.cohort.id}/export`}>
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Export CSV
+                    </a>
+                  </Button>
                 </div>
               </div>
 
@@ -130,6 +137,29 @@ export default function CohortDetailPage() {
                   </p>
                 </div>
               </div>
+
+              {data.skills.length > 0 && (
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <h2 className="mb-3 text-sm font-medium">Skills coverage</h2>
+                  <div className="space-y-2">
+                    {data.skills.map((s) => {
+                      const max = data.skills[0]?.count || 1;
+                      return (
+                        <div key={s.name} className="flex items-center gap-3">
+                          <span className="w-32 shrink-0 truncate text-xs">{s.name}</span>
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-primary"
+                              style={{ width: `${(s.count / max) * 100}%` }}
+                            />
+                          </div>
+                          <span className="w-8 text-right text-[11px] text-muted-foreground">{s.count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <h2 className="mb-3 text-sm font-medium">Students</h2>

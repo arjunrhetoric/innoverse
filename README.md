@@ -74,6 +74,9 @@ cp .env.example apps/web/.env.local   # fill in values
 npm run dev                            # http://localhost:3000
 ```
 
+Students and startups sign in with GitHub. Institutions use email + password
+(scrypt-hashed, rate-limited) or can self-register at `/register/institution`.
+
 Requires Node 18+, MongoDB, and a GitHub OAuth app whose callback is
 `http://localhost:3000/api/auth/callback/github`.
 
