@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Building2,
   Users,
+  UserCircle2,
 } from "lucide-react";
 import { GithubIcon as Github } from "@/components/ui/icons";
 import { signOut } from "next-auth/react";
@@ -45,6 +46,7 @@ const productLinks = [
 
 const publicLinks = [
   { href: "/explore", label: "Explore" },
+  { href: "/talent", label: "Talent" },
   { href: "/#contact", label: "Contact" },
 ];
 
@@ -224,6 +226,14 @@ export function Navbar() {
                         View Profile
                       </Link>
                     </DropdownMenuItem>
+                    {user?.role === "Student" && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/settings/profile">
+                          <UserCircle2 className="mr-2 h-4 w-4" />
+                          Public Profile
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     {user?.role === "Startup" && (
                       <>
                         <DropdownMenuItem asChild>

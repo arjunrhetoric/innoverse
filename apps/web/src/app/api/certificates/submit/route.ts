@@ -11,6 +11,7 @@ import { renderCertificatePdf, getBaseUrl } from "@/lib/certificate-pdf";
 import { readStoredBytes, uploadFile } from "@/lib/storage";
 import { getGithubToken } from "@/lib/github-token";
 import { canIssueCertificate, type Actor } from "@/lib/policy";
+import { testBypassEnabled } from "@/lib/flags";
 import { audit } from "@/lib/audit";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
@@ -137,6 +138,21 @@ export async function POST(req: NextRequest) {
     );
     const confidence = computeConfidence(evidenceStats);
     const rubric = computeRubricScore(rubricScores);
+
+    // Evidence gate: a certificate must be backed by something observable.
+    const hasEvidence =
+      evidenceStats.mergedPRs > 0 ||
+      evidenceStats.commitsByStudent > 0 ||
+      evidenceStats.milestonesCompleted > 0;
+    if (!hasEvidence && !testBypassEnabled()) {
+      return NextResponse.json(
+        {
+          message:
+            "No verifiable work found for this student. Link a GitHub repository with their commits/PRs, or complete at least one milestone before issuing a report.",
+        },
+        { status: 400 }
+      );
+    }
     const evidence = { ...evidenceStats, snapshotAt: new Date() };
 
     const verificationCode = uuidv4();

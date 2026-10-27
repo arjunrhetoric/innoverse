@@ -55,6 +55,23 @@ const UserSchema  = new mongoose.Schema({
     type: String, // public path to uploaded signature image (png/jpg)
     default: null,
   },
+  headline: {
+    type: String,
+    default: null,
+  },
+  skills: {
+    type: [String],
+    default: [],
+  },
+  location: {
+    type: String,
+    default: null,
+  },
+  profilePublic: {
+    // Explicit opt-in for the public talent directory.
+    type: Boolean,
+    default: false,
+  },
   githubRepoName: {
     type: String,
     default: null,

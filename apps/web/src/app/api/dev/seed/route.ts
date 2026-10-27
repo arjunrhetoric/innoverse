@@ -30,9 +30,30 @@ export async function POST() {
       { name: "Northwind AI", email: "founder@northwind.ai", companyName: "Northwind AI" },
     ];
     const students = [
-      { name: "Arjun Singh", email: "arjun@student.dev", githubUsername: "arjun-dev" },
-      { name: "Meera Iyer", email: "meera@student.dev", githubUsername: "meera-builds" },
-      { name: "Karan Patel", email: "karan@student.dev", githubUsername: "karanp" },
+      {
+        name: "Arjun Singh",
+        email: "arjun@student.dev",
+        githubUsername: "arjun-dev",
+        headline: "Full-stack developer · React + Node",
+        location: "Bengaluru, India",
+        skills: ["React", "TypeScript", "Node.js", "MongoDB"],
+      },
+      {
+        name: "Meera Iyer",
+        email: "meera@student.dev",
+        githubUsername: "meera-builds",
+        headline: "Backend engineer · Python + Postgres",
+        location: "Pune, India",
+        skills: ["Python", "FastAPI", "Postgres"],
+      },
+      {
+        name: "Karan Patel",
+        email: "karan@student.dev",
+        githubUsername: "karanp",
+        headline: "Frontend developer · Design systems",
+        location: "Ahmedabad, India",
+        skills: ["React", "Tailwind", "Figma"],
+      },
     ];
 
     const startupDocs: any[] = [];
@@ -63,9 +84,15 @@ export async function POST() {
         {
           $setOnInsert: {
             githubId: `seed-${s.email}`,
-            name: s.name,
             role: "Student",
+          },
+          $set: {
+            name: s.name,
             githubUsername: s.githubUsername,
+            headline: s.headline,
+            location: s.location,
+            skills: s.skills,
+            profilePublic: true,
           },
         },
         { upsert: true, new: true }

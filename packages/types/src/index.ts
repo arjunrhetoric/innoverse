@@ -15,6 +15,10 @@ export interface User {
   signatoryName?: string | null;
   signatoryTitle?: string | null;
   signatureImage?: string | null;
+  headline?: string | null;
+  skills?: string[];
+  location?: string | null;
+  profilePublic?: boolean;
   isVerified: boolean;
   projectsCompleted: number;
   ratings: number[];
