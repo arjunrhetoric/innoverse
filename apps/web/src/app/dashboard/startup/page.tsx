@@ -22,11 +22,9 @@ import { StatusDot } from "@/components/ui/status-dot";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -49,22 +47,6 @@ export default function StartupDashboard() {
   const [allProposals, setAllProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  // Post Challenge Form State
-  const [showPostForm, setShowPostForm] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    skillsRequired: "",
-    finalDeadline: "",
-    contributionType: "project" as "project" | "issue",
-    githubOwner: "",
-    createGithubRepo: false,
-    githubRepoName: "",
-    issueNumber: "",
-    issueLabels: "",
-  });
-  const [posting, setPosting] = useState(false);
 
   // Review Dialog State
   const [reviewDialog, setReviewDialog] = useState<{
@@ -124,71 +106,6 @@ export default function StartupDashboard() {
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
-  const handlePostChallenge = async () => {
-    const title = formData.title.trim();
-    const description = formData.description.trim();
-
-    if (title.length < 5) {
-      setError("Give the challenge a title of at least 5 characters.");
-      return;
-    }
-    if (description.length < 10) {
-      setError("Describe the challenge in at least 10 characters (scope, stack, expectations).");
-      return;
-    }
-    if (!formData.finalDeadline) {
-      setError("Choose a final deadline.");
-      return;
-    }
-    if (new Date(formData.finalDeadline) <= new Date()) {
-      setError("The final deadline must be in the future.");
-      return;
-    }
-    if (formData.contributionType === "issue") {
-      if (!formData.githubOwner.trim() || !formData.githubRepoName.trim()) {
-        setError("Enter the GitHub owner and repository name for the issue.");
-        return;
-      }
-    } else if (formData.createGithubRepo && !formData.githubRepoName.trim()) {
-      setError("Enter a repository name, or turn off repository creation.");
-      return;
-    }
-
-    setPosting(true);
-    setError("");
-    try {
-      await projects.post({
-        ...formData,
-        skillsRequired: formData.skillsRequired
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        issueLabels: formData.issueLabels
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-      });
-      setShowPostForm(false);
-      setFormData({
-        title: "",
-        description: "",
-        skillsRequired: "",
-        finalDeadline: "",
-        contributionType: "project",
-        githubOwner: "",
-        createGithubRepo: false,
-        githubRepoName: "",
-        issueNumber: "",
-        issueLabels: "",
-      });
-      await fetchData();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to post challenge");
-    } finally {
-      setPosting(false);
-    }
-  };
-
   const handleReview = async () => {
     if (!reviewDialog.proposal || !reviewDialog.action) return;
     setReviewing(true);
@@ -242,9 +159,11 @@ export default function StartupDashboard() {
                   Manage your innovation challenges and review student proposals.
                 </p>
               </div>
-              <Button variant="default" onClick={() => setShowPostForm(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Post Challenge
+              <Button variant="default" asChild>
+                <Link href="/dashboard/startup/new-challenge">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Post Challenge
+                </Link>
               </Button>
             </div>
           </div>
@@ -486,213 +405,6 @@ export default function StartupDashboard() {
               )}
             </TabsContent>
           </Tabs>
-
-      {/* ─── Post Challenge Dialog ────────────────────────────────────── */}
-      <Dialog open={showPostForm} onOpenChange={setShowPostForm}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Post Innovation Challenge</DialogTitle>
-            <DialogDescription>
-              Create a new challenge for students to apply to.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <Label htmlFor="title">Challenge Title</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData((p) => ({ ...p, title: e.target.value }))
-                }
-                placeholder="e.g., Build a Real-Time Dashboard"
-                className="mt-1.5"
-                minLength={5}
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData((p) => ({ ...p, description: e.target.value }))
-                }
-                placeholder="Describe the challenge in detail..."
-                className="mt-1.5 min-h-[100px]"
-                minLength={10}
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                At least 10 characters — scope, stack, and what “done” looks like.
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="skills">Required Skills</Label>
-              <Input
-                id="skills"
-                value={formData.skillsRequired}
-                onChange={(e) =>
-                  setFormData((p) => ({ ...p, skillsRequired: e.target.value }))
-                }
-                placeholder="React, Node.js, MongoDB (comma-separated)"
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <Label htmlFor="deadline">Deadline</Label>
-              <Input
-                id="deadline"
-                type="date"
-                min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                value={formData.finalDeadline}
-                onChange={(e) =>
-                  setFormData((p) => ({ ...p, finalDeadline: e.target.value }))
-                }
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <Label>Contribution type</Label>
-              <div className="mt-1.5 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFormData((p) => ({ ...p, contributionType: "project" }))}
-                  className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
-                    formData.contributionType === "project"
-                      ? "border-foreground/30 bg-white/[0.05] text-foreground"
-                      : "border-border text-muted-foreground hover:border-foreground/25"
-                  }`}
-                >
-                  <span className="block font-medium">New project repo</span>
-                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                    Innoverse creates a private repository
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData((p) => ({ ...p, contributionType: "issue" }))}
-                  className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
-                    formData.contributionType === "issue"
-                      ? "border-foreground/30 bg-white/[0.05] text-foreground"
-                      : "border-border text-muted-foreground hover:border-foreground/25"
-                  }`}
-                >
-                  <span className="block font-medium">Open-source issue</span>
-                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                    Create or link an issue on an existing repo
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {formData.contributionType === "issue" ? (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="owner">Repository owner</Label>
-                    <Input
-                      id="owner"
-                      value={formData.githubOwner}
-                      onChange={(e) => setFormData((p) => ({ ...p, githubOwner: e.target.value }))}
-                      placeholder="acme"
-                      className="mt-1.5"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="repo">Repository name</Label>
-                    <Input
-                      id="repo"
-                      value={formData.githubRepoName}
-                      onChange={(e) => setFormData((p) => ({ ...p, githubRepoName: e.target.value }))}
-                      placeholder="widgets"
-                      className="mt-1.5"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="issueNumber">Existing issue # (optional)</Label>
-                    <Input
-                      id="issueNumber"
-                      value={formData.issueNumber}
-                      onChange={(e) =>
-                        setFormData((p) => ({ ...p, issueNumber: e.target.value.replace(/[^0-9]/g, "") }))
-                      }
-                      placeholder="Leave blank to create a new issue"
-                      className="mt-1.5"
-                      inputMode="numeric"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="labels">Labels</Label>
-                    <Input
-                      id="labels"
-                      value={formData.issueLabels}
-                      onChange={(e) => setFormData((p) => ({ ...p, issueLabels: e.target.value }))}
-                      placeholder="good first issue, backend"
-                      className="mt-1.5"
-                    />
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Leave the issue number blank and Innoverse creates the GitHub issue from the title
-                  and description. The approved student is assigned the issue and contributes through
-                  a fork and pull request.
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-3">
-                  <Switch
-                    id="github"
-                    checked={formData.createGithubRepo}
-                    onCheckedChange={(v) =>
-                      setFormData((p) => ({ ...p, createGithubRepo: v }))
-                    }
-                  />
-                  <Label htmlFor="github">Create GitHub Repository</Label>
-                </div>
-                {formData.createGithubRepo && (
-                  <div>
-                    <Label htmlFor="repoName">Repository Name</Label>
-                    <Input
-                      id="repoName"
-                      value={formData.githubRepoName}
-                      onChange={(e) =>
-                        setFormData((p) => ({ ...p, githubRepoName: e.target.value }))
-                      }
-                      placeholder="my-challenge-repo"
-                      className="mt-1.5"
-                    />
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPostForm(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="gradient"
-              onClick={handlePostChallenge}
-              disabled={posting || !formData.title || !formData.description}
-            >
-              {posting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Posting...
-                </>
-              ) : (
-                <>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Post Challenge
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ─── Review Dialog ────────────────────────────────────────────── */}
       <Dialog

@@ -120,7 +120,9 @@ export async function POST(
       );
     }
 
-    const student = (await User.findById(session.user.id).select("name").lean()) as any;
+    const student = (await User.findById(session.user.id)
+      .select("name githubUsername")
+      .lean()) as any;
     const startup = (await User.findById(problem.createdBy)
       .select("name companyName signatoryName signatoryTitle signatureImage")
       .lean()) as any;
