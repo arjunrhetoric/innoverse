@@ -47,6 +47,7 @@ export default function CollaborationAgreementPage() {
   const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -79,6 +80,7 @@ export default function CollaborationAgreementPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not sign the agreement");
+      if (typeof json.warning === "string") setWarning(json.warning);
       setDone(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not sign the agreement");
@@ -172,6 +174,11 @@ export default function CollaborationAgreementPage() {
                         Agreement signed. Read access has been granted.
                       </p>
                     </div>
+                    {warning && (
+                      <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400">
+                        {warning}
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-2">
                       {data.proposal.repoUrl && (
                         <Button variant="outline" size="sm" asChild>

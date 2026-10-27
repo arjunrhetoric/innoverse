@@ -144,53 +144,83 @@ export async function POST(
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",
     };
+    const repoApi = `https://api.github.com/repos/${problem.githubOwner}/${problem.githubRepoName}`;
+
+    // Inspect the repository first so failures are explained precisely.
+    let repo: any = null;
+    try {
+      const repoResponse = await axios.get(repoApi, { headers });
+      repo = repoResponse.data;
+    } catch (error: any) {
+      const status = error.response?.status;
+      console.error("Repository lookup failed:", error.response?.data || error.message);
+      return NextResponse.json(
+        {
+          message:
+            status === 404
+              ? "The linked repository was not found, or your GitHub account no longer has access to it."
+              : `Could not read the repository from GitHub (${status ?? "no response"}). Reconnect GitHub and try again.`,
+        },
+        { status: 502 }
+      );
+    }
+
+    const studentLogin = String(student.githubUsername).toLowerCase();
+    const repoOwner = String(repo.owner?.login ?? "").toLowerCase();
+    const isRepoOwner = studentLogin === repoOwner;
+    const isPublicRepo = repo.private === false;
+
+    let accessWarning: string | null = null;
+
+    if (isRepoOwner) {
+      // Owners already have access; GitHub rejects inviting them.
+      accessWarning = "The student owns this repository, so no invitation was needed.";
+    } else {
+      try {
+        await axios.put(
+          `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}`,
+          { permission: "pull" },
+          { headers }
+        );
+      } catch (error: any) {
+        const status = error.response?.status;
+        const githubMessage = error.response?.data?.message;
+        console.error("Read access grant failed:", error.response?.data || error.message);
+
+        if (status === 422) {
+          // Usually "already a collaborator" or an invitation already pending.
+          accessWarning = "The student was already invited or is already a collaborator.";
+        } else if (isPublicRepo) {
+          // Forking a public repository does not require an invitation.
+          accessWarning =
+            "Public repository: read access is open, so the student can fork without an invitation.";
+        } else {
+          return NextResponse.json(
+            {
+              message: `GitHub refused read access (${status ?? "no response"})${
+                githubMessage ? `: ${githubMessage}` : ""
+              }. The startup account must be an admin of the repository to add collaborators.`,
+            },
+            { status: 502 }
+          );
+        }
+      }
+    }
 
     if (isIssue) {
-      // Assign the issue to the student. Read access is best-effort so the
-      // flow also works for public open-source repositories.
       try {
         await axios.post(
-          `https://api.github.com/repos/${problem.githubOwner}/${problem.githubRepoName}/issues/${problem.githubIssueNumber}/assignees`,
+          `${repoApi}/issues/${problem.githubIssueNumber}/assignees`,
           { assignees: [student.githubUsername] },
           { headers }
         );
       } catch (error: any) {
+        const status = error.response?.status;
+        const githubMessage = error.response?.data?.message;
         console.error("Issue assignment failed:", error.response?.data || error.message);
-        return NextResponse.json(
-          {
-            message:
-              "Could not assign the GitHub issue to you. Ask the startup to confirm issue permissions.",
-          },
-          { status: 502 }
-        );
-      }
-
-      try {
-        await axios.put(
-          `https://api.github.com/repos/${problem.githubOwner}/${problem.githubRepoName}/collaborators/${student.githubUsername}`,
-          { permission: "pull" },
-          { headers }
-        );
-      } catch (error: any) {
-        // Public repositories do not need collaborator access to fork.
-        console.log("Read access not granted (may be a public repo):", error.response?.status);
-      }
-    } else {
-      try {
-        await axios.put(
-          `https://api.github.com/repos/${problem.githubOwner}/${problem.githubRepoName}/collaborators/${student.githubUsername}`,
-          { permission: "pull" },
-          { headers }
-        );
-      } catch (error: any) {
-        console.error("Read access grant failed:", error.response?.data || error.message);
-        return NextResponse.json(
-          {
-            message:
-              "Could not grant read access to the repository. Check repository permissions and try again.",
-          },
-          { status: 502 }
-        );
+        accessWarning = `The issue could not be assigned automatically (${status ?? "no response"}${
+          githubMessage ? `: ${githubMessage}` : ""
+        }). The student can still comment on it and open a pull request.`;
       }
     }
 
@@ -251,6 +281,7 @@ export async function POST(
         ? "Agreement signed. The issue is assigned to you — fork the repo, open a pull request, and reference the issue."
         : "Agreement signed. Read access granted — fork the repo and open a pull request.",
       agreementCode,
+      ...(accessWarning ? { warning: accessWarning } : {}),
     });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });
