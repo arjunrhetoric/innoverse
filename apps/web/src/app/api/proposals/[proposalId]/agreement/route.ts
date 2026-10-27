@@ -107,9 +107,9 @@ export async function POST(
     if (proposal.status !== "Approved") {
       return NextResponse.json({ message: "This proposal is not approved" }, { status: 409 });
     }
-    if (proposal.termsAcceptedAt) {
-      return NextResponse.json({ message: "Agreement already signed", agreementCode: proposal.agreementCode });
-    }
+    // Signing is idempotent: if the agreement is already signed we still
+    // re-check access and re-invite if needed, instead of returning early.
+    const alreadySigned = Boolean(proposal.termsAcceptedAt);
 
     const problem = (await Problem.findById(proposal.problemId).lean()) as any;
     if (!problem) return NextResponse.json({ message: "Challenge not found" }, { status: 404 });
@@ -276,6 +276,20 @@ export async function POST(
             githubMessage ? `: ${githubMessage}` : ""
           }).`;
       }
+    }
+
+    if (alreadySigned) {
+      if (accessState !== "invited" && !proposal.accessGrantedAt) {
+        await Proposal.updateOne(
+          { _id: proposal._id },
+          { $set: { accessGrantedAt: new Date() } }
+        );
+      }
+      return NextResponse.json({
+        message: accessMessage,
+        agreementCode: proposal.agreementCode,
+        access: accessState,
+      });
     }
 
     let signatureBytes: Uint8Array | null = null;
