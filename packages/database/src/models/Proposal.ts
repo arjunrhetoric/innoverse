@@ -36,6 +36,26 @@ const ProposalSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  termsAcceptedAt: {
+    type: Date,
+    default: null,
+  },
+  termsAcceptedName: {
+    type: String,
+    default: null,
+  },
+  accessGrantedAt: {
+    type: Date,
+    default: null,
+  },
+  agreementCode: {
+    type: String,
+    default: null,
+  },
+  agreementFile: {
+    type: String,
+    default: null,
+  },
 });
 
 export default mongoose.models.Proposal || mongoose.model("Proposal", ProposalSchema);

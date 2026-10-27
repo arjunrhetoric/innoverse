@@ -95,10 +95,10 @@ npx tsc --noEmit -p apps/web
 
 ## Roadmap
 
-- **Now:** challenge-based hiring — companies use reports instead of résumés.
-- **Next:** university capstone cohorts; the same report becomes accreditation evidence.
-- **Later:** paid micro-internships with escrow; the report becomes the deliverable.
-- **Platform:** GitHub App (short-lived per-repo tokens instead of OAuth `repo` scope), organizations with team roles, SSO for enterprise buyers.
+- **Now:** challenge-based hiring (reports, talent directory, shortlist), university cohorts, and paid engagements — all built on the same evidence engine.
+- **Next:** open-source issue workflows, AI repository knowledge base, and read-only GitHub access by default.
+- **Later:** escrow with a payment provider, organizations with team roles, SSO for enterprise buyers.
+- **Platform:** GitHub App short-lived per-repo tokens instead of the OAuth `repo` scope; see `docs/github-app-setup.md`.
 
 ## License
 

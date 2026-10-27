@@ -38,6 +38,7 @@ import { useSSE } from "@/hooks/useSSE";
 import { useUser } from "@/hooks/useUser";
 import { PrReview } from "@/components/pr-review";
 import { CertificateSection } from "@/components/certificate-section";
+import { KnowledgePanel } from "@/components/knowledge-panel";
 import type { PullRequest, Milestone } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
@@ -190,6 +191,9 @@ export default function ProjectTrackingPage() {
                 <TabsTrigger value="analytics">Analytics</TabsTrigger>
                 {isStartup && (
                   <TabsTrigger value="certificates">Certificates</TabsTrigger>
+                )}
+                {isStartup && (
+                  <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
                 )}
               </TabsList>
               {isStartup && (
@@ -369,6 +373,13 @@ export default function ProjectTrackingPage() {
             {isStartup && (
               <TabsContent value="certificates">
                 <CertificateSection projectId={projectId} progress={progress} />
+              </TabsContent>
+            )}
+
+            {/* Knowledge base (startup only) */}
+            {isStartup && (
+              <TabsContent value="knowledge">
+                <KnowledgePanel projectId={projectId} />
               </TabsContent>
             )}
           </Tabs>

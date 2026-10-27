@@ -45,6 +45,25 @@ describe("ChallengeSchema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("supports open-source issue challenges", () => {
+    const ok = ChallengeSchema.safeParse({
+      ...base,
+      contributionType: "issue",
+      githubOwner: "acme",
+      githubRepoName: "widgets",
+      issueNumber: "",
+      issueLabels: ["good first issue"],
+    });
+    expect(ok.success).toBe(true);
+
+    const noOwner = ChallengeSchema.safeParse({
+      ...base,
+      contributionType: "issue",
+      githubRepoName: "widgets",
+    });
+    expect(noOwner.success).toBe(false);
+  });
+
   it("rejects short titles and descriptions", () => {
     expect(ChallengeSchema.safeParse({ ...base, title: "Hi" }).success).toBe(false);
     expect(

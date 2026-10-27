@@ -38,6 +38,10 @@ export interface Problem {
   progress: number;
   completed: boolean;
   completedAt?: string;
+  contributionType?: "project" | "issue";
+  githubIssueNumber?: number | null;
+  githubIssueUrl?: string | null;
+  labels?: string[];
 }
 
 export interface Proposal {
@@ -50,6 +54,11 @@ export interface Proposal {
   feedback: string;
   submittedAt: string;
   repoUrl?: string;
+  termsAcceptedAt?: string | null;
+  termsAcceptedName?: string | null;
+  accessGrantedAt?: string | null;
+  agreementCode?: string | null;
+  agreementFile?: string | null;
 }
 
 export interface Certificate {

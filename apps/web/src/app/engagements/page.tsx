@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Handshake, Plus, Loader2, AlertCircle, ArrowRight, Trash2 } from "lucide-react";
+import { Handshake, Plus, Loader2, AlertCircle, ArrowRight, Trash2, Info } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
@@ -199,6 +199,19 @@ export default function EngagementsPage() {
               <p className="text-sm text-destructive">{error}</p>
             </div>
           )}
+
+          <div className="mt-5 flex gap-2 rounded-xl border border-border bg-card p-4">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="text-xs leading-relaxed text-muted-foreground">
+              <p className="font-medium text-foreground">What is an engagement?</p>
+              <p className="mt-0.5">
+                An optional, paid scope agreed after a project is approved: milestones with amounts,
+                a signed agreement, and payment tracking. Repository access is governed separately by
+                the collaboration agreement the student signs before starting. Payments are recorded
+                here; money moves outside the platform.
+              </p>
+            </div>
+          </div>
 
           {isStartup && showForm && (
             <div className="mt-6 space-y-4 rounded-xl border border-border bg-card p-6">

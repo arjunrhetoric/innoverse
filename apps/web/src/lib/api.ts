@@ -73,6 +73,10 @@ export const projects = {
     finalDeadline: string;
     createGithubRepo: boolean;
     githubRepoName?: string;
+    contributionType?: "project" | "issue";
+    githubOwner?: string;
+    issueNumber?: string;
+    issueLabels?: string[];
   }) =>
     request("/api/projects/post-problem", {
       method: "POST",

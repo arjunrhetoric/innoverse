@@ -43,7 +43,24 @@ const ProblemSchema = new mongoose.Schema({
     type: Boolean, 
     default: false 
   },
-  completedAt: Date
+  completedAt: Date,
+  contributionType: {
+    type: String,
+    enum: ["project", "issue"],
+    default: "project",
+  },
+  githubIssueNumber: {
+    type: Number,
+    default: null,
+  },
+  githubIssueUrl: {
+    type: String,
+    default: null,
+  },
+  labels: {
+    type: [String],
+    default: [],
+  },
 });
 
 export default mongoose.models.Problem || mongoose.model("Problem", ProblemSchema);

@@ -37,6 +37,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useUser } from "@/hooks/useUser";
+import { QuickLinks } from "@/components/dashboard/quick-links";
 import { dashboard, projects, proposals as proposalsApi } from "@/lib/api";
 import { formatDate, truncateText, getStatusColor } from "@/lib/utils";
 import type { Problem, Proposal } from "@/lib/types";
@@ -56,8 +57,12 @@ export default function StartupDashboard() {
     description: "",
     skillsRequired: "",
     finalDeadline: "",
+    contributionType: "project" as "project" | "issue",
+    githubOwner: "",
     createGithubRepo: false,
     githubRepoName: "",
+    issueNumber: "",
+    issueLabels: "",
   });
   const [posting, setPosting] = useState(false);
 
@@ -139,7 +144,12 @@ export default function StartupDashboard() {
       setError("The final deadline must be in the future.");
       return;
     }
-    if (formData.createGithubRepo && !formData.githubRepoName.trim()) {
+    if (formData.contributionType === "issue") {
+      if (!formData.githubOwner.trim() || !formData.githubRepoName.trim()) {
+        setError("Enter the GitHub owner and repository name for the issue.");
+        return;
+      }
+    } else if (formData.createGithubRepo && !formData.githubRepoName.trim()) {
       setError("Enter a repository name, or turn off repository creation.");
       return;
     }
@@ -153,6 +163,10 @@ export default function StartupDashboard() {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
+        issueLabels: formData.issueLabels
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
       });
       setShowPostForm(false);
       setFormData({
@@ -160,8 +174,12 @@ export default function StartupDashboard() {
         description: "",
         skillsRequired: "",
         finalDeadline: "",
+        contributionType: "project",
+        githubOwner: "",
         createGithubRepo: false,
         githubRepoName: "",
+        issueNumber: "",
+        issueLabels: "",
       });
       await fetchData();
     } catch (err: unknown) {
@@ -209,6 +227,7 @@ export default function StartupDashboard() {
 
   return (
     <AppShell>
+          <QuickLinks />
           {/* Header */}
           <div className="mb-6">
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
@@ -367,7 +386,7 @@ export default function StartupDashboard() {
                         }`}
                       >
                         <div className="flex flex-col justify-between gap-3 px-4 py-3.5 sm:flex-row sm:items-center">
-                          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <h4 className="truncate text-[15px] font-medium tracking-tight text-foreground">
                                 {problem?.title || "Challenge"}
@@ -394,6 +413,16 @@ export default function StartupDashboard() {
                               {" · "}
                               {truncateText(proposal.description, 80)}
                             </p>
+                            {proposal.status === "Approved" && !proposal.termsAcceptedAt && (
+                              <p className="mt-1 text-[11px] text-amber-500">
+                                Awaiting student signature — repository access not granted yet.
+                              </p>
+                            )}
+                            {proposal.status === "Approved" && proposal.termsAcceptedAt && (
+                              <p className="mt-1 text-[11px] text-emerald-500">
+                                Agreement signed — read access granted.
+                              </p>
+                            )}
                           </div>
                           <div className="flex shrink-0 items-center gap-2">
                             {proposal.pptUrl && (
@@ -522,29 +551,122 @@ export default function StartupDashboard() {
                 className="mt-1.5"
               />
             </div>
-            <div className="flex items-center gap-3">
-              <Switch
-                id="github"
-                checked={formData.createGithubRepo}
-                onCheckedChange={(v) =>
-                  setFormData((p) => ({ ...p, createGithubRepo: v }))
-                }
-              />
-              <Label htmlFor="github">Create GitHub Repository</Label>
-            </div>
-            {formData.createGithubRepo && (
-              <div>
-                <Label htmlFor="repoName">Repository Name</Label>
-                <Input
-                  id="repoName"
-                  value={formData.githubRepoName}
-                  onChange={(e) =>
-                    setFormData((p) => ({ ...p, githubRepoName: e.target.value }))
-                  }
-                  placeholder="my-challenge-repo"
-                  className="mt-1.5"
-                />
+            <div>
+              <Label>Contribution type</Label>
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData((p) => ({ ...p, contributionType: "project" }))}
+                  className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
+                    formData.contributionType === "project"
+                      ? "border-foreground/30 bg-white/[0.05] text-foreground"
+                      : "border-border text-muted-foreground hover:border-foreground/25"
+                  }`}
+                >
+                  <span className="block font-medium">New project repo</span>
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                    Innoverse creates a private repository
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData((p) => ({ ...p, contributionType: "issue" }))}
+                  className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
+                    formData.contributionType === "issue"
+                      ? "border-foreground/30 bg-white/[0.05] text-foreground"
+                      : "border-border text-muted-foreground hover:border-foreground/25"
+                  }`}
+                >
+                  <span className="block font-medium">Open-source issue</span>
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                    Create or link an issue on an existing repo
+                  </span>
+                </button>
               </div>
+            </div>
+
+            {formData.contributionType === "issue" ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="owner">Repository owner</Label>
+                    <Input
+                      id="owner"
+                      value={formData.githubOwner}
+                      onChange={(e) => setFormData((p) => ({ ...p, githubOwner: e.target.value }))}
+                      placeholder="acme"
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="repo">Repository name</Label>
+                    <Input
+                      id="repo"
+                      value={formData.githubRepoName}
+                      onChange={(e) => setFormData((p) => ({ ...p, githubRepoName: e.target.value }))}
+                      placeholder="widgets"
+                      className="mt-1.5"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="issueNumber">Existing issue # (optional)</Label>
+                    <Input
+                      id="issueNumber"
+                      value={formData.issueNumber}
+                      onChange={(e) =>
+                        setFormData((p) => ({ ...p, issueNumber: e.target.value.replace(/[^0-9]/g, "") }))
+                      }
+                      placeholder="Leave blank to create a new issue"
+                      className="mt-1.5"
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="labels">Labels</Label>
+                    <Input
+                      id="labels"
+                      value={formData.issueLabels}
+                      onChange={(e) => setFormData((p) => ({ ...p, issueLabels: e.target.value }))}
+                      placeholder="good first issue, backend"
+                      className="mt-1.5"
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Leave the issue number blank and Innoverse creates the GitHub issue from the title
+                  and description. The approved student is assigned the issue and contributes through
+                  a fork and pull request.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="github"
+                    checked={formData.createGithubRepo}
+                    onCheckedChange={(v) =>
+                      setFormData((p) => ({ ...p, createGithubRepo: v }))
+                    }
+                  />
+                  <Label htmlFor="github">Create GitHub Repository</Label>
+                </div>
+                {formData.createGithubRepo && (
+                  <div>
+                    <Label htmlFor="repoName">Repository Name</Label>
+                    <Input
+                      id="repoName"
+                      value={formData.githubRepoName}
+                      onChange={(e) =>
+                        setFormData((p) => ({ ...p, githubRepoName: e.target.value }))
+                      }
+                      placeholder="my-challenge-repo"
+                      className="mt-1.5"
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
           <DialogFooter>

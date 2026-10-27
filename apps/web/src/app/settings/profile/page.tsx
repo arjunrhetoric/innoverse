@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -40,6 +40,7 @@ export default function ProfileSettingsPage() {
   const [joinCode, setJoinCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [cohortMessage, setCohortMessage] = useState("");
+  const loadedOnce = useRef(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -53,6 +54,11 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "Student") return;
+    // Load once. Session refetches on window focus must not overwrite
+    // in-progress form edits.
+    if (loadedOnce.current) return;
+    loadedOnce.current = true;
+
     fetch("/api/talent/me", { credentials: "include" })
       .then(async (res) => {
         const data = await res.json();
@@ -70,7 +76,7 @@ export default function ProfileSettingsPage() {
       .then((res) => res.json())
       .then((data) => setCohorts(data.cohorts ?? []))
       .catch(() => null);
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user?.role]);
 
   const joinCohort = async () => {
     setJoining(true);

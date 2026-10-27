@@ -86,44 +86,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pr
         );
       }
 
-      const accessToken = await getGithubToken(session.user.id);
-      if (!accessToken) {
-        return NextResponse.json(
-          { message: "GitHub authorization expired. Please sign in again." },
-          { status: 401 }
-        );
-      }
-
-      // Grant repo access FIRST. If it fails, do not mark the proposal approved.
-      try {
-        await axios.put(
-          `https://api.github.com/repos/${problem.githubOwner}/${problem.githubRepoName}/collaborators/${student.githubUsername}`,
-          { permission: "push" },
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              Accept: "application/vnd.github+json",
-            },
-          }
-        );
-      } catch (collabError: any) {
-        console.error(
-          "Add collaborator failed:",
-          collabError.response?.data || collabError.message
-        );
-        return NextResponse.json(
-          {
-            message:
-              "Could not add the student to the GitHub repository. Check repository permissions and try again.",
-          },
-          { status: 502 }
-        );
-      }
-
-      proposal.repoUrl = `https://github.com/${problem.githubOwner}/${problem.githubRepoName}`;
+      // Access is granted only after the student signs the collaboration
+      // agreement (see /api/proposals/[id]/accept-terms). Approval alone
+      // does not touch the repository.
+      proposal.repoUrl =
+        problem.githubIssueUrl ||
+        `https://github.com/${problem.githubOwner}/${problem.githubRepoName}`;
 
       // Non-fatal: seed a README with the challenge brief.
-      try {
+      const accessToken = await getGithubToken(session.user.id);
+      if (accessToken) {
+        try {
         const readmeContent = Buffer.from(
           `## ${problem.title}\n\n**Challenge Description:**\n${problem.description}\n\n---\n*Collaboration Environment initialized successfully by Innoverse.*`
         ).toString("base64");
@@ -166,8 +139,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pr
           readmeError.response?.data || readmeError.message
         );
       }
+      }
     }
-
     proposal.status = status as Status;
     proposal.feedback = feedback;
     await proposal.save();
@@ -177,11 +150,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pr
         await transporter.sendMail({
           from: process.env.EMAIL,
           to: student.email,
-          subject: '🎉 Proposal Approved! Collaboration Started',
+          subject: '🎉 Proposal Approved — sign the agreement to start',
           html: `<h2>Congratulations ${student.name}!</h2>
-                <p>Your proposal for "${problem.title}" has been approved!</p>
-                <p>Repository URL: <a href="${proposal.repoUrl}">${proposal.repoUrl}</a></p>
-                <p>Start collaborating now!</p>`,
+                <p>Your proposal for "${problem.title}" has been approved.</p>
+                <p>To protect both sides, access is granted after you sign the collaboration and IP assignment agreement in your dashboard.</p>
+                <p>Sign it here: <a href="${process.env.NEXTAUTH_URL || ""}/dashboard/student">your dashboard</a></p>
+                <p>After signing you get read access to the repository and contribute through forks and pull requests.</p>`,
         });
       } catch (emailError: any) {
         console.error("Failed to send approval email:", emailError.message);

@@ -17,8 +17,19 @@ export type Decision = { allowed: true } | { allowed: false; reason: string };
 const allow: Decision = { allowed: true };
 const deny = (reason: string): Decision => ({ allowed: false, reason });
 
+/** Works with raw ObjectIds, strings, and populated Mongoose documents. */
+function idOf(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "object" && "_id" in (value as Record<string, unknown>)) {
+    return String((value as { _id: unknown })._id);
+  }
+  return String(value);
+}
+
 function sameId(a: unknown, b: unknown) {
-  return Boolean(a) && Boolean(b) && String(a) === String(b);
+  const left = idOf(a);
+  const right = idOf(b);
+  return Boolean(left) && Boolean(right) && left === right;
 }
 
 /** Challenge owner (the startup account that created it). */

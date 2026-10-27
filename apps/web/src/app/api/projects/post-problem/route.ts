@@ -29,7 +29,18 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const { title, description, skillsRequired, finalDeadline, createGithubRepo, githubRepoName } = parsed.data;
+    const {
+      title,
+      description,
+      skillsRequired,
+      finalDeadline,
+      contributionType,
+      githubOwner,
+      createGithubRepo,
+      githubRepoName,
+      issueNumber,
+      issueLabels,
+    } = parsed.data;
 
     if (createGithubRepo && !githubRepoName) {
       return NextResponse.json(
@@ -60,11 +71,102 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: decision.reason }, { status: 403 });
     }
 
-    let repoUrl = null;
-    let githubOwner = null;
-
+    const isIssue = contributionType === "issue";
     const githubAccessToken = await getGithubToken(session.user.id);
-    if (createGithubRepo && githubRepoName) {
+
+    let repoUrl: string | null = null;
+    let repoOwner: string | null = null;
+    let repoName: string | null = null;
+    let issueNumberValue: number | null = null;
+    let issueUrl: string | null = null;
+    let labels: string[] = [];
+
+    if (isIssue) {
+      if (!githubAccessToken) {
+        return NextResponse.json(
+          { message: "GitHub authorization expired. Please sign in again." },
+          { status: 401 }
+        );
+      }
+      repoOwner = githubOwner ?? null;
+      repoName = githubRepoName ?? null;
+      if (!repoOwner || !repoName) {
+        return NextResponse.json(
+          { message: "Repository owner and name are required for an issue" },
+          { status: 400 }
+        );
+      }
+
+      const headers = {
+        Authorization: `Bearer ${githubAccessToken}`,
+        Accept: "application/vnd.github+json",
+      };
+
+      try {
+        const repoResponse = await axios.get(
+          `https://api.github.com/repos/${repoOwner}/${repoName}`,
+          { headers }
+        );
+        repoUrl = repoResponse.data.html_url;
+      } catch (error: any) {
+        return NextResponse.json(
+          {
+            message:
+              "Repository not found or not accessible with your GitHub account. Check the owner and name.",
+          },
+          { status: 404 }
+        );
+      }
+
+      const existingNumber = issueNumber ? Number(issueNumber) : null;
+      if (existingNumber && Number.isInteger(existingNumber) && existingNumber > 0) {
+        try {
+          const issueResponse = await axios.get(
+            `https://api.github.com/repos/${repoOwner}/${repoName}/issues/${existingNumber}`,
+            { headers }
+          );
+          issueNumberValue = issueResponse.data.number;
+          issueUrl = issueResponse.data.html_url;
+          labels = (issueResponse.data.labels ?? []).map((l: any) =>
+            typeof l === "string" ? l : l.name
+          );
+        } catch {
+          return NextResponse.json(
+            { message: `Issue #${existingNumber} was not found in ${repoOwner}/${repoName}` },
+            { status: 404 }
+          );
+        }
+      } else {
+        try {
+          const created = await axios.post(
+            `https://api.github.com/repos/${repoOwner}/${repoName}/issues`,
+            {
+              title,
+              body: description,
+              labels: issueLabels ?? [],
+            },
+            { headers }
+          );
+          issueNumberValue = created.data.number;
+          issueUrl = created.data.html_url;
+          labels = (created.data.labels ?? []).map((l: any) =>
+            typeof l === "string" ? l : l.name
+          );
+        } catch (error: any) {
+          console.error(
+            "GitHub issue creation failed:",
+            error.response?.data || error.message
+          );
+          return NextResponse.json(
+            {
+              message:
+                "Could not create the GitHub issue. Check that your account can open issues on this repository.",
+            },
+            { status: 502 }
+          );
+        }
+      }
+    } else if (createGithubRepo && githubRepoName) {
       if (!githubAccessToken) {
         return NextResponse.json(
           { message: "GitHub authorization expired. Please sign in again to create a repository." },
@@ -80,7 +182,8 @@ export async function POST(req: NextRequest) {
         );
 
         repoUrl = response.data.html_url;
-        githubOwner = githubUsername;
+        repoOwner = githubUsername ?? null;
+        repoName = githubRepoName;
 
         await User.findByIdAndUpdate(session.user.id, { githubRepoName: githubRepoName });
       } catch (error: any) {
@@ -95,9 +198,13 @@ export async function POST(req: NextRequest) {
       skillsRequired,
       finalDeadline,
       createdBy: session.user.id,
-      githubRepoName: createGithubRepo ? githubRepoName : null,
+      contributionType: isIssue ? "issue" : "project",
+      githubRepoName: repoName,
       githubRepoUrl: repoUrl,
-      githubOwner: githubOwner,
+      githubOwner: repoOwner,
+      githubIssueNumber: issueNumberValue,
+      githubIssueUrl: issueUrl,
+      labels,
     });
 
     await audit({

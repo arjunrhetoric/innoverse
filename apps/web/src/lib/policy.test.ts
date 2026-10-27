@@ -97,6 +97,18 @@ describe("paid engagements", () => {
     expect(canViewEngagement(otherStartup, engagement).allowed).toBe(false);
   });
 
+  it("works with populated Mongoose documents (regression)", () => {
+    const populated = {
+      startupId: { _id: "u1", name: "Acme" },
+      studentId: { _id: "s1", name: "Student" },
+    };
+    expect(canViewEngagement(owner, populated).allowed).toBe(true);
+    expect(canViewEngagement(student, populated).allowed).toBe(true);
+    expect(canViewEngagement(otherStartup, populated).allowed).toBe(false);
+    expect(canAcceptEngagement(student, populated).allowed).toBe(true);
+    expect(canManageEngagement(owner, populated).allowed).toBe(true);
+  });
+
   it("only the invited student can accept", () => {
     expect(canAcceptEngagement(student, engagement).allowed).toBe(true);
     expect(canAcceptEngagement(otherStudent, engagement).allowed).toBe(false);

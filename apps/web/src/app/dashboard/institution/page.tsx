@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
+import { QuickLinks } from "@/components/dashboard/quick-links";
 
 interface Cohort {
   id: string;
@@ -93,6 +94,7 @@ export default function InstitutionDashboard() {
       <Navbar />
       <div className="px-4 pb-16 pt-24">
         <div className="mx-auto max-w-5xl">
+          <QuickLinks />
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-medium tracking-tight sm:text-3xl">

@@ -24,6 +24,7 @@ import { Stat } from "@/components/ui/stat";
 import { StatusDot } from "@/components/ui/status-dot";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useUser } from "@/hooks/useUser";
+import { QuickLinks } from "@/components/dashboard/quick-links";
 import { dashboard } from "@/lib/api";
 import { formatDate, getStatusColor, truncateText } from "@/lib/utils";
 import type { Problem, Proposal } from "@/lib/types";
@@ -94,6 +95,7 @@ export default function StudentDashboard() {
 
   return (
     <AppShell>
+      <QuickLinks />
       {/* Header */}
       <div className="mb-6">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
@@ -215,11 +217,21 @@ function ChallengeRow({ problem, last }: { problem: Problem; last?: boolean }) {
               Active
             </Badge>
           )}
+          {problem.contributionType === "issue" && (
+            <Badge variant="secondary" className="shrink-0 font-mono text-[11px]">
+              Open source{problem.githubIssueNumber ? ` · #${problem.githubIssueNumber}` : ""}
+            </Badge>
+          )}
         </div>
         <p className="mt-0.5 truncate text-sm text-muted-foreground">
           {truncateText(problem.description, 110)}
         </p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+          {problem.githubOwner && problem.githubRepoName && (
+            <span className="font-mono text-xs text-muted-foreground">
+              {problem.githubOwner}/{problem.githubRepoName}
+            </span>
+          )}
           <span className="font-mono text-xs text-muted-foreground">
             {(problem.skillsRequired || []).slice(0, 3).join(" · ")}
             {(problem.skillsRequired?.length || 0) > 3 &&
@@ -277,12 +289,17 @@ function ProposalRow({ proposal, last }: { proposal: Proposal; last?: boolean })
           {proposal.status === "Pending" && <Clock className="mr-1 h-3 w-3" />}
           {proposal.status}
         </Badge>
-        {proposal.status === "Approved" && problemId && (
+        {proposal.status === "Approved" && !proposal.termsAcceptedAt && (
+          <Button size="sm" variant="gradient" asChild>
+            <Link href={`/proposals/${proposal._id}/agreement`}>Sign agreement</Link>
+          </Button>
+        )}
+        {proposal.status === "Approved" && proposal.termsAcceptedAt && problemId && (
           <Button size="sm" variant="outline" asChild>
             <Link href={`/project/${problemId}`}>Track</Link>
           </Button>
         )}
-        {proposal.status === "Approved" && proposal.repoUrl && (
+        {proposal.status === "Approved" && proposal.termsAcceptedAt && proposal.repoUrl && (
           <Button size="sm" variant="ghost" asChild>
             <a href={proposal.repoUrl} target="_blank" rel="noopener noreferrer">
               Repo
