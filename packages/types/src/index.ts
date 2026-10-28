@@ -204,6 +204,26 @@ export interface StartupDashboardData {
   pendingReviews: number;
 }
 
+export interface EngagementMilestoneSummary {
+  id: string;
+  title: string;
+  amount: number;
+  status: "Pending" | "Delivered" | "Paid" | "Confirmed";
+  evidenceUrl?: string | null;
+  deliveredAt?: string | null;
+  paidAt?: string | null;
+  confirmedAt?: string | null;
+}
+
+export interface EngagementSummary {
+  id: string;
+  title: string;
+  status: "Draft" | "Active" | "Completed" | "Cancelled";
+  currency: string;
+  totalAmount: number;
+  milestones: EngagementMilestoneSummary[];
+}
+
 export interface ProjectTrackingData {
   user: User;
   role: string;
@@ -212,6 +232,7 @@ export interface ProjectTrackingData {
   milestones: Milestone[];
   problemData: Problem;
   canSubmitMilestones?: boolean;
+  engagements?: EngagementSummary[];
 }
 
 // ─── API Response Types ─────────────────────────────────────────────────────

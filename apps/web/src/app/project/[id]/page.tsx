@@ -42,7 +42,7 @@ import { useUser } from "@/hooks/useUser";
 import { PrReview } from "@/components/pr-review";
 import { CertificateSection } from "@/components/certificate-section";
 import { KnowledgePanel } from "@/components/knowledge-panel";
-import type { PullRequest, Milestone } from "@/lib/types";
+import type { PullRequest, Milestone, EngagementSummary } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
 export default function ProjectTrackingPage() {
@@ -74,6 +74,7 @@ export default function ProjectTrackingPage() {
   const [rejectNote, setRejectNote] = useState("");
   const [rejecting, setRejecting] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [engagementList, setEngagementList] = useState<EngagementSummary[]>([]);
 
   const refreshTracking = async () => {
     try {
@@ -85,6 +86,7 @@ export default function ProjectTrackingPage() {
       setRepoOwner(data.problemData?.githubOwner || "");
       setRepoName(data.problemData?.githubRepoName || "");
       setCanSubmit(Boolean(data.canSubmitMilestones));
+      setEngagementList(data.engagements ?? []);
     } catch (err) {
       console.error(err);
     }
@@ -139,6 +141,24 @@ export default function ProjectTrackingPage() {
       setActionError(err instanceof Error ? err.message : "Could not request changes");
     } finally {
       setRejecting(false);
+    }
+  };
+
+  const handleCompleteEngagementMilestone = async (
+    engagementId: string,
+    milestoneId: string
+  ) => {
+    setActionError("");
+    try {
+      const res = await fetch(
+        `/api/engagements/${engagementId}/milestones/${milestoneId}/complete`,
+        { method: "POST", credentials: "include" }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not complete the milestone");
+      await refreshTracking();
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : "Could not complete the milestone");
     }
   };
 
@@ -408,6 +428,95 @@ export default function ProjectTrackingPage() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {engagementList.length > 0 && (
+                <div className="mt-8 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-medium">Paid milestones</h3>
+                    <span className="text-[11px] text-muted-foreground">
+                      From engagements on this challenge
+                    </span>
+                  </div>
+                  {engagementList.map((engagement) => (
+                    <div key={engagement.id} className="overflow-hidden rounded-lg border border-border">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-white/[0.02] px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{engagement.title}</p>
+                          <p className="font-mono text-[11px] text-muted-foreground">
+                            {engagement.currency} {engagement.totalAmount.toLocaleString("en-IN")} ·{" "}
+                            {engagement.status}
+                          </p>
+                        </div>
+                        <Button size="sm" variant="ghost" asChild>
+                          <Link href={`/engagements/${engagement.id}`}>
+                            Manage
+                            <ExternalLink className="ml-1 h-3 w-3" />
+                          </Link>
+                        </Button>
+                      </div>
+                      <div>
+                        {engagement.milestones.map((m) => (
+                          <div
+                            key={m.id}
+                            className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5 text-xs last:border-b-0"
+                          >
+                            <div className="min-w-0">
+                              <span className="text-foreground">{m.title}</span>
+                              <span className="text-muted-foreground">
+                                {" · "}
+                                {engagement.currency} {m.amount.toLocaleString("en-IN")}
+                              </span>
+                              {m.evidenceUrl && (
+                                <a
+                                  href={m.evidenceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="ml-2 inline-flex items-center gap-1 text-primary hover:underline"
+                                >
+                                  Evidence
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              <Badge
+                                variant={
+                                  m.status === "Confirmed"
+                                    ? "success"
+                                    : m.status === "Pending"
+                                      ? "warning"
+                                      : "info"
+                                }
+                                className="text-[10px]"
+                              >
+                                {m.status}
+                              </Badge>
+                              {isStartup && engagement.status === "Active" && m.status !== "Confirmed" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px]"
+                                  onClick={() =>
+                                    handleCompleteEngagementMilestone(engagement.id, m.id)
+                                  }
+                                >
+                                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                                  Mark complete
+                                </Button>
+                              )}
+                              {!isStartup && engagement.status === "Active" && m.status === "Pending" && (
+                                <Button size="sm" variant="ghost" className="h-7 text-[11px]" asChild>
+                                  <Link href={`/engagements/${engagement.id}`}>Deliver</Link>
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </TabsContent>

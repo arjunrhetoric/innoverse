@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { connectDB, Problem, Milestone, Proposal } from "@innoverse/database";
+import { connectDB, Engagement, Problem, Milestone, Proposal } from "@innoverse/database";
 import { getGithubToken } from "@/lib/github-token";
 
 export async function GET(
@@ -44,6 +44,14 @@ export async function GET(
         })
       );
 
+    // Paid milestones belonging to this challenge, visible to the two parties.
+    const engagements = (await Engagement.find({
+      problemId: id,
+      $or: [{ startupId: session.user.id }, { studentId: session.user.id }],
+    })
+      .select("title status currency totalAmount milestones")
+      .lean()) as any[];
+
     // 3. Calculate progress based on completed milestones
     const completedCount = milestones.filter((m: any) => m.completed).length;
     const progress = milestones.length > 0 ? Math.round((completedCount / milestones.length) * 100) : 0;
@@ -75,6 +83,23 @@ export async function GET(
       pullRequests,
       progress,
       canSubmitMilestones,
+      engagements: engagements.map((e) => ({
+        id: String(e._id),
+        title: e.title,
+        status: e.status,
+        currency: e.currency,
+        totalAmount: e.totalAmount,
+        milestones: (e.milestones ?? []).map((m: any) => ({
+          id: String(m._id),
+          title: m.title,
+          amount: m.amount,
+          status: m.status,
+          evidenceUrl: m.evidenceUrl ?? null,
+          deliveredAt: m.deliveredAt ?? null,
+          paidAt: m.paidAt ?? null,
+          confirmedAt: m.confirmedAt ?? null,
+        })),
+      })),
     });
   } catch (error: any) {
     console.error("Project tracking error:", error);

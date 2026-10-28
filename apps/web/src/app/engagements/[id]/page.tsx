@@ -200,6 +200,28 @@ export default function EngagementDetailPage() {
                     )}
                   </div>
                 )}
+
+                {data.party === "startup" && data.status === "Active" && (
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy === "complete-engagement"}
+                      onClick={() => act("complete-engagement", `/api/engagements/${data.id}/complete`)}
+                    >
+                      {busy === "complete-engagement" ? (
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
+                      )}
+                      Mark engagement complete
+                    </Button>
+                    <p className="self-center text-[11px] text-muted-foreground">
+                      Confirms every remaining milestone and closes the engagement (use when payment
+                      happened offline).
+                    </p>
+                  </div>
+                )}
               </div>
 
               {error && (
@@ -309,6 +331,22 @@ export default function EngagementDetailPage() {
                           >
                             {busy === m.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
                             Confirm received
+                          </Button>
+                        )}
+                        {data.party === "startup" && data.status === "Active" && m.status !== "Confirmed" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy === m.id}
+                            onClick={() =>
+                              act(
+                                m.id,
+                                `/api/engagements/${data.id}/milestones/${m.id}/complete`
+                              )
+                            }
+                          >
+                            {busy === m.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
+                            Mark complete
                           </Button>
                         )}
                       </div>
