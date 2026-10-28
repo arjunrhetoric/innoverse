@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Bookmark, ExternalLink, MapPin, Trash2, Users } from "lucide-react";
+import { Bookmark, ExternalLink, MapPin, Trash2, Users, Info, Pencil, Check } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
 
@@ -35,6 +36,8 @@ export default function ShortlistPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editingNote, setEditingNote] = useState<string | null>(null);
+  const [noteValue, setNoteValue] = useState("");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -76,6 +79,29 @@ export default function ShortlistPage() {
     }
   };
 
+  const saveNote = async (studentId: string) => {
+    setError("");
+    try {
+      const res = await fetch("/api/shortlist", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, note: noteValue }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not save the note");
+      setEntries((prev) =>
+        prev.map((entry) =>
+          entry.student.id === studentId ? { ...entry, note: noteValue } : entry
+        )
+      );
+      setEditingNote(null);
+      setNoteValue("");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not save the note");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
@@ -92,6 +118,18 @@ export default function ShortlistPage() {
           </motion.div>
 
           {error && <p className="mt-6 text-sm text-destructive">{error}</p>}
+
+          <div className="mt-5 flex gap-2 rounded-xl border border-border bg-card p-4">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="text-xs leading-relaxed text-muted-foreground">
+              <p className="font-medium text-foreground">Your hiring pipeline</p>
+              <p className="mt-0.5">
+                Shortlisted students are candidates you have verified and may want to revisit for a
+                role. Confidence and rubric scores come from their published reports; add a note to
+                remember the role, the conversation, or the next step.
+              </p>
+            </div>
+          </div>
 
           {authLoading || loading ? (
             <div className="mt-8 space-y-3">
@@ -149,6 +187,51 @@ export default function ShortlistPage() {
                           </span>
                         )}
                       </div>
+
+                      {editingNote === entry.student.id ? (
+                        <div className="mt-3 flex gap-2">
+                          <Input
+                            value={noteValue}
+                            onChange={(e) => setNoteValue(e.target.value)}
+                            placeholder="Role, conversation, next step…"
+                            className="h-8 text-xs"
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 shrink-0"
+                            onClick={() => saveNote(entry.student.id)}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : entry.note ? (
+                        <div className="mt-3 flex items-start gap-2 text-[11px] text-muted-foreground">
+                          <span className="italic">“{entry.note}”</span>
+                          <button
+                            type="button"
+                            className="text-primary hover:underline"
+                            onClick={() => {
+                              setEditingNote(entry.student.id);
+                              setNoteValue(entry.note);
+                            }}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="mt-3 text-[11px] text-primary hover:underline"
+                          onClick={() => {
+                            setEditingNote(entry.student.id);
+                            setNoteValue("");
+                          }}
+                        >
+                          + Add a note
+                        </button>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       {entry.latestReportToken && (

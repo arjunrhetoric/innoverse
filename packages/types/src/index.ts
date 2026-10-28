@@ -104,6 +104,7 @@ export interface Certificate {
 
 export interface Milestone {
   _id: string;
+  problemId?: string | null;
   repoOwner: string;
   repoName: string;
   title: string;
@@ -111,6 +112,10 @@ export interface Milestone {
   deadline?: string;
   completed: boolean;
   completedAt?: string;
+  submittedAt?: string | null;
+  submittedBy?: User | string | null;
+  evidenceUrl?: string | null;
+  reviewNote?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -206,6 +211,7 @@ export interface ProjectTrackingData {
   progress: number | null;
   milestones: Milestone[];
   problemData: Problem;
+  canSubmitMilestones?: boolean;
 }
 
 // ─── API Response Types ─────────────────────────────────────────────────────

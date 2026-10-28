@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { connectDB, Problem, Milestone } from "@innoverse/database";
+import { connectDB, Problem, Milestone, Proposal } from "@innoverse/database";
 import { getGithubToken } from "@/lib/github-token";
 
 export async function GET(
@@ -34,6 +34,16 @@ export async function GET(
     }
     const milestones = await Milestone.find({ $or: milestoneFilters }).sort({ deadline: 1 }).lean();
 
+    const canSubmitMilestones =
+      session.user.role === "Student" &&
+      Boolean(
+        await Proposal.exists({
+          problemId: id,
+          studentId: session.user.id,
+          status: "Approved",
+        })
+      );
+
     // 3. Calculate progress based on completed milestones
     const completedCount = milestones.filter((m: any) => m.completed).length;
     const progress = milestones.length > 0 ? Math.round((completedCount / milestones.length) * 100) : 0;
@@ -64,6 +74,7 @@ export async function GET(
       milestones,
       pullRequests,
       progress,
+      canSubmitMilestones,
     });
   } catch (error: any) {
     console.error("Project tracking error:", error);

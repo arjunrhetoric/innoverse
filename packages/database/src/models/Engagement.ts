@@ -7,9 +7,11 @@ const MilestoneSchema = new mongoose.Schema(
     dueDate: { type: Date, default: null },
     status: {
       type: String,
-      enum: ["Pending", "Paid", "Confirmed"],
+      enum: ["Pending", "Delivered", "Paid", "Confirmed"],
       default: "Pending",
     },
+    evidenceUrl: { type: String, default: null },
+    deliveredAt: { type: Date, default: null },
     paidAt: { type: Date, default: null },
     paidReference: { type: String, default: null },
     confirmedAt: { type: Date, default: null },

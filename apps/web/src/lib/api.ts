@@ -263,6 +263,16 @@ export const milestones = {
   delete: (id: string) => request(`/api/milestones/${id}`, { method: "DELETE" }),
   complete: (id: string) =>
     request(`/api/milestones/${id}/complete`, { method: "PATCH" }),
+  submit: (id: string, evidenceUrl: string) =>
+    request(`/api/milestones/${id}/submit`, {
+      method: "POST",
+      body: JSON.stringify({ evidenceUrl }),
+    }),
+  requestChanges: (id: string, note: string) =>
+    request(`/api/milestones/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    }),
 };
 
 // ─── Notifications ───────────────────────────────────────────────────────────

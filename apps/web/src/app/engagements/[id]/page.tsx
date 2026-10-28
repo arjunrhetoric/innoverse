@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Wallet,
   FileSignature,
+  ExternalLink,
 } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -30,7 +31,9 @@ interface Milestone {
   title: string;
   amount: number;
   dueDate: string | null;
-  status: "Pending" | "Paid" | "Confirmed";
+  status: "Pending" | "Delivered" | "Paid" | "Confirmed";
+  evidenceUrl: string | null;
+  deliveredAt: string | null;
   paidAt: string | null;
   paidReference: string | null;
   confirmedAt: string | null;
@@ -61,6 +64,7 @@ const variantFor: Record<string, "success" | "info" | "warning" | "destructive">
   Completed: "success",
   Cancelled: "destructive",
   Pending: "warning",
+  Delivered: "info",
   Paid: "info",
   Confirmed: "success",
 };
@@ -77,6 +81,8 @@ export default function EngagementDetailPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [paying, setPaying] = useState<string | null>(null);
   const [reference, setReference] = useState("");
+  const [delivering, setDelivering] = useState<string | null>(null);
+  const [evidence, setEvidence] = useState("");
 
   useEffect(() => {
     if (authLoading) return;
@@ -113,6 +119,8 @@ export default function EngagementDetailPage() {
       await load();
       setPaying(null);
       setReference("");
+      setDelivering(null);
+      setEvidence("");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Action failed");
     } finally {
@@ -246,13 +254,25 @@ export default function EngagementDetailPage() {
                           <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
                             <span>{data.currency} {m.amount.toLocaleString("en-IN")}</span>
                             {m.dueDate && <span>Due {formatDate(m.dueDate)}</span>}
+                            {m.deliveredAt && <span>Delivered {formatDate(m.deliveredAt)}</span>}
                             {m.paidAt && <span>Marked paid {formatDate(m.paidAt)}</span>}
                             {m.confirmedAt && <span>Confirmed {formatDate(m.confirmedAt)}</span>}
                             {m.paidReference && <span className="font-mono">ref {m.paidReference}</span>}
+                            {m.evidenceUrl && (
+                              <a
+                                href={m.evidenceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-primary hover:underline"
+                              >
+                                Evidence
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
                           </div>
                         </div>
 
-                        {data.party === "startup" && data.status === "Active" && m.status === "Pending" && (
+                        {data.party === "startup" && data.status === "Active" && m.status === "Delivered" && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -260,6 +280,19 @@ export default function EngagementDetailPage() {
                           >
                             <Wallet className="mr-1 h-3.5 w-3.5" />
                             Mark paid
+                          </Button>
+                        )}
+                        {data.party === "student" && data.status === "Active" && m.status === "Pending" && (
+                          <Button
+                            size="sm"
+                            variant="gradient"
+                            onClick={() => {
+                              setDelivering(delivering === m.id ? null : m.id);
+                              setEvidence("");
+                            }}
+                          >
+                            <FileSignature className="mr-1 h-3.5 w-3.5" />
+                            Mark delivered
                           </Button>
                         )}
                         {data.party === "student" && data.status === "Active" && m.status === "Paid" && (
@@ -279,6 +312,38 @@ export default function EngagementDetailPage() {
                           </Button>
                         )}
                       </div>
+
+                      {delivering === m.id && (
+                        <div className="mt-3 border-t border-border/60 pt-3">
+                          <Label className="mb-1.5 block text-[11px]">Evidence URL</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={evidence}
+                              onChange={(e) => setEvidence(e.target.value)}
+                              placeholder="https://github.com/owner/repo/pull/12"
+                              className="h-9 text-xs"
+                            />
+                            <Button
+                              size="sm"
+                              variant="gradient"
+                              disabled={busy === m.id || !evidence.trim()}
+                              onClick={() =>
+                                act(
+                                  m.id,
+                                  `/api/engagements/${data.id}/milestones/${m.id}/deliver`,
+                                  { evidenceUrl: evidence.trim() }
+                                )
+                              }
+                            >
+                              {busy === m.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Deliver"}
+                            </Button>
+                          </div>
+                          <p className="mt-1.5 text-[11px] text-muted-foreground">
+                            Paste the pull request or commit that proves the deliverable. If the
+                            startup merges that PR, this milestone is marked delivered automatically.
+                          </p>
+                        </div>
+                      )}
 
                       {paying === m.id && (
                         <div className="mt-3 border-t border-border/60 pt-3">

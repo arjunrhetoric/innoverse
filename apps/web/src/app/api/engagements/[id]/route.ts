@@ -74,6 +74,8 @@ export async function GET(
           amount: m.amount,
           dueDate: m.dueDate,
           status: m.status,
+          evidenceUrl: m.evidenceUrl ?? null,
+          deliveredAt: m.deliveredAt ?? null,
           paidAt: m.paidAt,
           paidReference: m.paidReference,
           confirmedAt: m.confirmedAt,

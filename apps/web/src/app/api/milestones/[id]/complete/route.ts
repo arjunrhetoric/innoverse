@@ -29,6 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     milestone.completed = true;
     milestone.completedAt = new Date();
+    milestone.reviewNote = null;
     await milestone.save();
 
     void emitMilestone(

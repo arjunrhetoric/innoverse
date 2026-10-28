@@ -12,6 +12,9 @@ import {
   Plus,
   Calendar,
   Loader2,
+  ExternalLink,
+  XCircle,
+  Send,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Stat } from "@/components/ui/stat";
@@ -63,6 +66,14 @@ export default function ProjectTrackingPage() {
     deadline: "",
   });
   const [creating, setCreating] = useState(false);
+  const [canSubmit, setCanSubmit] = useState(false);
+  const [submitMs, setSubmitMs] = useState<Milestone | null>(null);
+  const [evidenceUrl, setEvidenceUrl] = useState("");
+  const [submittingEvidence, setSubmittingEvidence] = useState(false);
+  const [rejectMs, setRejectMs] = useState<Milestone | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const refreshTracking = async () => {
     try {
@@ -73,6 +84,7 @@ export default function ProjectTrackingPage() {
       setProblemTitle(data.problemData?.title || "Project");
       setRepoOwner(data.problemData?.githubOwner || "");
       setRepoName(data.problemData?.githubRepoName || "");
+      setCanSubmit(Boolean(data.canSubmitMilestones));
     } catch (err) {
       console.error(err);
     }
@@ -97,6 +109,38 @@ export default function ProjectTrackingPage() {
     if (event?.actorId && user?.id && event.actorId === user.id) return;
     refreshTracking();
   });
+
+  const handleSubmitEvidence = async () => {
+    if (!submitMs) return;
+    setSubmittingEvidence(true);
+    setActionError("");
+    try {
+      await milestonesApi.submit(submitMs._id, evidenceUrl.trim());
+      setSubmitMs(null);
+      setEvidenceUrl("");
+      await refreshTracking();
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : "Could not submit the milestone");
+    } finally {
+      setSubmittingEvidence(false);
+    }
+  };
+
+  const handleRequestChanges = async () => {
+    if (!rejectMs) return;
+    setRejecting(true);
+    setActionError("");
+    try {
+      await milestonesApi.requestChanges(rejectMs._id, rejectNote.trim());
+      setRejectMs(null);
+      setRejectNote("");
+      await refreshTracking();
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : "Could not request changes");
+    } finally {
+      setRejecting(false);
+    }
+  };
 
   const handleCreateMilestone = async () => {
     setCreating(true);
@@ -210,6 +254,11 @@ export default function ProjectTrackingPage() {
 
             {/* Milestones */}
             <TabsContent value="milestones">
+              {actionError && (
+                <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                  {actionError}
+                </div>
+              )}
               {milestoneList.length === 0 ? (
                 <EmptyState
                   icon={MilestoneIcon}
@@ -223,61 +272,142 @@ export default function ProjectTrackingPage() {
                 />
               ) : (
                 <div className="overflow-hidden rounded-lg border border-border">
-                  {milestoneList.map((ms, i) => (
-                    <div
-                      key={ms._id}
-                      className={`flex items-center justify-between gap-4 px-4 py-3.5 transition-colors duration-100 hover:bg-white/[0.02] ${
-                        i === milestoneList.length - 1 ? "" : "border-b border-border"
-                      }`}
-                    >
-                      <div className="flex min-w-0 flex-1 items-start gap-3">
-                        <span
-                          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                            ms.completed
-                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
-                              : "border-border bg-white/[0.03] text-muted-foreground"
-                          }`}
-                        >
-                          {ms.completed ? (
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                          ) : (
-                            <Clock className="h-3.5 w-3.5" />
-                          )}
-                        </span>
-                        <div className="min-w-0">
-                          <h4
-                            className={`truncate text-[15px] font-medium tracking-tight ${
-                              ms.completed ? "text-muted-foreground line-through" : "text-foreground"
+                  {milestoneList.map((ms, i) => {
+                    const inReview = Boolean(ms.submittedAt) && !ms.completed;
+                    return (
+                      <div
+                        key={ms._id}
+                        className={`flex flex-col gap-3 px-4 py-3.5 transition-colors duration-100 hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between ${
+                          i === milestoneList.length - 1 ? "" : "border-b border-border"
+                        }`}
+                      >
+                        <div className="flex min-w-0 flex-1 items-start gap-3">
+                          <span
+                            className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                              ms.completed
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                                : inReview
+                                  ? "border-blue-500/30 bg-blue-500/10 text-blue-500"
+                                  : "border-border bg-white/[0.03] text-muted-foreground"
                             }`}
                           >
-                            {ms.title}
-                          </h4>
-                          {ms.description && (
-                            <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                              {ms.description}
-                            </p>
+                            {ms.completed ? (
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            ) : (
+                              <Clock className="h-3.5 w-3.5" />
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4
+                                className={`truncate text-[15px] font-medium tracking-tight ${
+                                  ms.completed
+                                    ? "text-muted-foreground line-through"
+                                    : "text-foreground"
+                                }`}
+                              >
+                                {ms.title}
+                              </h4>
+                              {ms.completed ? (
+                                <Badge variant="success" className="text-[10px]">Completed</Badge>
+                              ) : inReview ? (
+                                <Badge variant="info" className="text-[10px]">In review</Badge>
+                              ) : ms.reviewNote ? (
+                                <Badge variant="warning" className="text-[10px]">Changes requested</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px]">Pending</Badge>
+                              )}
+                            </div>
+                            {ms.description && (
+                              <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                                {ms.description}
+                              </p>
+                            )}
+                            <div className="mt-1 flex flex-wrap items-center gap-3">
+                              {ms.deadline && (
+                                <span className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {formatDate(ms.deadline)}
+                                </span>
+                              )}
+                              {ms.evidenceUrl && (
+                                <a
+                                  href={ms.evidenceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                >
+                                  Evidence
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                            {ms.reviewNote && !ms.completed && (
+                              <p className="mt-1 text-[11px] text-amber-500">
+                                Startup: {ms.reviewNote}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          {isStartup && !ms.completed && inReview && (
+                            <>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => handleCompleteMilestone(ms._id)}
+                              >
+                                <CheckCircle2 className="mr-1 h-3 w-3" />
+                                Approve
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setRejectMs(ms);
+                                  setRejectNote("");
+                                  setActionError("");
+                                }}
+                              >
+                                <XCircle className="mr-1 h-3 w-3" />
+                                Request changes
+                              </Button>
+                            </>
                           )}
-                          {ms.deadline && (
-                            <span className="mt-1 flex items-center gap-1 font-mono text-xs text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(ms.deadline)}
+                          {isStartup && !ms.completed && !inReview && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCompleteMilestone(ms._id)}
+                            >
+                              <CheckCircle2 className="mr-1 h-3 w-3" />
+                              Complete
+                            </Button>
+                          )}
+                          {canSubmit && !ms.completed && !inReview && (
+                            <Button
+                              variant="gradient"
+                              size="sm"
+                              onClick={() => {
+                                setSubmitMs(ms);
+                                setEvidenceUrl("");
+                                setActionError("");
+                              }}
+                            >
+                              <Send className="mr-1 h-3 w-3" />
+                              Submit evidence
+                            </Button>
+                          )}
+                          {canSubmit && inReview && (
+                            <span className="text-[11px] text-muted-foreground">
+                              Awaiting startup review
                             </span>
                           )}
                         </div>
                       </div>
-                      {isStartup && !ms.completed && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0"
-                          onClick={() => handleCompleteMilestone(ms._id)}
-                        >
-                          <CheckCircle2 className="mr-1 h-3 w-3" />
-                          Complete
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
@@ -443,6 +573,90 @@ export default function ProjectTrackingPage() {
                 <Plus className="mr-2 h-4 w-4" />
               )}
               Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Submit milestone evidence */}
+      <Dialog open={Boolean(submitMs)} onOpenChange={(open) => !open && setSubmitMs(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit milestone evidence</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              {submitMs?.title} — paste the pull request, commit, or issue URL that proves the work.
+            </p>
+            {prList.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {prList.slice(0, 4).map((pr) => (
+                  <button
+                    key={pr.id}
+                    type="button"
+                    onClick={() => setEvidenceUrl(pr.html_url)}
+                    className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
+                  >
+                    #{pr.number} {pr.title.slice(0, 32)}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div>
+              <Label htmlFor="evidenceUrl">Evidence URL</Label>
+              <Input
+                id="evidenceUrl"
+                value={evidenceUrl}
+                onChange={(e) => setEvidenceUrl(e.target.value)}
+                placeholder="https://github.com/owner/repo/pull/12"
+                className="mt-1.5"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              If the startup merges that pull request later, the milestone completes automatically.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSubmitMs(null)}>Cancel</Button>
+            <Button
+              variant="default"
+              onClick={handleSubmitEvidence}
+              disabled={submittingEvidence || !evidenceUrl.trim()}
+            >
+              {submittingEvidence ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              Submit for review
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Request changes on a milestone */}
+      <Dialog open={Boolean(rejectMs)} onOpenChange={(open) => !open && setRejectMs(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request changes</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              {rejectMs?.title} — tell the student what needs to change. They can resubmit with new
+              evidence.
+            </p>
+            <Textarea
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              placeholder="e.g. Add tests for the ingest edge cases and link the updated PR."
+              className="min-h-20"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectMs(null)}>Cancel</Button>
+            <Button
+              variant="default"
+              onClick={handleRequestChanges}
+              disabled={rejecting || rejectNote.trim().length < 3}
+            >
+              {rejecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
+              Send feedback
             </Button>
           </DialogFooter>
         </DialogContent>

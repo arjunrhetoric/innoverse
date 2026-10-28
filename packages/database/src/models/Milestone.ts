@@ -10,7 +10,15 @@ const MilestoneSchema = new mongoose.Schema(
     description: { type: String },
     deadline: { type: Date },
     completed: { type: Boolean, default: false },
-    completedAt: { type: Date }
+    completedAt: { type: Date },
+    submittedAt: { type: Date, default: null },
+    submittedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    evidenceUrl: { type: String, default: null },
+    reviewNote: { type: String, default: null },
   },
   { timestamps: true }
 );

@@ -52,8 +52,11 @@ export async function POST(
     if (!milestone) {
       return NextResponse.json({ message: "Milestone not found" }, { status: 404 });
     }
-    if (milestone.status !== "Pending") {
-      return NextResponse.json({ message: "This milestone is already marked paid" }, { status: 409 });
+    if (milestone.status !== "Delivered") {
+      return NextResponse.json(
+        { message: "The student must deliver this milestone (with evidence) before payment" },
+        { status: 409 }
+      );
     }
 
     milestone.status = "Paid";
