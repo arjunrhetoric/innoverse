@@ -18,6 +18,30 @@ interface CallResult {
   body: string;
 }
 
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const MAX_ATTEMPTS = 3;
+
+function retryDelay(attempt: number): number {
+  const configured = Number(process.env.GEMINI_RETRY_BASE_MS);
+  const base = Number.isFinite(configured) && configured >= 0 ? configured : 700;
+  const jitter = base === 0 ? 0 : Math.floor(Math.random() * 200);
+  return base * 2 ** attempt + jitter;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function friendlyFailure(status: number): string {
+  if (status === 429) {
+    return "Gemini is rate-limiting requests right now. Wait a few seconds and try again.";
+  }
+  if (status === 503) {
+    return "Gemini is temporarily overloaded. Try again in a few seconds.";
+  }
+  return `Gemini request failed (${status}). Try again shortly.`;
+}
+
 async function callModel(
   model: string,
   prompt: string,
@@ -87,22 +111,37 @@ export async function askGemini(prompt: string, options: GeminiOptions = {}): Pr
   let last: CallResult | null = null;
 
   for (const model of models) {
-    const result = await callModel(model, prompt, options, key);
-    if (result.ok) return result.text;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const result = await callModel(model, prompt, options, key);
+      if (result.ok) return result.text;
 
-    last = result;
-    if (result.status !== 404) break;
+      last = result;
 
-    // e.g. "Please update your code to use models/gemini-3.8-flash"
-    const suggested = /models\/([A-Za-z0-9._-]+)/.exec(result.body)?.[1];
-    if (suggested && !models.includes(suggested)) {
-      models.push(suggested);
+      if (result.status === 404) {
+        // Model retired: follow the suggested replacement, then move on.
+        const suggested = /models\/([A-Za-z0-9._-]+)/.exec(result.body)?.[1];
+        if (suggested && !models.includes(suggested)) {
+          models.push(suggested);
+        }
+        break;
+      }
+
+      if (!RETRYABLE_STATUSES.has(result.status)) {
+        break;
+      }
+
+      if (attempt < MAX_ATTEMPTS - 1) {
+        await sleep(retryDelay(attempt));
+      }
     }
   }
 
-  throw new Error(
-    `Gemini request failed (${last?.status ?? "no response"}): ${(last?.body ?? "unknown error").slice(0, 300)}`
+  const status = last?.status ?? 502;
+  console.error(
+    `Gemini failed after retries (${status}):`,
+    (last?.body ?? "").slice(0, 300)
   );
+  throw new Error(friendlyFailure(status));
 }
 
 export function extractJson<T>(text: string): T | null {
