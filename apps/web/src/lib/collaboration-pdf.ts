@@ -1,4 +1,16 @@
-import { PDFDocument, PDFFont, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument } from "pdf-lib";
+import {
+  C,
+  drawDocumentFooter,
+  drawDocumentHeader,
+  drawFrame,
+  drawParagraph,
+  drawPartyBox,
+  drawSectionTitle,
+  drawSignatureBlock,
+  loadFonts,
+  wrap,
+} from "./pdf-kit";
 
 export interface CollaborationAgreementData {
   agreementCode: string;
@@ -11,34 +23,15 @@ export interface CollaborationAgreementData {
   startupSignatoryName?: string | null;
   startupSignatoryTitle?: string | null;
   signatureBytes?: Uint8Array | null;
-  studentAcceptedName: string;
-  studentAcceptedAt: Date;
-}
-
-const NAVY = rgb(0.09, 0.13, 0.24);
-const GOLD = rgb(0.72, 0.56, 0.16);
-const GRAY = rgb(0.42, 0.44, 0.5);
-const LINE = rgb(0.85, 0.84, 0.8);
-
-function wrap(text: string, font: PDFFont, size: number, maxWidth: number) {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) current = candidate;
-    else {
-      if (current) lines.push(current);
-      current = word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
+  studentAcceptedName?: string | null;
+  studentAcceptedAt?: Date | null;
+  studentSignatureBytes?: Uint8Array | null;
 }
 
 /**
- * Collaboration + IP assignment agreement, generated when the student
- * accepts terms at approval time — before any repository access is granted.
+ * Collaboration + IP assignment agreement.
+ * Generated as a draft at approval (student signature pending) and
+ * re-generated with the student's signature when they accept.
  */
 export async function renderCollaborationPdf(
   data: CollaborationAgreementData
@@ -47,62 +40,73 @@ export async function renderCollaborationPdf(
   const page = doc.addPage([595.28, 841.89]);
   const W = page.getWidth();
   const H = page.getHeight();
-  const M = 48;
+  const M = 56;
+  const fonts = await loadFonts(doc);
 
-  const sans = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const serif = await doc.embedFont(StandardFonts.TimesRomanBold);
-  const mono = await doc.embedFont(StandardFonts.Courier);
+  drawFrame(page);
 
-  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: rgb(0.995, 0.992, 0.98) });
-  page.drawRectangle({ x: M - 12, y: M - 12, width: W - 2 * (M - 12), height: H - 2 * (M - 12), borderColor: NAVY, borderWidth: 1 });
-  page.drawRectangle({ x: M - 6, y: M - 6, width: W - 2 * (M - 6), height: H - 2 * (M - 6), borderColor: GOLD, borderWidth: 0.5 });
-
-  page.drawText("INNOVERSE", { x: M, y: H - 72, size: 14, font: bold, color: NAVY });
-  page.drawText("COLLABORATION & IP ASSIGNMENT AGREEMENT", { x: M, y: H - 86, size: 6.5, font: sans, color: GRAY });
-  page.drawText(data.agreementCode, {
-    x: W - M - mono.widthOfTextAtSize(data.agreementCode, 8),
-    y: H - 72,
-    size: 8,
-    font: mono,
-    color: GRAY,
+  let y = drawDocumentHeader(page, fonts, {
+    title: "Collaboration & IP Assignment Agreement",
+    code: data.agreementCode,
+    subtitle: "Innoverse collaboration registry · Read-only contribution model",
   });
-  page.drawLine({ start: { x: M, y: H - 98 }, end: { x: W - M, y: H - 98 }, thickness: 0.75, color: GOLD });
 
-  page.drawText(data.projectTitle, { x: M, y: H - 128, size: 19, font: serif, color: NAVY });
-  page.drawText("This agreement is made between:", { x: M, y: H - 150, size: 9, font: sans, color: GRAY });
+  // ── Parties ──
+  const boxW = (W - 2 * M - 10) / 2;
+  drawPartyBox(page, fonts, {
+    x: M,
+    y,
+    width: boxW,
+    label: "STARTUP",
+    name: data.startupName,
+    detail: data.startupSignatoryName
+      ? `${data.startupSignatoryName}${data.startupSignatoryTitle ? `, ${data.startupSignatoryTitle}` : ""}`
+      : "Authorized representative",
+  });
+  drawPartyBox(page, fonts, {
+    x: M + boxW + 10,
+    y,
+    width: boxW,
+    label: "STUDENT",
+    name: data.studentName,
+    detail: data.repoUrl ? "Approved contributor" : "Contributor",
+  });
+  y -= 64;
 
-  let y = H - 172;
-  const party = (role: string, name: string) => {
-    page.drawText(role, { x: M, y, size: 8, font: bold, color: GRAY });
-    page.drawText(name, { x: M + 92, y, size: 10, font: bold, color: NAVY });
-    y -= 16;
-  };
-  party("STARTUP", data.startupName);
-  party("STUDENT", data.studentName);
-  party("EFFECTIVE", data.issuedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }));
-
+  // ── Project ──
+  y = drawSectionTitle(page, fonts, M, y, "01", "Project");
+  y = drawParagraph(page, data.projectTitle, {
+    x: M,
+    y,
+    width: W - 2 * M,
+    font: fonts.serifBold,
+    size: 12,
+    color: C.navy,
+    leading: 15,
+    maxLines: 2,
+  });
   if (data.repoUrl) {
-    y -= 2;
-    page.drawText("REPOSITORY", { x: M, y, size: 8, font: bold, color: GRAY });
-    page.drawText(data.repoUrl, { x: M + 92, y, size: 8.5, font: sans, color: NAVY });
-    y -= 16;
+    page.drawText("Repository", { x: M, y, size: 7, font: fonts.sansBold, color: C.gray });
+    page.drawText(data.repoUrl, {
+      x: M + 62,
+      y,
+      size: 8,
+      font: fonts.mono,
+      color: C.navy,
+    });
+    y -= 14;
   }
+  y = drawParagraph(
+    page,
+    data.projectDescription || "Contributions to the project described by the startup.",
+    { x: M, y, width: W - 2 * M, font: fonts.sans, size: 8.5, color: C.gray, leading: 12, maxLines: 5 }
+  );
 
-  y -= 8;
-  page.drawText("1. PROJECT", { x: M, y, size: 9, font: bold, color: NAVY });
-  y -= 14;
-  for (const line of wrap(data.projectDescription || "Contribute to the project described by the startup.", sans, 9, W - 2 * M).slice(0, 6)) {
-    page.drawText(line, { x: M, y, size: 9, font: sans, color: GRAY });
-    y -= 12;
-  }
-
+  // ── Terms ──
   y -= 10;
-  page.drawText("2. TERMS", { x: M, y, size: 9, font: bold, color: NAVY });
-  y -= 14;
-
+  y = drawSectionTitle(page, fonts, M, y, "02", "Terms");
   const terms = [
-    "Access: the student receives read access to the repository and contributes through forks and pull requests. Direct pushes to protected branches are not permitted; merges require the startup's review.",
+    "Access: the student receives read-only access to the repository and contributes through forks and pull requests. Direct pushes to protected branches are not permitted; merges require the startup's review.",
     "IP assignment: the student assigns to the startup all rights, title and interest in the contributions created under this collaboration, effective on creation of each contribution.",
     "Confidentiality: the student keeps non-public information in the repository confidential and uses it only to perform this collaboration.",
     "No employment: this collaboration is not an employment relationship and creates no salary, benefits or exclusivity.",
@@ -111,45 +115,61 @@ export async function renderCollaborationPdf(
   ];
 
   for (const term of terms) {
-    for (const line of wrap(`• ${term}`, sans, 8, W - 2 * M - 4).slice(0, 4)) {
-      page.drawText(line, { x: M, y, size: 8, font: sans, color: GRAY });
-      y -= 10;
+    if (y < 250) break;
+    const lines = wrap(`• ${term}`, fonts.sans, 8, W - 2 * M - 4);
+    for (const line of lines.slice(0, 4)) {
+      page.drawText(line, { x: M, y, size: 8, font: fonts.sans, color: C.gray });
+      y -= 10.5;
     }
-    y -= 3;
+    y -= 2.5;
   }
 
-  y -= 6;
-  page.drawText("3. SIGNATURES", { x: M, y, size: 9, font: bold, color: NAVY });
+  // ── Signatures ──
+  const sigY = 150;
+  page.drawLine({
+    start: { x: M, y: sigY + 96 },
+    end: { x: W - M, y: sigY + 96 },
+    thickness: 0.4,
+    color: C.line,
+  });
+  drawSectionTitle(page, fonts, M, sigY + 82, "03", "Signatures");
 
-  const signY = Math.max(150, y - 70);
-  if (data.signatureBytes) {
-    try {
-      const sig = await doc.embedPng(data.signatureBytes);
-      const scale = Math.min(150 / sig.width, 42 / sig.height, 1);
-      page.drawImage(sig, { x: M, y: signY + 4, width: sig.width * scale, height: sig.height * scale });
-    } catch {
-      // Typed signature fallback below.
-    }
-  }
-  page.drawLine({ start: { x: M, y: signY }, end: { x: M + 200, y: signY }, thickness: 0.75, color: NAVY });
-  page.drawText(data.startupSignatoryName || data.startupName, { x: M, y: signY - 14, size: 9, font: bold, color: NAVY });
-  page.drawText(
-    `${data.startupSignatoryTitle ? `${data.startupSignatoryTitle}, ` : ""}${data.startupName}`,
-    { x: M, y: signY - 26, size: 7.5, font: sans, color: GRAY }
-  );
+  const sigW = (W - 2 * M - 24) / 2;
+  await drawSignatureBlock(doc, page, fonts, {
+    x: M,
+    y: sigY + 30,
+    width: sigW,
+    label: "SIGNED FOR THE STARTUP",
+    name: data.startupSignatoryName || data.startupName,
+    detail: data.startupSignatoryTitle
+      ? `${data.startupSignatoryTitle}, ${data.startupName}`
+      : data.startupName,
+    date: data.issuedAt,
+    signatureBytes: data.signatureBytes,
+  });
 
-  const sx = W / 2 + 20;
-  page.drawLine({ start: { x: sx, y: signY }, end: { x: sx + 200, y: signY }, thickness: 0.75, color: NAVY });
-  page.drawText(data.studentAcceptedName, { x: sx, y: signY - 14, size: 9, font: bold, color: NAVY });
-  page.drawText(
-    `Accepted ${data.studentAcceptedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`,
-    { x: sx, y: signY - 26, size: 7.5, font: sans, color: GRAY }
-  );
+  await drawSignatureBlock(doc, page, fonts, {
+    x: M + sigW + 24,
+    y: sigY + 30,
+    width: sigW,
+    label: "ACCEPTED BY THE STUDENT",
+    name: data.studentAcceptedName || data.studentName,
+    detail: data.studentAcceptedAt
+      ? "Collaboration and IP assignment accepted"
+      : "Pending acceptance in Innoverse",
+    date: data.studentAcceptedAt ?? null,
+    signatureBytes: data.studentSignatureBytes,
+    pendingLabel: data.studentAcceptedAt ? undefined : "Pending signature",
+  });
 
-  page.drawText(
-    "Generated by Innoverse. This is a demonstration agreement and not legal advice; have counsel review before real use.",
-    { x: M, y: 62, size: 6.5, font: sans, color: GRAY }
-  );
+  drawDocumentFooter(page, fonts, {
+    left: `Effective ${data.issuedAt.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })} · Innoverse agreement registry`,
+    right: "Page 1 of 1 · demo template, not legal advice",
+  });
 
   return doc.save();
 }

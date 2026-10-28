@@ -83,6 +83,7 @@ export default function EngagementDetailPage() {
   const [reference, setReference] = useState("");
   const [delivering, setDelivering] = useState<string | null>(null);
   const [evidence, setEvidence] = useState("");
+  const [signatureDataUrl, setSignatureDataUrl] = useState("");
 
   useEffect(() => {
     if (authLoading) return;
@@ -130,6 +131,20 @@ export default function EngagementDetailPage() {
 
   const confirmed = data?.milestones.filter((m) => m.status === "Confirmed").length ?? 0;
   const progress = data?.milestones.length ? Math.round((confirmed / data.milestones.length) * 100) : 0;
+
+  const onSignatureFile = (file?: File) => {
+    if (!file) {
+      setSignatureDataUrl("");
+      return;
+    }
+    if (!/^image\/(png|jpeg)$/.test(file.type) || file.size > 2 * 1024 * 1024) {
+      setError("Signature must be a PNG or JPEG under 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setSignatureDataUrl(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -250,11 +265,33 @@ export default function EngagementDetailPage() {
                     />
                     <span>I accept the IP assignment and confidentiality terms in the agreement.</span>
                   </label>
+                  <div className="mt-3">
+                    <Label htmlFor="signature" className="mb-1.5 block text-xs">
+                      Your signature (optional PNG/JPG)
+                    </Label>
+                    <input
+                      id="signature"
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={(e) => onSignatureFile(e.target.files?.[0])}
+                      className="block w-full text-xs text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:text-foreground"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {signatureDataUrl
+                        ? "Signature attached — it will appear on the agreement."
+                        : "If omitted, your typed name is used as the signature."}
+                    </p>
+                  </div>
                   <Button
                     className="mt-4"
                     variant="gradient"
                     disabled={!acceptedTerms || busy === "accept"}
-                    onClick={() => act("accept", `/api/engagements/${data.id}/accept`, { ipAssignmentAccepted: true })}
+                    onClick={() =>
+                      act("accept", `/api/engagements/${data.id}/accept`, {
+                        ipAssignmentAccepted: true,
+                        signatureDataUrl,
+                      })
+                    }
                   >
                     {busy === "accept" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Accept & generate agreement

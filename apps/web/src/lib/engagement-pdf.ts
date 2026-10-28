@@ -1,4 +1,16 @@
-import { PDFDocument, PDFFont, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument } from "pdf-lib";
+import {
+  C,
+  drawDocumentFooter,
+  drawDocumentHeader,
+  drawFrame,
+  drawParagraph,
+  drawPartyBox,
+  drawSectionTitle,
+  drawSignatureBlock,
+  loadFonts,
+  wrap,
+} from "./pdf-kit";
 
 export interface ContractMilestone {
   title: string;
@@ -22,186 +34,200 @@ export interface ContractData {
   signatureBytes?: Uint8Array | null;
   studentAcceptedName?: string | null;
   studentAcceptedAt?: Date | null;
+  studentSignatureBytes?: Uint8Array | null;
 }
-
-const NAVY = rgb(0.09, 0.13, 0.24);
-const GOLD = rgb(0.72, 0.56, 0.16);
-const GRAY = rgb(0.42, 0.44, 0.5);
-const LINE = rgb(0.85, 0.84, 0.8);
 
 function money(amount: number, currency: string) {
-  const value = amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
-  return `${currency} ${value}`;
+  return `${currency} ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
-function wrap(text: string, font: PDFFont, size: number, maxWidth: number) {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) current = candidate;
-    else {
-      if (current) lines.push(current);
-      current = word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
-
-/** One-page micro-internship agreement, generated when the student accepts. */
+/** Paid micro-internship agreement, signed by both parties on acceptance. */
 export async function renderContractPdf(data: ContractData): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const page = doc.addPage([595.28, 841.89]);
   const W = page.getWidth();
-  const H = page.getHeight();
-  const M = 48;
+  const fonts = await loadFonts(doc);
+  const M = 56;
 
-  const sans = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const serif = await doc.embedFont(StandardFonts.TimesRomanBold);
-  const mono = await doc.embedFont(StandardFonts.Courier);
+  drawFrame(page);
 
-  page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: rgb(0.995, 0.992, 0.98) });
-  page.drawRectangle({ x: M - 12, y: M - 12, width: W - 2 * (M - 12), height: H - 2 * (M - 12), borderColor: NAVY, borderWidth: 1 });
-  page.drawRectangle({ x: M - 6, y: M - 6, width: W - 2 * (M - 6), height: H - 2 * (M - 6), borderColor: GOLD, borderWidth: 0.5 });
-
-  // Header
-  page.drawText("INNOVERSE", { x: M, y: H - 72, size: 14, font: bold, color: NAVY });
-  page.drawText("MICRO-INTERNSHIP AGREEMENT", { x: M, y: H - 86, size: 7, font: sans, color: GRAY });
-  page.drawText(data.contractCode, {
-    x: W - M - mono.widthOfTextAtSize(data.contractCode, 8),
-    y: H - 72,
-    size: 8,
-    font: mono,
-    color: GRAY,
+  let y = drawDocumentHeader(page, fonts, {
+    title: "Micro-Internship Agreement",
+    code: data.contractCode,
+    subtitle: "Innoverse paid engagement registry · Milestone-based",
   });
-  page.drawLine({ start: { x: M, y: H - 98 }, end: { x: W - M, y: H - 98 }, thickness: 0.75, color: GOLD });
 
-  page.drawText(data.title, { x: M, y: H - 128, size: 19, font: serif, color: NAVY });
-  page.drawText("This agreement is made between:", { x: M, y: H - 150, size: 9, font: sans, color: GRAY });
+  // ── Parties ──
+  const boxW = (W - 2 * M - 10) / 2;
+  drawPartyBox(page, fonts, {
+    x: M,
+    y,
+    width: boxW,
+    label: "STARTUP",
+    name: data.startupName,
+    detail: data.startupSignatoryName
+      ? `${data.startupSignatoryName}${data.startupSignatoryTitle ? `, ${data.startupSignatoryTitle}` : ""}`
+      : "Authorized representative",
+  });
+  drawPartyBox(page, fonts, {
+    x: M + boxW + 10,
+    y,
+    width: boxW,
+    label: "STUDENT",
+    name: data.studentName,
+    detail: "Independent contributor",
+  });
+  y -= 64;
 
-  // Parties
-  let y = H - 172;
-  const party = (role: string, name: string) => {
-    page.drawText(role, { x: M, y, size: 8, font: bold, color: GRAY });
-    page.drawText(name, { x: M + 92, y, size: 10, font: bold, color: NAVY });
-    y -= 16;
-  };
-  party("STARTUP", data.startupName);
-  party("STUDENT", data.studentName);
-  party("ISSUED", data.issuedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }));
-
-  // Scope
-  y -= 8;
-  page.drawText("1. SCOPE", { x: M, y, size: 9, font: bold, color: NAVY });
+  // ── Scope ──
+  y = drawSectionTitle(page, fonts, M, y, "01", "Scope");
+  y = drawParagraph(page, data.title, {
+    x: M,
+    y,
+    width: W - 2 * M,
+    font: fonts.serifBold,
+    size: 12,
+    color: C.navy,
+    leading: 15,
+    maxLines: 2,
+  });
+  page.drawText("Challenge", { x: M, y, size: 7, font: fonts.sansBold, color: C.gray });
+  page.drawText(data.challengeTitle, { x: M + 58, y, size: 8, font: fonts.sans, color: C.navy });
   y -= 14;
-  page.drawText(`Challenge: ${data.challengeTitle}`, { x: M, y, size: 9, font: sans, color: NAVY });
-  y -= 14;
-  for (const line of wrap(data.description || "Deliver the agreed scope for the challenge above.", sans, 9, W - 2 * M).slice(0, 6)) {
-    page.drawText(line, { x: M, y, size: 9, font: sans, color: GRAY });
-    y -= 12;
-  }
+  y = drawParagraph(page, data.description || "Deliver the agreed scope.", {
+    x: M,
+    y,
+    width: W - 2 * M,
+    font: fonts.sans,
+    size: 8.5,
+    color: C.gray,
+    leading: 12,
+    maxLines: 4,
+  });
 
-  // Milestones
+  // ── Schedule ──
   y -= 10;
-  page.drawText("2. SCHEDULE OF PAYMENTS", { x: M, y, size: 9, font: bold, color: NAVY });
-  y -= 18;
-  const cols = { title: M, amount: W - M - 150, due: W - M - 60 };
-  page.drawText("DELIVERABLE", { x: cols.title, y, size: 7, font: bold, color: GRAY });
-  page.drawText("AMOUNT", { x: cols.amount, y, size: 7, font: bold, color: GRAY });
-  page.drawText("DUE", { x: cols.due, y, size: 7, font: bold, color: GRAY });
-  y -= 6;
-  page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: LINE });
-  y -= 14;
+  y = drawSectionTitle(page, fonts, M, y, "02", "Schedule of payments");
+  const amountX = W - M - 150;
+  const dueX = W - M - 56;
+  page.drawText("DELIVERABLE", { x: M, y, size: 6.5, font: fonts.sansBold, color: C.gray });
+  page.drawText("AMOUNT", { x: amountX, y, size: 6.5, font: fonts.sansBold, color: C.gray });
+  page.drawText("DUE", { x: dueX, y, size: 6.5, font: fonts.sansBold, color: C.gray });
+  y -= 7;
+  page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: C.line });
+  y -= 13;
 
-  data.milestones.forEach((m, i) => {
+  const rows = data.milestones.slice(0, 8);
+  rows.forEach((m, i) => {
     page.drawText(`${i + 1}. ${m.title}`, {
-      x: cols.title,
+      x: M,
       y,
-      size: 9,
-      font: sans,
-      color: NAVY,
-      maxWidth: cols.amount - cols.title - 8,
+      size: 8.5,
+      font: fonts.sans,
+      color: C.navy,
+      maxWidth: amountX - M - 10,
     });
     page.drawText(money(m.amount, data.currency), {
-      x: cols.amount,
+      x: amountX,
       y,
-      size: 9,
-      font: sans,
-      color: NAVY,
+      size: 8.5,
+      font: fonts.sans,
+      color: C.navy,
     });
     page.drawText(
-      m.dueDate ? new Date(m.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—",
-      { x: cols.due, y, size: 8, font: sans, color: GRAY }
+      m.dueDate
+        ? new Date(m.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        : "—",
+      { x: dueX, y, size: 7.5, font: fonts.sans, color: C.gray }
     );
-    y -= 16;
+    y -= 15;
   });
+  if (data.milestones.length > rows.length) {
+    page.drawText(`+ ${data.milestones.length - rows.length} more milestone(s)`, {
+      x: M,
+      y,
+      size: 7.5,
+      font: fonts.sans,
+      color: C.gray,
+    });
+    y -= 13;
+  }
 
-  page.drawLine({ start: { x: M, y: y + 8 }, end: { x: W - M, y: y + 8 }, thickness: 0.5, color: LINE });
+  page.drawLine({ start: { x: M, y: y + 7 }, end: { x: W - M, y: y + 7 }, thickness: 0.5, color: C.line });
   y -= 4;
-  page.drawText("TOTAL", { x: cols.title, y, size: 9, font: bold, color: NAVY });
+  page.drawText("TOTAL", { x: M, y, size: 8.5, font: fonts.sansBold, color: C.navy });
   page.drawText(money(data.totalAmount, data.currency), {
-    x: cols.amount,
+    x: amountX,
     y,
-    size: 10,
-    font: bold,
-    color: NAVY,
+    size: 9.5,
+    font: fonts.sansBold,
+    color: C.navy,
   });
 
-  // Terms
-  y -= 26;
-  page.drawText("3. TERMS", { x: M, y, size: 9, font: bold, color: NAVY });
-  y -= 14;
+  // ── Terms ──
+  y -= 22;
+  y = drawSectionTitle(page, fonts, M, y, "03", "Terms");
   const terms = [
-    "Intellectual property: on full payment of all milestones, the student assigns to the startup all rights, title and interest in the deliverables created under this engagement.",
+    "Payment: the startup pays each milestone after the student delivers it with evidence; the student confirms receipt in Innoverse. Innoverse records status but does not process or hold funds.",
+    "IP assignment: on full payment of all milestones, the student assigns to the startup all rights, title and interest in the deliverables created under this engagement.",
     "Confidentiality: both parties keep non-public information received through this engagement confidential and use it only to perform the work.",
-    "Payment: the startup pays each milestone after accepting the deliverable; the student confirms receipt in Innoverse. Innoverse records the status but does not process or hold funds.",
-    "Evidence: completion may be evidenced by merged pull requests, commits and milestones recorded on the linked GitHub repository.",
+    "Independent contractor: the student is not an employee; no salary, benefits or exclusivity are created.",
   ];
   for (const term of terms) {
-    for (const line of wrap(`• ${term}`, sans, 8, W - 2 * M - 4).slice(0, 3)) {
-      page.drawText(line, { x: M, y, size: 8, font: sans, color: GRAY });
-      y -= 10;
+    if (y < 240) break;
+    for (const line of wrap(`• ${term}`, fonts.sans, 8, W - 2 * M - 4).slice(0, 3)) {
+      page.drawText(line, { x: M, y, size: 8, font: fonts.sans, color: C.gray });
+      y -= 10.5;
     }
-    y -= 3;
+    y -= 2.5;
   }
 
-  // Signatures
-  const signY = 150;
-  page.drawText("4. SIGNATURES", { x: M, y: signY + 52, size: 9, font: bold, color: NAVY });
+  // ── Signatures ──
+  const sigY = 150;
+  page.drawLine({
+    start: { x: M, y: sigY + 96 },
+    end: { x: W - M, y: sigY + 96 },
+    thickness: 0.4,
+    color: C.line,
+  });
+  drawSectionTitle(page, fonts, M, sigY + 82, "04", "Signatures");
 
-  if (data.signatureBytes) {
-    try {
-      const sig = await doc.embedPng(data.signatureBytes);
-      const scale = Math.min(150 / sig.width, 42 / sig.height, 1);
-      page.drawImage(sig, { x: M, y: signY + 4, width: sig.width * scale, height: sig.height * scale });
-    } catch {
-      // Fall back to a typed signature line.
-    }
-  }
-  page.drawLine({ start: { x: M, y: signY }, end: { x: M + 200, y: signY }, thickness: 0.75, color: NAVY });
-  page.drawText(data.startupSignatoryName || data.startupName, { x: M, y: signY - 14, size: 9, font: bold, color: NAVY });
-  page.drawText(
-    `${data.startupSignatoryTitle ? `${data.startupSignatoryTitle}, ` : ""}${data.startupName}`,
-    { x: M, y: signY - 26, size: 7.5, font: sans, color: GRAY }
-  );
+  const sigW = (W - 2 * M - 24) / 2;
+  await drawSignatureBlock(doc, page, fonts, {
+    x: M,
+    y: sigY + 30,
+    width: sigW,
+    label: "SIGNED FOR THE STARTUP",
+    name: data.startupSignatoryName || data.startupName,
+    detail: data.startupSignatoryTitle
+      ? `${data.startupSignatoryTitle}, ${data.startupName}`
+      : data.startupName,
+    date: data.issuedAt,
+    signatureBytes: data.signatureBytes,
+  });
 
-  const sx = W / 2 + 20;
-  page.drawLine({ start: { x: sx, y: signY }, end: { x: sx + 200, y: signY }, thickness: 0.75, color: NAVY });
-  page.drawText(data.studentAcceptedName || data.studentName, { x: sx, y: signY - 14, size: 9, font: bold, color: NAVY });
-  page.drawText(
-    data.studentAcceptedAt
-      ? `Accepted ${data.studentAcceptedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`
-      : "Student acceptance pending",
-    { x: sx, y: signY - 26, size: 7.5, font: sans, color: GRAY }
-  );
+  await drawSignatureBlock(doc, page, fonts, {
+    x: M + sigW + 24,
+    y: sigY + 30,
+    width: sigW,
+    label: "ACCEPTED BY THE STUDENT",
+    name: data.studentAcceptedName || data.studentName,
+    detail: data.studentAcceptedAt
+      ? "Engagement and IP assignment accepted"
+      : "Pending acceptance in Innoverse",
+    date: data.studentAcceptedAt ?? null,
+    signatureBytes: data.studentSignatureBytes,
+    pendingLabel: data.studentAcceptedAt ? undefined : "Pending signature",
+  });
 
-  page.drawText(
-    "Generated by Innoverse. This is a demonstration agreement and not legal advice; have counsel review before real use.",
-    { x: M, y: 62, size: 6.5, font: sans, color: GRAY }
-  );
+  drawDocumentFooter(page, fonts, {
+    left: `Issued ${data.issuedAt.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })} · Innoverse engagement registry`,
+    right: "Page 1 of 1 · demo template, not legal advice",
+  });
 
   return doc.save();
 }

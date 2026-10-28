@@ -361,6 +361,13 @@ export default function StartupDashboard() {
                                 </a>
                               </Button>
                             )}
+                            {proposal.status === "Approved" && proposal.agreementFile && (
+                              <Button variant="ghost" size="sm" asChild>
+                                <a href={`/api/proposals/${proposal._id}/agreement/file`}>
+                                  Agreement
+                                </a>
+                              </Button>
+                            )}
                             {proposal.status === "Pending" && (
                               <>
                                 <Button

@@ -18,6 +18,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
 
@@ -49,6 +50,7 @@ export default function CollaborationAgreementPage() {
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [done, setDone] = useState(false);
+  const [signatureDataUrl, setSignatureDataUrl] = useState("");
 
   useEffect(() => {
     if (authLoading) return;
@@ -76,7 +78,7 @@ export default function CollaborationAgreementPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ipAssignmentAccepted: true }),
+        body: JSON.stringify({ ipAssignmentAccepted: true, signatureDataUrl }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not sign the agreement");
@@ -96,6 +98,25 @@ export default function CollaborationAgreementPage() {
   const resend = sign;
 
   const isStudent = user?.role === "Student";
+
+  const onSignatureFile = (file?: File) => {
+    setError("");
+    if (!file) {
+      setSignatureDataUrl("");
+      return;
+    }
+    if (!/^image\/(png|jpeg)$/.test(file.type)) {
+      setError("Upload a PNG or JPEG signature image");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Signature image must be under 2MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setSignatureDataUrl(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -138,6 +159,17 @@ export default function CollaborationAgreementPage() {
                 <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
                   {data.problem.description}
                 </p>
+
+                {data.proposal.agreementFile && (
+                  <div className="mt-3">
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={`/api/proposals/${data.proposal.id}/agreement/file`}>
+                        <Download className="mr-2 h-3.5 w-3.5" />
+                        Download {done ? "signed" : "draft"} agreement (PDF)
+                      </a>
+                    </Button>
+                  </div>
+                )}
 
                 <div className="mt-5 space-y-3 rounded-xl border border-border/60 bg-background p-4 text-sm">
                   <h2 className="flex items-center gap-2 font-medium">
@@ -242,6 +274,25 @@ export default function CollaborationAgreementPage() {
                         I have read and accept the collaboration and IP assignment terms above.
                       </span>
                     </label>
+
+                    <div>
+                      <Label htmlFor="signature" className="mb-1.5 block text-xs">
+                        Your signature (optional PNG/JPG)
+                      </Label>
+                      <input
+                        id="signature"
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        disabled={!isStudent}
+                        onChange={(e) => onSignatureFile(e.target.files?.[0])}
+                        className="block w-full text-xs text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:text-foreground"
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {signatureDataUrl
+                          ? "Signature attached — it will appear on the PDF."
+                          : "If omitted, your typed name is used as the signature."}
+                      </p>
+                    </div>
                     <Button
                       variant="gradient"
                       disabled={!accepted || submitting || !isStudent}

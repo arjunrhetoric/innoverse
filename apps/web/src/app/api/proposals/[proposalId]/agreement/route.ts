@@ -3,17 +3,19 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, Problem, Proposal, User } from "@innoverse/database";
 import { getGithubToken } from "@/lib/github-token";
-import { readStoredBytes, uploadFile } from "@/lib/storage";
-import { renderCollaborationPdf } from "@/lib/collaboration-pdf";
 import { audit } from "@/lib/audit";
+import { generateCollaborationAgreement } from "@/lib/collaboration-agreement";
+import { decodeSignatureDataUrl } from "@/lib/signature";
 import { z } from "zod";
-import crypto from "crypto";
 import mongoose from "mongoose";
 import axios from "axios";
 
 export const dynamic = "force-dynamic";
 
-const AcceptSchema = z.object({ ipAssignmentAccepted: z.literal(true) });
+const AcceptSchema = z.object({
+  ipAssignmentAccepted: z.literal(true),
+  signatureDataUrl: z.string().optional(),
+});
 
 /** Agreement details for the student (or the challenge owner). */
 export async function GET(
@@ -292,47 +294,30 @@ export async function POST(
       });
     }
 
-    let signatureBytes: Uint8Array | null = null;
-    if (startup?.signatureImage) {
-      try {
-        signatureBytes = await readStoredBytes(startup.signatureImage);
-      } catch (error) {
-        console.error("Agreement signature unavailable:", error);
-      }
+    const acceptedAt = new Date();
+    const studentSignatureBytes = decodeSignatureDataUrl(parsed.data.signatureDataUrl);
+    if (parsed.data.signatureDataUrl && !studentSignatureBytes) {
+      return NextResponse.json(
+        { message: "Signature must be a PNG or JPEG image under 2MB" },
+        { status: 400 }
+      );
     }
 
-    const agreementCode = `COL-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
-    const acceptedAt = new Date();
-    const pdf = await renderCollaborationPdf({
-      agreementCode,
-      projectTitle: problem.title,
-      projectDescription: problem.description,
-      startupName: startup?.companyName || startup?.name || "Startup",
-      studentName: student.name,
-      repoUrl:
-        problem.githubIssueUrl ||
-        `https://github.com/${problem.githubOwner}/${problem.githubRepoName}`,
-      issuedAt: acceptedAt,
-      startupSignatoryName: startup?.signatoryName ?? null,
-      startupSignatoryTitle: startup?.signatoryTitle ?? null,
-      signatureBytes,
-      studentAcceptedName: student.name,
-      studentAcceptedAt: acceptedAt,
+    const generated = await generateCollaborationAgreement({
+      problem,
+      student,
+      startup,
+      code: proposal.agreementCode,
+      studentSignatureBytes,
+      signedAt: acceptedAt,
     });
-
-    const agreementFile = await uploadFile(
-      Buffer.from(pdf),
-      "agreements",
-      `collaboration-${agreementCode}.pdf`,
-      "application/pdf"
-    );
 
     proposal.termsAcceptedAt = acceptedAt;
     proposal.termsAcceptedName = student.name;
     // For private repos, access is not active until the invitation is accepted.
     proposal.accessGrantedAt = accessState === "invited" ? null : acceptedAt;
-    proposal.agreementCode = agreementCode;
-    proposal.agreementFile = agreementFile;
+    proposal.agreementCode = generated.agreementCode;
+    proposal.agreementFile = generated.agreementFile;
     await proposal.save();
 
     await audit({
@@ -341,13 +326,18 @@ export async function POST(
       action: "proposal.terms_accepted",
       resourceType: "Proposal",
       resourceId: proposalId,
-      metadata: { agreementCode, problemId: String(problem._id), access: "pull" },
+      metadata: {
+        agreementCode: generated.agreementCode,
+        problemId: String(problem._id),
+        access: "pull",
+        studentSignature: Boolean(studentSignatureBytes),
+      },
       request: req,
     });
 
     return NextResponse.json({
       message: accessMessage,
-      agreementCode,
+      agreementCode: generated.agreementCode,
       access: accessState,
     });
   } catch (error: any) {

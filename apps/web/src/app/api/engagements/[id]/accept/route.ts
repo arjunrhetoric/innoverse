@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
 import { renderContractPdf } from "@/lib/engagement-pdf";
 import { readStoredBytes, uploadFile } from "@/lib/storage";
+import { decodeSignatureDataUrl } from "@/lib/signature";
 import { z } from "zod";
 import crypto from "crypto";
 import mongoose from "mongoose";
@@ -15,6 +16,7 @@ export const dynamic = "force-dynamic";
 
 const AcceptSchema = z.object({
   ipAssignmentAccepted: z.literal(true),
+  signatureDataUrl: z.string().optional(),
 });
 
 /** Student accepts the engagement, which generates the signed agreement. */
@@ -62,6 +64,13 @@ export async function POST(
 
     const contractCode = `INV-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
     const acceptedAt = new Date();
+    const studentSignatureBytes = decodeSignatureDataUrl(parsed.data.signatureDataUrl);
+    if (parsed.data.signatureDataUrl && !studentSignatureBytes) {
+      return NextResponse.json(
+        { message: "Signature must be a PNG or JPEG image under 2MB" },
+        { status: 400 }
+      );
+    }
 
     let signatureBytes: Uint8Array | null = null;
     if (engagement.startupId?.signatureImage) {
@@ -92,6 +101,7 @@ export async function POST(
       signatureBytes,
       studentAcceptedName: engagement.studentId?.name ?? session.user.name ?? "Student",
       studentAcceptedAt: acceptedAt,
+      studentSignatureBytes,
     });
 
     const contractFile = await uploadFile(

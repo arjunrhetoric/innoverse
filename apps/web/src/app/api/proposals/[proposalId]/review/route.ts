@@ -8,6 +8,7 @@ import { getGithubToken } from "@/lib/github-token";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
 import { canReviewProposal, type Actor } from "@/lib/policy";
+import { generateCollaborationAgreement } from "@/lib/collaboration-agreement";
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -93,6 +94,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pr
       proposal.repoUrl =
         problem.githubIssueUrl ||
         `https://github.com/${problem.githubOwner}/${problem.githubRepoName}`;
+
+      // Draft agreement is available immediately; it is re-generated with the
+      // student's signature when they accept.
+      try {
+        const startup = await User.findById(problem.createdBy)
+          .select("name companyName signatoryName signatoryTitle signatureImage")
+          .lean();
+        const agreement = await generateCollaborationAgreement({
+          problem,
+          student,
+          startup,
+          code: proposal.agreementCode,
+        });
+        proposal.agreementCode = agreement.agreementCode;
+        proposal.agreementFile = agreement.agreementFile;
+      } catch (agreementError) {
+        console.error("Draft agreement generation failed:", agreementError);
+      }
 
       // Non-fatal: seed a README with the challenge brief.
       const accessToken = await getGithubToken(session.user.id);
