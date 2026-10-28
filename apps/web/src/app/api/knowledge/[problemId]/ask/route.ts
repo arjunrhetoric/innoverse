@@ -91,7 +91,7 @@ export async function POST(
       question,
       answer,
       sources: context.files.map((f) => f.path),
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
     });
 
     await audit({

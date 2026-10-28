@@ -97,7 +97,7 @@ export async function POST(
       answer,
       sources: pr.files.map((f) => f.filename),
       payload: payload ?? null,
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
     });
 
     await audit({
