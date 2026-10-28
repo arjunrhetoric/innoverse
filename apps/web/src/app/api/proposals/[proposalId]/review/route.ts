@@ -6,6 +6,7 @@ import axios from "axios";
 import nodemailer from "nodemailer";
 import { getGithubToken } from "@/lib/github-token";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 import { canReviewProposal, type Actor } from "@/lib/policy";
 
 const transporter = nodemailer.createTransport({
@@ -144,6 +145,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pr
     proposal.status = status as Status;
     proposal.feedback = feedback;
     await proposal.save();
+
+    await notify(String(proposal.studentId), {
+      title:
+        status === "Approved"
+          ? "Proposal approved"
+          : status === "Rejected"
+            ? "Proposal rejected"
+            : "Proposal updated",
+      message:
+        status === "Approved"
+          ? `Sign the collaboration agreement to get read access to ${problem.title}.`
+          : feedback
+            ? `Feedback: ${feedback.slice(0, 120)}`
+            : `Your proposal for ${problem.title} was updated.`,
+      link:
+        status === "Approved"
+          ? `/proposals/${proposal._id}/agreement`
+          : "/dashboard/student",
+      type: status === "Rejected" ? "warning" : "success",
+    });
 
     if (status === "Approved" && student) {
       try {

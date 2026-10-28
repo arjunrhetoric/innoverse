@@ -14,6 +14,7 @@ import { canIssueCertificate, type Actor } from "@/lib/policy";
 import { testBypassEnabled } from "@/lib/flags";
 import { audit } from "@/lib/audit";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { notify } from "@/lib/notifications";
 import {
   collectEvidence,
   computeConfidence,
@@ -233,6 +234,13 @@ export async function POST(req: NextRequest) {
       actorId: session.user.id,
       actorName: session.user.name,
       studentId: String(studentId),
+    });
+
+    await notify(String(studentId), {
+      title: "Certificate issued",
+      message: `${startup.companyName || startup.name} issued your Proof-of-Work Report for ${problem.title}.`,
+      link: `/verify/${verificationCode}`,
+      type: "success",
     });
 
     await audit({

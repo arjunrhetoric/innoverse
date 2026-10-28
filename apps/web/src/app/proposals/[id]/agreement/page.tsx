@@ -82,12 +82,18 @@ export default function CollaborationAgreementPage() {
       if (!res.ok) throw new Error(json.message || "Could not sign the agreement");
       if (typeof json.message === "string") setWarning(json.message);
       setDone(true);
+      const refreshed = await fetch(`/api/proposals/${id}/agreement`, {
+        credentials: "include",
+      }).then((r) => r.json());
+      if (refreshed?.proposal) setData(refreshed);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not sign the agreement");
     } finally {
       setSubmitting(false);
     }
   };
+
+  const resend = sign;
 
   const isStudent = user?.role === "Student";
 
@@ -178,6 +184,24 @@ export default function CollaborationAgreementPage() {
                       <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400">
                         {warning}
                       </p>
+                    )}
+                    {!data.proposal.accessGrantedAt && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          Your GitHub invitation may still be pending. Accept it from your email or
+                          GitHub notifications; the repository link returns 404 until you do.
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2"
+                          onClick={resend}
+                          disabled={submitting}
+                        >
+                          {submitting ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+                          Resend invitation
+                        </Button>
+                      </div>
                     )}
                     <div className="flex flex-wrap gap-2">
                       {data.proposal.repoUrl && (

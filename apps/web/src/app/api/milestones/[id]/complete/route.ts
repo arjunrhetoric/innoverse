@@ -6,6 +6,7 @@ import { connectDB, Milestone } from "@innoverse/database";
 import { requireMilestoneOwner } from "@/lib/repo-access";
 import { emitMilestone } from "@/lib/realtime";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -42,6 +43,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       "completed",
       { id: session.user.id, name: session.user.name }
     );
+
+    await notify(milestone.submittedBy ? String(milestone.submittedBy) : null, {
+      title: "Milestone completed",
+      message: `"${milestone.title}" was approved.`,
+      link: milestone.problemId ? `/project/${milestone.problemId}` : null,
+      type: "success",
+    });
 
     await audit({
       actorId: session.user.id,

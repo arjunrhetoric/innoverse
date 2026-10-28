@@ -5,6 +5,7 @@ import { connectDB, Milestone } from "@innoverse/database";
 import { requireMilestoneOwner } from "@/lib/repo-access";
 import { emitMilestone } from "@/lib/realtime";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 import { z } from "zod";
 import mongoose from "mongoose";
 
@@ -64,6 +65,13 @@ export async function POST(
     void emitMilestone(milestone.toObject?.() ?? milestone, "changes_requested", {
       id: session.user.id,
       name: session.user.name,
+    });
+
+    await notify(milestone.submittedBy ? String(milestone.submittedBy) : null, {
+      title: "Changes requested",
+      message: `The startup asked for changes on "${milestone.title}": ${parsed.data.note}`,
+      link: `/project/${milestone.problemId}`,
+      type: "warning",
     });
 
     await audit({

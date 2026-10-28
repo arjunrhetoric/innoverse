@@ -28,6 +28,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: "channel is required" }, { status: 400 });
   }
 
+  // Personal channels are private to their owner.
+  if (channel.startsWith("user:") && channel !== `user:${session.user.id}`) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
   const encoder = new TextEncoder();
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let onLocalEvent: ((event: unknown) => void) | undefined;

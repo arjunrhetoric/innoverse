@@ -300,7 +300,12 @@ function ProposalRow({ proposal, last }: { proposal: Proposal; last?: boolean })
           </Button>
         )}
         {proposal.status === "Approved" && proposal.termsAcceptedAt && !proposal.accessGrantedAt && (
-          <span className="text-[11px] text-amber-500">Invite pending</span>
+          <Link
+            href={`/proposals/${proposal._id}/agreement`}
+            className="text-[11px] text-amber-500 underline underline-offset-2"
+          >
+            Invite pending — open
+          </Link>
         )}
         {proposal.status === "Approved" && proposal.accessGrantedAt && proposal.repoUrl && (
           <Button size="sm" variant="ghost" asChild>

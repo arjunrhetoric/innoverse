@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { connectDB, Engagement, User } from "@innoverse/database";
 import { canAcceptEngagement, type Actor } from "@/lib/policy";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 import { renderContractPdf } from "@/lib/engagement-pdf";
 import { readStoredBytes, uploadFile } from "@/lib/storage";
 import { z } from "zod";
@@ -122,6 +123,13 @@ export async function POST(
       resourceId: id,
       metadata: { contractCode, totalAmount: engagement.totalAmount },
       request: req,
+    });
+
+    await notify(String(engagement.startupId?._id ?? engagement.startupId), {
+      title: "Engagement accepted",
+      message: `${engagement.studentId?.name ?? "The student"} accepted "${engagement.title}".`,
+      link: `/engagements/${id}`,
+      type: "success",
     });
 
     return NextResponse.json({

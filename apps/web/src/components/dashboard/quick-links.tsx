@@ -23,6 +23,7 @@ const LINKS = {
     { href: "/shortlist", label: "Shortlist", icon: Bookmark },
     { href: "/engagements", label: "Engagements", icon: Handshake },
     { href: "/settings/branding", label: "Branding", icon: Building2 },
+    { href: "/settings/security", label: "Access", icon: ShieldCheck },
     { href: "/settings/audit", label: "Audit", icon: ShieldCheck },
   ],
   Student: [

@@ -119,9 +119,10 @@ export default function ExplorePage() {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {challenges.map((c) => (
-                  <div
+                  <Link
                     key={c.id}
-                    className="flex h-full flex-col rounded-lg border border-border bg-card p-5"
+                    href={`/explore/${c.id}`}
+                    className="flex h-full flex-col rounded-lg border border-border bg-card p-5 transition-colors hover:border-foreground/25"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-sm font-medium leading-snug">{c.title}</h3>
@@ -149,15 +150,12 @@ export default function ExplorePage() {
                         <Calendar className="h-3 w-3" />
                         {formatDate(c.deadline)}
                       </span>
-                      <Link
-                        href="/login"
-                        className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                      >
-                        Apply
+                      <span className="flex items-center gap-1 text-xs font-medium text-primary">
+                        View challenge
                         <ArrowRight className="h-3 w-3" />
-                      </Link>
+                      </span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

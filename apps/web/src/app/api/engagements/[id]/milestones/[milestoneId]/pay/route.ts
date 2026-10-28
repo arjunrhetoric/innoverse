@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { connectDB, Engagement } from "@innoverse/database";
 import { canManageEngagement, type Actor } from "@/lib/policy";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 import { z } from "zod";
 import mongoose from "mongoose";
 
@@ -72,6 +73,13 @@ export async function POST(
       resourceId: id,
       metadata: { milestoneId, amount: milestone.amount, reference: milestone.paidReference },
       request: req,
+    });
+
+    await notify(String(engagement.studentId), {
+      title: "Milestone marked paid",
+      message: `${session.user.name ?? "The startup"} marked "${milestone.title}" paid. Confirm receipt in your engagement.`,
+      link: `/engagements/${id}`,
+      type: "success",
     });
 
     return NextResponse.json({ message: "Milestone marked as paid", milestone });

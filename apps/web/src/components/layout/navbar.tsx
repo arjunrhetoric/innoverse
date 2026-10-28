@@ -25,6 +25,7 @@ import {
 import { GithubIcon as Github } from "@/components/ui/icons";
 import { signOut } from "next-auth/react";
 import { useUser } from "@/hooks/useUser";
+import { NotificationBell } from "./notification-bell";
 import { ThemeToggle } from "./theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -188,10 +189,7 @@ export function Navbar() {
             ) : isAuthenticated && user ? (
               <div className="flex items-center gap-2">
                 {/* Notification bell */}
-                <Button variant="ghost" size="icon" className="h-9 w-9 relative rounded-full">
-                  <Bell className="h-4 w-4" />
-                  <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-brand" />
-                </Button>
+                <NotificationBell />
 
                 {/* User menu */}
                 <DropdownMenu>
@@ -274,6 +272,12 @@ export function Navbar() {
                           <Link href="/settings/audit">
                             <ShieldCheck className="mr-2 h-4 w-4" />
                             Audit Log
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/settings/security">
+                            <ShieldCheck className="mr-2 h-4 w-4" />
+                            Repository Access
                           </Link>
                         </DropdownMenuItem>
                       </>

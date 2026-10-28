@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { connectDB, Milestone, Problem, Proposal } from "@innoverse/database";
 import { emitMilestone } from "@/lib/realtime";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 import { z } from "zod";
 import mongoose from "mongoose";
 
@@ -77,6 +78,13 @@ export async function POST(
     void emitMilestone(milestone.toObject?.() ?? milestone, "submitted", {
       id: session.user.id,
       name: session.user.name,
+    });
+
+    await notify(String(problem.createdBy), {
+      title: "Milestone submitted",
+      message: `${session.user.name ?? "A student"} submitted "${milestone.title}" for review.`,
+      link: `/project/${milestone.problemId}`,
+      type: "info",
     });
 
     await audit({

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { connectDB, Engagement, Problem, Proposal, User } from "@innoverse/database";
 import { canCreateEngagement, type Actor } from "@/lib/policy";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 import { z } from "zod";
 import mongoose from "mongoose";
 
@@ -170,6 +171,13 @@ export async function POST(req: NextRequest) {
         currency: engagement.currency,
       },
       request: req,
+    });
+
+    await notify(parsed.data.studentId, {
+      title: "New engagement",
+      message: `${session.user.name ?? "A startup"} invited you to a paid engagement: ${engagement.title}.`,
+      link: `/engagements/${engagement._id}`,
+      type: "info",
     });
 
     return NextResponse.json({ message: "Engagement created", engagement }, { status: 201 });

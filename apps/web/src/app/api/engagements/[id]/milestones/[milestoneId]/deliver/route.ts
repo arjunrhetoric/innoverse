@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { connectDB, Engagement } from "@innoverse/database";
 import { canAcceptEngagement, type Actor } from "@/lib/policy";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 import { z } from "zod";
 import mongoose from "mongoose";
 
@@ -73,6 +74,13 @@ export async function POST(
       resourceId: id,
       metadata: { milestoneId, evidenceUrl: parsed.data.evidenceUrl },
       request: req,
+    });
+
+    await notify(String(engagement.startupId), {
+      title: "Milestone delivered",
+      message: `"${milestone.title}" was delivered and is ready for payment.`,
+      link: `/engagements/${id}`,
+      type: "info",
     });
 
     return NextResponse.json({
