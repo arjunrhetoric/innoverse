@@ -214,7 +214,11 @@ export async function POST(
       return "none";
     };
 
-    if (isRepoOwner || studentIsTokenOwner) {
+    if (isPublicRepo) {
+      // Public repositories allow forks without an invitation; skip the
+      // invite entirely and avoid unnecessary emails/API failures.
+      accessState = "public";
+    } else if (isRepoOwner || studentIsTokenOwner) {
       // Owners (including the token owner) already have access; GitHub
       // rejects inviting them.
       accessState = "owner";
@@ -226,7 +230,7 @@ export async function POST(
           { headers }
         );
         // 204 = already a collaborator; 201 = invitation created.
-        accessState = invite.status === 204 ? "collaborator" : isPublicRepo ? "public" : "invited";
+        accessState = invite.status === 204 ? "collaborator" : "invited";
       } catch (error: any) {
         const status = error.response?.status;
         const githubMessage = error.response?.data?.message;
@@ -249,11 +253,8 @@ export async function POST(
             // Signing must not be blocked by GitHub. The agreement is valid;
             // access can be granted manually by the startup.
             accessState = "failed";
-            accessFailure = `GitHub rejected the invitation for @${student.githubUsername} (422: ${reason}). The startup can invite them manually.`;
+            accessFailure = `GitHub did not add @${student.githubUsername} automatically (422: ${reason}). This usually means the account already has access, is the repository owner, or the startup lacks admin rights. Invite them manually from the repository settings if needed.`;
           }
-        } else if (isPublicRepo) {
-          // Forking a public repository does not require an invitation.
-          accessState = "public";
         } else {
           accessState = "failed";
           accessFailure = `GitHub refused access (${status ?? "no response"}: ${reason}). The startup must be a repository admin, or can invite the student manually.`;
