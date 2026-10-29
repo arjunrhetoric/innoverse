@@ -177,6 +177,17 @@ export async function POST(
     const isRepoOwner = studentLogin === repoOwner;
     const isPublicRepo = repo.private === false;
 
+    // GitHub also rejects inviting the token owner to their own repo (422).
+    // This matters when testing with a single account.
+    let tokenLogin: string | null = null;
+    try {
+      const me = await axios.get("https://api.github.com/user", { headers });
+      tokenLogin = String(me.data?.login ?? "").toLowerCase() || null;
+    } catch {
+      // Non-fatal; fall back to the repo-owner comparison.
+    }
+    const studentIsTokenOwner = Boolean(tokenLogin) && tokenLogin === studentLogin;
+
     type AccessState = "owner" | "collaborator" | "invited" | "public" | "granted" | "failed";
     let accessState: AccessState = "granted";
     let accessFailure: string | null = null;
@@ -203,8 +214,9 @@ export async function POST(
       return "none";
     };
 
-    if (isRepoOwner) {
-      // Owners already have access; GitHub rejects inviting them.
+    if (isRepoOwner || studentIsTokenOwner) {
+      // Owners (including the token owner) already have access; GitHub
+      // rejects inviting them.
       accessState = "owner";
     } else {
       try {

@@ -277,8 +277,9 @@ export default function CollaborationAgreementPage() {
                         {!data.proposal.accessGrantedAt && (
                           <div className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2.5">
                             <p className="text-xs leading-relaxed text-warning">
-                              Your GitHub invitation may still be pending. Accept it from your email
-                              or GitHub notifications; the repository link returns 404 until you do.
+                              Access is not active yet. If an invitation was sent, accept it from
+                              your email or GitHub notifications. If the invite failed, ask the
+                              startup to add you manually from the repository settings.
                             </p>
                             <Button
                               size="sm"
@@ -290,7 +291,7 @@ export default function CollaborationAgreementPage() {
                               {submitting ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                               ) : null}
-                              Resend invitation
+                              Retry invitation
                             </Button>
                           </div>
                         )}
