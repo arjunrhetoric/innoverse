@@ -238,50 +238,88 @@ export async function POST(
       return "none";
     };
 
-    if (isPublicRepo) {
-      // Public repositories allow forks without an invitation; skip the
-      // invite entirely and avoid unnecessary emails/API failures.
-      accessState = "public";
-    } else if (isRepoOwner || studentIsTokenOwner) {
+    let accessNote: string | null = null;
+
+    if (isRepoOwner || studentIsTokenOwner) {
       // Owners (including the token owner) already have access; GitHub
       // rejects inviting them.
       accessState = "owner";
     } else {
+      // If the student is already a collaborator, enforce read-only.
+      // Manual GitHub invites default to Write, which this corrects.
+      let permission: string | null = null;
       try {
-        const invite = await axios.put(
-          `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}`,
-          { permission: "pull" },
+        const perm = await axios.get(
+          `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}/permission`,
           { headers }
         );
-        // 204 = already a collaborator; 201 = invitation created.
-        accessState = invite.status === 204 ? "collaborator" : "invited";
-      } catch (error: any) {
-        const status = error.response?.status;
-        const githubMessage = error.response?.data?.message;
-        const errorDetails = Array.isArray(error.response?.data?.errors)
-          ? error.response.data.errors
-              .map((e: any) => e?.message)
-              .filter(Boolean)
-              .join("; ")
-          : "";
-        const reason =
-          [githubMessage, errorDetails].filter(Boolean).join(" — ") || "no reason provided";
-        console.error("Read access grant failed:", error.response?.data || error.message);
+        permission = String(perm.data?.permission ?? "").toLowerCase() || null;
+      } catch {
+        // Not a collaborator, or this token cannot read permissions.
+      }
 
-        if (status === 422) {
-          // Verify the real state instead of guessing from the status code.
-          const state = await existingAccess();
-          if (state === "collaborator") accessState = "collaborator";
-          else if (state === "invited") accessState = "invited";
-          else {
-            // Signing must not be blocked by GitHub. The agreement is valid;
-            // access can be granted manually by the startup.
-            accessState = "failed";
-            accessFailure = `GitHub did not add @${student.githubUsername} automatically (422: ${reason}). This usually means the account already has access, is the repository owner, or the startup lacks admin rights. Invite them manually from the repository settings if needed.`;
+      if (permission) {
+        if (permission !== "pull") {
+          try {
+            await axios.put(
+              `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}`,
+              { permission: "pull" },
+              { headers }
+            );
+            accessState = "collaborator";
+            accessNote = `GitHub access was "${permission}" and has been downgraded to read-only.`;
+          } catch (downgradeError: any) {
+            console.error(
+              "Could not downgrade collaborator:",
+              downgradeError.response?.data || downgradeError.message
+            );
+            accessState = "collaborator";
+            accessNote = `The student currently has "${permission}" access on GitHub; the startup should change it to Read in repository settings.`;
           }
         } else {
-          accessState = "failed";
-          accessFailure = `GitHub refused access (${status ?? "no response"}: ${reason}). The startup must be a repository admin, or can invite the student manually.`;
+          accessState = "collaborator";
+        }
+      } else if (isPublicRepo) {
+        // Public repositories allow forks without an invitation; skip the
+        // invite entirely and avoid unnecessary emails/API failures.
+        accessState = "public";
+      } else {
+        try {
+          const invite = await axios.put(
+            `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}`,
+            { permission: "pull" },
+            { headers }
+          );
+          // 204 = already a collaborator; 201 = invitation created.
+          accessState = invite.status === 204 ? "collaborator" : "invited";
+        } catch (error: any) {
+          const status = error.response?.status;
+          const githubMessage = error.response?.data?.message;
+          const errorDetails = Array.isArray(error.response?.data?.errors)
+            ? error.response.data.errors
+                .map((e: any) => e?.message)
+                .filter(Boolean)
+                .join("; ")
+            : "";
+          const reason =
+            [githubMessage, errorDetails].filter(Boolean).join(" — ") || "no reason provided";
+          console.error("Read access grant failed:", error.response?.data || error.message);
+
+          if (status === 422) {
+            // Verify the real state instead of guessing from the status code.
+            const state = await existingAccess();
+            if (state === "collaborator") accessState = "collaborator";
+            else if (state === "invited") accessState = "invited";
+            else {
+              // Signing must not be blocked by GitHub. The agreement is valid;
+              // access can be granted manually by the startup.
+              accessState = "failed";
+              accessFailure = `GitHub did not add @${student.githubUsername} automatically (422: ${reason}). This usually means the account already has access, is the repository owner, or the startup lacks admin rights. Invite them manually from the repository settings if needed.`;
+            }
+          } else {
+            accessState = "failed";
+            accessFailure = `GitHub refused access (${status ?? "no response"}: ${reason}). The startup must be a repository admin, or can invite the student manually.`;
+          }
         }
       }
     }
@@ -299,6 +337,8 @@ export async function POST(
               : accessState === "failed"
                 ? accessFailure ?? "Agreement signed, but repository access could not be granted automatically."
                 : "Read access granted.";
+
+    if (accessNote) accessMessage += ` ${accessNote}`;
 
     if (isIssue) {
       try {

@@ -98,7 +98,7 @@ export default function SecuritySettingsPage() {
               </span>
             }
             title="Repository access"
-            description="Students contribute through forks and pull requests. Approvals made before that rule may still grant write access; this resets every approved contributor on your linked repositories to read-only."
+            description="Students contribute through forks and pull requests. GitHub invites default to Write, and older approvals may still grant write access; this resets every approved contributor on your linked repositories to read-only."
             meta={
               <Badge variant="outline" className="font-mono">
                 POST /api/github/downgrade-collaborators
