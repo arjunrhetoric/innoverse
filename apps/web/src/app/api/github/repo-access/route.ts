@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getGithubToken } from "@/lib/github-token";
+import { inviteReadOnly } from "@/lib/github-invite";
 import { audit } from "@/lib/audit";
 import { connectDB, Problem, Proposal } from "@innoverse/database";
 import { z } from "zod";
@@ -224,97 +225,50 @@ export async function POST(req: NextRequest) {
 
     // 4. Downgrade an accepted collaborator to pull, or invite a missing one.
     let after = invitationUpdated ? "invited" : before;
+    let accessWarning: string | null = null;
     if (!invitationUpdated) {
-      if (!collaboratorExists) {
-        const invite = await fetch(`${base}/collaborators/${encodeURIComponent(username)}`, {
-          method: "PUT",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ permission: "pull" }),
-        });
-        if (!invite.ok) {
-          const body = await invite.text().catch(() => "");
-          const message = `GitHub could not invite @${username} (HTTP ${invite.status}). ${body.slice(0, 300)}`;
-          await syncProposalAccess(parsed.data.proposalId, session.user.id, "failed", message);
-          return NextResponse.json(
-            {
-              message,
-              isAdmin,
-              before,
-              after: null,
-            },
-            { status: 502 }
-          );
-        }
-        invited = true;
-        before = "none";
-        after = "invited";
-        // Verify: a 204 can mean "already a collaborator" rather than a new
-        // invitation. Never report pending access when the account can read.
-        try {
-          const verify = await fetch(
-            `${base}/collaborators/${encodeURIComponent(username)}/permission`,
-            { headers, cache: "no-store" }
-          );
-          if (verify.ok) {
-            const data: any = await verify.json();
-            const raw = String(data?.permission ?? "").toLowerCase();
-            if (raw && raw !== "none") {
-              invited = false;
-              after = raw === "read" ? "pull" : raw;
-            }
-          }
-        } catch {
-          // Keep the invitation result.
-        }
-      } else if (before && READ_OR_BELOW.has(before)) {
+      if (collaboratorExists && before && READ_OR_BELOW.has(before)) {
         await syncProposalAccess(parsed.data.proposalId, session.user.id, "collaborator", null);
         return NextResponse.json({
           message: `@${username} already has read-only access.`,
           isAdmin,
           before,
-          after: after,
+          after,
           changed: false,
         });
-      } else {
-        const put = await fetch(`${base}/collaborators/${encodeURIComponent(username)}`, {
-          method: "PUT",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ permission: "pull" }),
-        });
-        if (!put.ok) {
-          const body = await put.text().catch(() => "");
-          const hint = /Cannot assign .* permission/i.test(body)
-            ? " GitHub will not lower this account's permission because it is an owner/admin or has a higher organization role."
-            : "";
-          const message = `GitHub refused the downgrade (HTTP ${put.status}). ${body.slice(0, 300)}${hint}`;
-          // The account still has access (just more than read-only), so keep
-          // the proposal marked active and surface the downgrade note.
-          await syncProposalAccess(parsed.data.proposalId, session.user.id, "collaborator", message);
+      }
+
+      const invite = await inviteReadOnly(base, username, headers);
+      if (!invite.ok) {
+        const message = `GitHub could not update @${username} (${invite.status ?? "no response"}). ${invite.message}`;
+        if (collaboratorExists) {
+          // They still have access (just not the requested role); keep the
+          // proposal active and surface the downgrade note.
+          await syncProposalAccess(
+            parsed.data.proposalId,
+            session.user.id,
+            "collaborator",
+            message
+          );
           return NextResponse.json(
-            {
-              message,
-              isAdmin,
-              before,
-              after: null,
-            },
+            { message, isAdmin, before, after: before },
             { status: 502 }
           );
         }
+        await syncProposalAccess(parsed.data.proposalId, session.user.id, "failed", message);
+        return NextResponse.json(
+          { message, isAdmin, before, after: null },
+          { status: 502 }
+        );
+      }
 
-        // 5. Re-read the permission so the result is verified, not assumed.
-        try {
-          const res = await fetch(
-            `${base}/collaborators/${encodeURIComponent(username)}/permission`,
-            { headers, cache: "no-store" }
-          );
-          if (res.ok) {
-            const data: any = await res.json();
-            const raw = String(data?.permission ?? "").toLowerCase();
-            after = raw === "read" ? "pull" : raw || null;
-          }
-        } catch {
-          after = "pull";
-        }
+      invited = invite.invited;
+      accessWarning = invite.warning;
+      if (invited) {
+        before = before || "none";
+        after = "invited";
+      } else {
+        after = invite.permission ?? before;
       }
     }
 
@@ -324,7 +278,7 @@ export async function POST(req: NextRequest) {
       action: "access.collaborator_downgraded",
       resourceType: "User",
       resourceId: session.user.id,
-      metadata: { owner, repo, username, before, after, invitationUpdated },
+      metadata: { owner, repo, username, before, after, invitationUpdated, accessWarning },
       request: req,
     });
 
@@ -344,12 +298,14 @@ export async function POST(req: NextRequest) {
     const ok = invited || invitationUpdated || (after && READ_OR_BELOW.has(after));
     return NextResponse.json({
       message: invited
-        ? `Invitation sent to @${username} with read-only access.`
+        ? accessWarning ?? `Invitation sent to @${username} with read-only access.`
         : invitationUpdated
           ? `Pending invitation downgraded to read-only (was ${before ?? "unknown"}).`
-          : ok
-            ? `@${username} is now read-only (was ${before ?? "unknown"}).`
-            : `GitHub accepted the request, but the reported permission is still ${after ?? "unknown"}. If the user is an organization member with a base Write role, change the org/team permission.`,
+          : accessWarning
+            ? accessWarning
+            : ok
+              ? `@${username} is now read-only (was ${before ?? "unknown"}).`
+              : `GitHub accepted the request, but the reported permission is still ${after ?? "unknown"}. If the user is an organization member with a base Write role, change the org/team permission.`,
       isAdmin,
       before,
       after,

@@ -5,6 +5,7 @@ import { connectDB, Problem, Proposal, User } from "@innoverse/database";
 import { getGithubToken } from "@/lib/github-token";
 import { audit } from "@/lib/audit";
 import { generateCollaborationAgreement } from "@/lib/collaboration-agreement";
+import { inviteReadOnly } from "@/lib/github-invite";
 import { decodeSignatureDataUrl } from "@/lib/signature";
 import { z } from "zod";
 import mongoose from "mongoose";
@@ -227,30 +228,6 @@ export async function POST(
     let accessState: AccessState = "granted";
     let accessFailure: string | null = null;
 
-    const existingAccess = async (): Promise<"collaborator" | "invited" | "none"> => {
-      try {
-        const perm = await axios.get(
-          `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}/permission`,
-          { headers }
-        );
-        const permission = String(perm.data?.permission ?? "").toLowerCase();
-        // GitHub reports "none" for a pending invitation or a non-collaborator.
-        if (permission && permission !== "none") return "collaborator";
-      } catch {
-        // Fall through to the invitation check.
-      }
-      try {
-        const invitations = await axios.get(`${repoApi}/invitations?per_page=100`, { headers });
-        const pending = (invitations.data ?? []).some(
-          (inv: any) => inv.invitee?.login?.toLowerCase() === studentLogin
-        );
-        if (pending) return "invited";
-      } catch {
-        // Invitations list may be unavailable.
-      }
-      return "none";
-    };
-
     let accessNote: string | null = null;
 
     if (isRepoOwner || studentIsTokenOwner) {
@@ -276,81 +253,28 @@ export async function POST(
       const permission = rawPermission === "read" ? "pull" : rawPermission;
       const isCollaborator = Boolean(permission) && permission !== "none";
 
-      if (isCollaborator) {
-        if (permission !== "pull") {
-          try {
-            await axios.put(
-              `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}`,
-              { permission: "pull" },
-              { headers }
-            );
-            accessState = "collaborator";
-            accessNote = `GitHub access was "${rawPermission}" and has been downgraded to read-only.`;
-          } catch (downgradeError: any) {
-            console.error(
-              "Could not downgrade collaborator:",
-              downgradeError.response?.data || downgradeError.message
-            );
-            accessState = "collaborator";
-            accessNote = `GitHub kept "${rawPermission}" access. Retry the downgrade from Innoverse → Repo access; the account still has repository access in the meantime.`;
-          }
-        } else {
-          accessState = "collaborator";
-        }
-      } else if (isPublicRepo) {
+      if (isCollaborator && permission === "pull") {
+        accessState = "collaborator";
+      } else if (!isCollaborator && isPublicRepo) {
         // Public repositories allow forks without an invitation; skip the
         // invite entirely and avoid unnecessary emails/API failures.
         accessState = "public";
       } else {
-        try {
-          const invite = await axios.put(
-            `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}`,
-            { permission: "pull" },
-            { headers }
-          );
-          // 204 usually means the account already has a pending invitation or
-          // collaborator row; verify the real state instead of assuming access.
-          if (invite.status === 204) {
-            const state = await existingAccess();
-            if (state === "collaborator") {
-              accessState = "collaborator";
-            } else if (state === "invited") {
-              accessState = "invited";
-            } else {
-              accessState = "failed";
-              accessFailure = `GitHub accepted the request but did not report access for @${student.githubUsername}. Retry from Innoverse or check the repository's collaborator settings.`;
-            }
-          } else {
-            accessState = "invited";
-          }
-        } catch (error: any) {
-          const status = error.response?.status;
-          const githubMessage = error.response?.data?.message;
-          const errorDetails = Array.isArray(error.response?.data?.errors)
-            ? error.response.data.errors
-                .map((e: any) => e?.message)
-                .filter(Boolean)
-                .join("; ")
-            : "";
-          const reason =
-            [githubMessage, errorDetails].filter(Boolean).join(" — ") || "no reason provided";
-          console.error("Read access grant failed:", error.response?.data || error.message);
-
-          if (status === 422) {
-            // Verify the real state instead of guessing from the status code.
-            const state = await existingAccess();
-            if (state === "collaborator") accessState = "collaborator";
-            else if (state === "invited") accessState = "invited";
-            else {
-              // Signing must not be blocked by GitHub. The agreement is valid;
-              // access can be granted manually by the startup.
-              accessState = "failed";
-              accessFailure = `GitHub did not add @${student.githubUsername} automatically (422: ${reason}). Retry from this page, or use Repo access in Innoverse settings.`;
-            }
-          } else {
-            accessState = "failed";
-            accessFailure = `GitHub refused access (${status ?? "no response"}: ${reason}). The startup can retry from Repo access in Innoverse settings.`;
-          }
+        const invite = await inviteReadOnly(
+          repoApi,
+          student.githubUsername,
+          headers
+        );
+        if (!invite.ok) {
+          console.error("Read access grant failed:", invite.status, invite.message);
+          accessState = "failed";
+          accessFailure = `GitHub did not add @${student.githubUsername} automatically (${invite.status ?? "no response"}: ${invite.message}). Retry from this page, or use Repo access in Innoverse settings.`;
+        } else if (invite.invited) {
+          accessState = "invited";
+          if (invite.warning) accessNote = invite.warning;
+        } else {
+          accessState = "collaborator";
+          if (invite.warning) accessNote = invite.warning;
         }
       }
     }
