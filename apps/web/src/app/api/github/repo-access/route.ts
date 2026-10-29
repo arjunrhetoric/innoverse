@@ -1,0 +1,224 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { getGithubToken } from "@/lib/github-token";
+import { audit } from "@/lib/audit";
+import { z } from "zod";
+
+export const dynamic = "force-dynamic";
+
+const Schema = z.object({
+  owner: z.string().trim().min(1).max(100),
+  repo: z.string().trim().min(1).max(100),
+  username: z.string().trim().min(1).max(100),
+});
+
+const READ_OR_BELOW = new Set(["pull"]);
+
+/**
+ * Inspect and downgrade a specific collaborator to read-only, even when the
+ * repository is not linked to an Innoverse challenge. Handles pending
+ * invitations as well as accepted collaborators.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    if (session.user.role !== "Startup") {
+      return NextResponse.json({ message: "Only startups can manage repository access" }, { status: 403 });
+    }
+
+    const parsed = Schema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json(
+        { message: "Owner, repository and GitHub username are required" },
+        { status: 400 }
+      );
+    }
+
+    const token = await getGithubToken(session.user.id);
+    if (!token) {
+      return NextResponse.json(
+        { message: "GitHub authorization expired. Please sign in again." },
+        { status: 401 }
+      );
+    }
+
+    const { owner, repo, username } = parsed.data;
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+    };
+    const base = `https://api.github.com/repos/${owner}/${encodeURIComponent(repo)}`;
+
+    // 1. Verify repository access and admin rights.
+    let repository: any;
+    try {
+      const res = await fetch(base, { headers, cache: "no-store" });
+      if (!res.ok) {
+        return NextResponse.json(
+          { message: `Repository not found or not accessible (HTTP ${res.status})` },
+          { status: 404 }
+        );
+      }
+      repository = await res.json();
+    } catch (error: any) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
+
+    const isAdmin = Boolean(repository.permissions?.admin);
+    if (!isAdmin) {
+      return NextResponse.json(
+        {
+          message:
+            "Your GitHub account is not an admin of this repository, so it cannot change collaborator permissions. Change the role in GitHub → Settings → Collaborators.",
+          isAdmin: false,
+        },
+        { status: 403 }
+      );
+    }
+
+    // 2. Check the current collaborator permission.
+    let before: string | null = null;
+    let collaboratorExists = false;
+    try {
+      const res = await fetch(`${base}/collaborators/${encodeURIComponent(username)}/permission`, {
+        headers,
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data: any = await res.json();
+        before = String(data?.permission ?? "").toLowerCase() || null;
+        collaboratorExists = true;
+      }
+    } catch {
+      // Fall through to invitation handling.
+    }
+
+    // 3. If an invitation is still pending, downgrade the invitation itself.
+    let invitationUpdated = false;
+    if (!collaboratorExists) {
+      try {
+        const invRes = await fetch(`${base}/invitations?per_page=100`, {
+          headers,
+          cache: "no-store",
+        });
+        if (invRes.ok) {
+          const invitations: any[] = await invRes.json();
+          const pending = invitations.find(
+            (inv) => inv.invitee?.login?.toLowerCase() === username.toLowerCase()
+          );
+          if (pending) {
+            const patch = await fetch(`${base}/invitations/${pending.id}`, {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ permissions: "read" }),
+            });
+            if (patch.ok) {
+              invitationUpdated = true;
+              before = String(pending.permissions ?? "pending").toLowerCase();
+            } else {
+              const body = await patch.text().catch(() => "");
+              return NextResponse.json(
+                {
+                  message: `Could not update the pending invitation (HTTP ${patch.status}). ${body.slice(0, 200)}`,
+                  isAdmin,
+                  before,
+                },
+                { status: 502 }
+              );
+            }
+          }
+        }
+      } catch (error: any) {
+        console.error("Invitation lookup failed:", error.message);
+      }
+    }
+
+    // 4. Downgrade an accepted collaborator to pull.
+    let after = before;
+    if (!invitationUpdated) {
+      if (!collaboratorExists) {
+        return NextResponse.json(
+          {
+            message: `@${username} is not a collaborator and has no pending invitation on ${owner}/${repo}.`,
+            isAdmin,
+            before: null,
+            after: null,
+          },
+          { status: 404 }
+        );
+      }
+
+      if (before && READ_OR_BELOW.has(before)) {
+        return NextResponse.json({
+          message: `@${username} already has read-only access.`,
+          isAdmin,
+          before,
+          after: after,
+          changed: false,
+        });
+      }
+
+      const put = await fetch(`${base}/collaborators/${encodeURIComponent(username)}`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ permission: "pull" }),
+      });
+      if (!put.ok) {
+        const body = await put.text().catch(() => "");
+        return NextResponse.json(
+          {
+            message: `GitHub refused the downgrade (HTTP ${put.status}). ${body.slice(0, 300)}`,
+            isAdmin,
+            before,
+            after: null,
+          },
+          { status: 502 }
+        );
+      }
+
+      // 5. Re-read the permission so the result is verified, not assumed.
+      try {
+        const res = await fetch(
+          `${base}/collaborators/${encodeURIComponent(username)}/permission`,
+          { headers, cache: "no-store" }
+        );
+        if (res.ok) {
+          const data: any = await res.json();
+          after = String(data?.permission ?? "").toLowerCase() || null;
+        }
+      } catch {
+        after = "pull";
+      }
+    }
+
+    await audit({
+      actorId: session.user.id,
+      actorName: session.user.name ?? null,
+      action: "access.collaborator_downgraded",
+      resourceType: "User",
+      resourceId: session.user.id,
+      metadata: { owner, repo, username, before, after, invitationUpdated },
+      request: req,
+    });
+
+    const ok = invitationUpdated || (after && READ_OR_BELOW.has(after));
+    return NextResponse.json({
+      message: invitationUpdated
+        ? `Pending invitation downgraded to read-only (was ${before ?? "unknown"}).`
+        : ok
+          ? `@${username} is now read-only (was ${before ?? "unknown"}).`
+          : `GitHub accepted the request, but the reported permission is still ${after ?? "unknown"}. If the user is an organization member with a base Write role, change the org/team permission.`,
+      isAdmin,
+      before,
+      after,
+      invitationUpdated,
+      changed: before !== after || invitationUpdated,
+      orgNote:
+        "If the student is an organization member or in a team with Write access, the effective permission can exceed the collaborator role. Lower the organization base role or remove the team.",
+    });
+  } catch (error: any) {
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+}

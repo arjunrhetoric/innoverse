@@ -12,6 +12,8 @@ import { StatBand } from "@/components/ui/stat";
 import { PageHeader } from "@/components/ui/page-header";
 import { ConfirmAction } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useUser } from "@/hooks/useUser";
 
 interface Result {
@@ -30,6 +32,18 @@ export default function SecuritySettingsPage() {
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [owner, setOwner] = useState("");
+  const [repo, setRepo] = useState("");
+  const [username, setUsername] = useState("");
+  const [fixing, setFixing] = useState(false);
+  const [fixError, setFixError] = useState("");
+  const [fixResult, setFixResult] = useState<{
+    message: string;
+    before: string | null;
+    after: string | null;
+    invitationUpdated: boolean;
+    orgNote?: string;
+  } | null>(null);
 
   if (!isLoading && (!isAuthenticated || user?.role !== "Startup")) {
     router.push(isAuthenticated ? "/dashboard" : "/login");
@@ -53,6 +67,27 @@ export default function SecuritySettingsPage() {
       setConfirmOpen(false);
     } finally {
       setRunning(false);
+    }
+  };
+
+  const fixCollaborator = async () => {
+    setFixing(true);
+    setFixError("");
+    setFixResult(null);
+    try {
+      const res = await fetch("/api/github/repo-access", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ owner, repo, username }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not update access");
+      setFixResult(data);
+    } catch (err: unknown) {
+      setFixError(err instanceof Error ? err.message : "Could not update access");
+    } finally {
+      setFixing(false);
     }
   };
 
@@ -211,6 +246,91 @@ export default function SecuritySettingsPage() {
                   Asks for confirmation, then reports what changed.
                 </p>
               </div>
+            </Section>
+
+            <Section
+              title="Fix a specific collaborator"
+              description="For repositories that are not linked to a challenge — for example after a manual GitHub invite. Reads the real permission back from GitHub after changing it."
+              contentClassName="p-5"
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <Label htmlFor="access-owner">Owner</Label>
+                  <Input
+                    id="access-owner"
+                    value={owner}
+                    onChange={(e) => setOwner(e.target.value)}
+                    placeholder="acme"
+                    className="mt-1.5 h-10"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="access-repo">Repository</Label>
+                  <Input
+                    id="access-repo"
+                    value={repo}
+                    onChange={(e) => setRepo(e.target.value)}
+                    placeholder="dep-pruning"
+                    className="mt-1.5 h-10"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="access-user">GitHub username</Label>
+                  <Input
+                    id="access-user"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="student-login"
+                    className="mt-1.5 h-10"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={fixCollaborator}
+                  disabled={fixing || !owner.trim() || !repo.trim() || !username.trim()}
+                >
+                  {fixing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {fixing ? "Checking…" : "Inspect & set read-only"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Handles accepted collaborators and pending invitations.
+                </p>
+              </div>
+
+              {fixError && (
+                <div className="mt-4 flex items-start gap-2 rounded-md border border-danger-border bg-danger-subtle px-3 py-2.5">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                  <p className="text-sm text-danger">{fixError}</p>
+                </div>
+              )}
+
+              {fixResult && (
+                <div className="mt-4 rounded-md border border-border bg-surface-2/40 p-3">
+                  <p className="text-sm text-foreground">{fixResult.message}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>Before</span>
+                    <Badge variant="outline" className="font-mono">
+                      {fixResult.before ?? "not a collaborator"}
+                    </Badge>
+                    <span>→</span>
+                    <span>After</span>
+                    <Badge
+                      variant={fixResult.after === "pull" ? "success" : "warning"}
+                      className="font-mono"
+                    >
+                      {fixResult.invitationUpdated ? "read (pending invite)" : fixResult.after ?? "unknown"}
+                    </Badge>
+                  </div>
+                  {fixResult.orgNote && fixResult.after !== "pull" && (
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                      {fixResult.orgNote}
+                    </p>
+                  )}
+                </div>
+              )}
             </Section>
 
             {result && (
