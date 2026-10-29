@@ -177,8 +177,9 @@ export async function POST(
     const isRepoOwner = studentLogin === repoOwner;
     const isPublicRepo = repo.private === false;
 
-    type AccessState = "owner" | "collaborator" | "invited" | "public" | "granted";
+    type AccessState = "owner" | "collaborator" | "invited" | "public" | "granted" | "failed";
     let accessState: AccessState = "granted";
+    let accessFailure: string | null = null;
 
     const existingAccess = async (): Promise<"collaborator" | "invited" | "none"> => {
       try {
@@ -217,6 +218,14 @@ export async function POST(
       } catch (error: any) {
         const status = error.response?.status;
         const githubMessage = error.response?.data?.message;
+        const errorDetails = Array.isArray(error.response?.data?.errors)
+          ? error.response.data.errors
+              .map((e: any) => e?.message)
+              .filter(Boolean)
+              .join("; ")
+          : "";
+        const reason =
+          [githubMessage, errorDetails].filter(Boolean).join(" — ") || "no reason provided";
         console.error("Read access grant failed:", error.response?.data || error.message);
 
         if (status === 422) {
@@ -225,27 +234,17 @@ export async function POST(
           if (state === "collaborator") accessState = "collaborator";
           else if (state === "invited") accessState = "invited";
           else {
-            return NextResponse.json(
-              {
-                message: `GitHub rejected the invitation (422)${
-                  githubMessage ? `: ${githubMessage}` : ""
-                }. Check that the student's GitHub username is correct.`,
-              },
-              { status: 502 }
-            );
+            // Signing must not be blocked by GitHub. The agreement is valid;
+            // access can be granted manually by the startup.
+            accessState = "failed";
+            accessFailure = `GitHub rejected the invitation for @${student.githubUsername} (422: ${reason}). The startup can invite them manually.`;
           }
         } else if (isPublicRepo) {
           // Forking a public repository does not require an invitation.
           accessState = "public";
         } else {
-          return NextResponse.json(
-            {
-              message: `GitHub refused read access (${status ?? "no response"})${
-                githubMessage ? `: ${githubMessage}` : ""
-              }. The startup account must be an admin of the repository to add collaborators.`,
-            },
-            { status: 502 }
-          );
+          accessState = "failed";
+          accessFailure = `GitHub refused access (${status ?? "no response"}: ${reason}). The startup must be a repository admin, or can invite the student manually.`;
         }
       }
     }
@@ -260,7 +259,9 @@ export async function POST(
             ? "This is a public repository — fork it and open a pull request without an invitation."
             : accessState === "invited"
               ? "Invitation sent. Accept it on GitHub (email or notifications); the repository link returns 404 until you do."
-              : "Read access granted.";
+              : accessState === "failed"
+                ? accessFailure ?? "Agreement signed, but repository access could not be granted automatically."
+                : "Read access granted.";
 
     if (isIssue) {
       try {
@@ -315,7 +316,8 @@ export async function POST(
     proposal.termsAcceptedAt = acceptedAt;
     proposal.termsAcceptedName = student.name;
     // For private repos, access is not active until the invitation is accepted.
-    proposal.accessGrantedAt = accessState === "invited" ? null : acceptedAt;
+    proposal.accessGrantedAt =
+      accessState === "invited" || accessState === "failed" ? null : acceptedAt;
     proposal.agreementCode = generated.agreementCode;
     proposal.agreementFile = generated.agreementFile;
     await proposal.save();
