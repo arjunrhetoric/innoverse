@@ -3,17 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { StatusDot } from "@/components/ui/status-dot";
 import { useUser } from "@/hooks/useUser";
 import { useSSE } from "@/hooks/useSSE";
 import { formatRelativeTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface NotificationItem {
   _id: string;
@@ -29,6 +29,7 @@ export function NotificationBell() {
   const { user } = useUser();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(() => {
     if (!user?.id) return;
@@ -37,8 +38,9 @@ export function NotificationBell() {
       .then((data) => {
         setItems(data.notifications ?? []);
         setUnread(data.unread ?? 0);
+        setLoaded(true);
       })
-      .catch(() => null);
+      .catch(() => setLoaded(true));
   }, [user?.id]);
 
   useEffect(() => {
@@ -57,83 +59,110 @@ export function NotificationBell() {
       });
       load();
     } catch {
-      // Non-critical.
+      /* non-critical */
     }
   };
 
   if (!user) return null;
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => open && load()}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
-          <Bell className="h-4 w-4" />
-          {unread > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-mono text-[9px] font-medium text-primary-foreground">
-              {unread > 9 ? "9+" : unread}
-            </span>
-          )}
-        </Button>
+          <button
+            type="button"
+            aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+            className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <Bell className="h-4 w-4" />
+            {unread > 0 && (
+              <span className="absolute right-1 top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-brand px-0.5 text-[9px] font-semibold leading-none text-brand-foreground">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
+          </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
-        <div className="flex items-center justify-between px-2 py-1.5">
-          <DropdownMenuLabel className="p-0 text-xs font-medium">Notifications</DropdownMenuLabel>
+      <DropdownMenuContent align="end" className="w-[340px] p-0">
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <p className="text-xs font-medium text-foreground">Notifications</p>
           {unread > 0 && (
             <button
               type="button"
               onClick={() => markRead()}
-              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              className="inline-flex cursor-pointer items-center gap-1 text-2xs text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Check className="h-3 w-3" />
-              Mark all read
+              <Check className="h-3 w-3" /> Mark all read
             </button>
           )}
         </div>
-        <DropdownMenuSeparator />
-        <div className="max-h-80 overflow-y-auto">
-          {items.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-              No notifications yet.
-            </p>
+        <DropdownMenuSeparator className="mx-0 my-0" />
+        <div className="max-h-[360px] overflow-y-auto">
+          {!loaded ? (
+            <div className="space-y-3 p-3" aria-hidden>
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="h-2.5 w-28 animate-pulse rounded bg-muted" />
+                  <div className="h-2.5 w-full animate-pulse rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <p className="text-xs font-medium text-foreground">You&apos;re all caught up</p>
+              <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
+                Milestone reviews, agreements and review requests land here.
+              </p>
+            </div>
           ) : (
-            items.map((item) => {
-              const content = (
-                <div
-                  className={`px-2 py-2.5 ${item.read ? "" : "bg-primary/[0.04]"}`}
-                  onClick={() => !item.read && markRead([item._id])}
-                >
-                  <div className="flex items-start gap-2">
-                    <span
-                      className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-                        item.read ? "bg-transparent" : "bg-primary"
-                      }`}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium">{item.title || "Update"}</p>
-                      <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                        {item.message}
-                      </p>
-                      <p className="mt-1 font-mono text-[10px] text-muted-foreground/70">
-                        {formatRelativeTime(item.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-
-              return item.link ? (
-                <Link key={item._id} href={item.link} className="block hover:bg-white/[0.03]">
-                  {content}
-                </Link>
-              ) : (
-                <div key={item._id} className="hover:bg-white/[0.03]">
-                  {content}
-                </div>
-              );
-            })
+            items.map((item) => (
+              <NotificationRow key={item._id} item={item} onRead={() => markRead([item._id])} />
+            ))
           )}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function NotificationRow({ item, onRead }: { item: NotificationItem; onRead: () => void }) {
+  const body = (
+    <div
+      className={cn(
+        "flex gap-2.5 px-3 py-2.5 transition-colors",
+        !item.read && "bg-brand-subtle/60"
+      )}
+    >
+      <span className="mt-1.5">
+        <StatusDot status={item.read ? "muted" : "brand"} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className={cn("text-xs leading-snug", item.read ? "text-muted-foreground" : "font-medium text-foreground")}>
+          {item.title || "Update"}
+        </p>
+        <p className="mt-0.5 line-clamp-2 text-2xs leading-relaxed text-muted-foreground">
+          {item.message}
+        </p>
+        <p className="mt-1 font-mono text-[10px] text-subtle-foreground">
+          {formatRelativeTime(item.createdAt)}
+        </p>
+      </div>
+    </div>
+  );
+
+  return item.link ? (
+    <Link
+      href={item.link}
+      onClick={() => !item.read && onRead()}
+      className="block border-b border-border last:border-0 hover:bg-accent/60"
+    >
+      {body}
+    </Link>
+  ) : (
+    <button
+      type="button"
+      onClick={() => !item.read && onRead()}
+      className="block w-full cursor-pointer border-b border-border text-left last:border-0 hover:bg-accent/60"
+    >
+      {body}
+    </button>
   );
 }

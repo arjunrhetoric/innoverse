@@ -1,16 +1,21 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, Sparkles, Loader2, AlertCircle } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, AlertCircle, Check } from "lucide-react";
 import { GithubIcon as Github } from "@/components/ui/icons";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import Link from "next/link";
+import { Field, FormError } from "@/components/ui/field";
+import { SegmentedList, SegmentedTrigger, Tabs, TabsContent } from "@/components/ui/tabs";
 
-import { signIn } from "next-auth/react";
+const proofPoints = [
+  "Every pull request, review and merge is attached to the challenge it belongs to.",
+  "One collaboration agreement, one milestone plan, one shared record.",
+  "Completed work ends in a public report anyone can verify.",
+];
 
 function LoginError() {
   const params = useSearchParams();
@@ -19,10 +24,18 @@ function LoginError() {
 
   const message =
     error === "GitHubEmailMissing"
-      ? "GitHub did not return an email. Make your email visible to the app, then try again."
+      ? "GitHub did not share an email address. Make your email visible to the app, then try again."
       : "Sign-in failed. Check your details, or confirm the GitHub OAuth callback URL.";
 
-  return <p className="mt-4 text-sm text-destructive text-center">{message}</p>;
+  return (
+    <p
+      role="alert"
+      className="mt-4 flex items-start gap-2 rounded-md border border-danger-border bg-danger-subtle px-3 py-2 text-xs leading-relaxed text-danger"
+    >
+      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      {message}
+    </p>
+  );
 }
 
 export default function LoginPage() {
@@ -56,137 +69,146 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative bg-background">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="relative z-10 w-full max-w-md mx-4"
-      >
-        <div className="rounded-xl p-8 border border-border bg-card">
-          <div className="text-center mb-8">
-            <Link href="/" className="inline-flex items-center gap-2 mb-6">
-              <div className="h-9 w-9 rounded-md bg-foreground flex items-center justify-center">
-                <span className="text-background font-bold text-base">I</span>
-              </div>
-              <span className="text-xl font-semibold tracking-tight">INNOVERSE</span>
-            </Link>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Welcome Back</h1>
-            <p className="text-muted-foreground mt-2 text-sm">
-              Sign in to continue to your innovation journey
-            </p>
-          </div>
+    <div className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
+      {/* Context panel */}
+      <aside className="hidden flex-col justify-between border-r border-border bg-surface px-10 py-10 lg:flex xl:px-14">
+        <Link href="/" className="flex items-center gap-2" aria-label="Innoverse home">
+          <span className="flex h-6 w-6 items-center justify-center rounded-[6px] bg-foreground">
+            <span className="text-[12px] font-bold leading-none text-background">I</span>
+          </span>
+          <span className="text-[13px] font-semibold tracking-[0.02em] text-foreground">Innoverse</span>
+        </Link>
 
-          {/* Tabs */}
-          <div className="mb-6 grid grid-cols-2 gap-1 rounded-lg border border-border p-1">
-            <button
-              type="button"
-              onClick={() => { setTab("github"); setError(""); }}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                tab === "github" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Students & startups
-            </button>
-            <button
-              type="button"
-              onClick={() => { setTab("institution"); setError(""); }}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                tab === "institution" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Institutions
-            </button>
-          </div>
+        <div className="max-w-md">
+          <p className="eyebrow">Sign in</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.02em] text-foreground">
+            The work is the credential.
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Innoverse reads real GitHub activity and turns it into evidence a hiring
+            manager can audit — without a single self-reported line on a résumé.
+          </p>
+          <ul className="mt-8 space-y-3">
+            {proofPoints.map((point) => (
+              <li key={point} className="flex gap-2.5 text-sm leading-relaxed text-muted-foreground">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-          {tab === "github" ? (
-            <Button
-              variant="default"
-              size="lg"
-              className="w-full"
-              onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
-            >
-              <Github className="mr-2 h-5 w-5" />
-              Continue with GitHub
-              <ArrowRight className="ml-auto h-4 w-4" />
-            </Button>
-          ) : (
-            <form onSubmit={institutionLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="email" className="mb-1.5 block text-sm">Institution email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="coordinator@university.edu"
-                  required
-                  className="h-11"
-                />
-              </div>
-              <div>
-                <Label htmlFor="password" className="mb-1.5 block text-sm">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="h-11"
-                />
-              </div>
-              {error && (
-                <p className="flex items-center gap-1.5 text-xs text-destructive">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  {error}
-                </p>
-              )}
-              <Button type="submit" variant="gradient" size="lg" className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Sign in as institution
+        <p className="text-2xs text-subtle-foreground">
+          Free for students. Startups post challenges at no cost during onboarding.
+        </p>
+      </aside>
+
+      {/* Form panel */}
+      <main id="main" className="flex items-center justify-center px-4 py-12 sm:px-8">
+        <div className="w-full max-w-[392px]">
+          <Link href="/" className="mb-8 inline-flex items-center gap-2 lg:hidden" aria-label="Innoverse home">
+            <span className="flex h-6 w-6 items-center justify-center rounded-[6px] bg-foreground">
+              <span className="text-[12px] font-bold leading-none text-background">I</span>
+            </span>
+            <span className="text-[13px] font-semibold tracking-[0.02em] text-foreground">Innoverse</span>
+          </Link>
+
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sign in to Innoverse</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Students and startups use GitHub. Institutions use an email and password.
+          </p>
+
+          <Tabs value={tab} onValueChange={(v) => { setTab(v as typeof tab); setError(""); }} className="mt-6">
+            <SegmentedList className="mb-6 grid w-full grid-cols-2">
+              <SegmentedTrigger value="github" className="justify-center">
+                Students &amp; startups
+              </SegmentedTrigger>
+              <SegmentedTrigger value="institution" className="justify-center">
+                Institutions
+              </SegmentedTrigger>
+            </SegmentedList>
+
+            <TabsContent value="github" className="mt-0">
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
+              >
+                <Github className="h-4 w-4" />
+                Continue with GitHub
+                <ArrowRight className="ml-auto h-4 w-4" />
               </Button>
-              <p className="text-center text-xs text-muted-foreground">
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                We request repository access so commits, reviews and merges can be
+                attributed to the right person. You can revoke it from GitHub at any time.
+              </p>
+              <p className="mt-6 text-xs text-muted-foreground">
+                New here?{" "}
+                <Link href="/role-selection" className="font-medium text-foreground hover:underline">
+                  Choose a role to get started
+                </Link>
+              </p>
+            </TabsContent>
+
+            <TabsContent value="institution" className="mt-0">
+              <form onSubmit={institutionLogin} className="space-y-4" noValidate>
+                <Field id="email" label="Institution email" required>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="coordinator@university.edu"
+                    aria-invalid={Boolean(error) || undefined}
+                    required
+                  />
+                </Field>
+                <Field id="password" label="Password" required>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    aria-invalid={Boolean(error) || undefined}
+                    required
+                  />
+                </Field>
+
+                <FormError>{error}</FormError>
+
+                <Button type="submit" size="lg" className="w-full" disabled={loading}>
+                  {loading ? "Signing in…" : "Sign in"}
+                </Button>
+              </form>
+
+              <p className="mt-6 text-xs text-muted-foreground">
                 New to Innoverse?{" "}
-                <Link href="/register/institution" className="font-medium text-brand-bright hover:underline">
+                <Link href="/register/institution" className="font-medium text-foreground hover:underline">
                   Create an institution account
                 </Link>
               </p>
-            </form>
-          )}
+            </TabsContent>
+          </Tabs>
 
           <Suspense fallback={null}>
             <LoginError />
           </Suspense>
 
-          <div className="mt-8 space-y-3">
-            {[
-              "Access real startup challenges",
-              "Collaborate via GitHub repos",
-              "Earn verified certificates",
-            ].map((item) => (
-              <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Sparkles className="h-3.5 w-3.5 text-brand-bright shrink-0" />
-                {item}
-              </div>
-            ))}
-          </div>
+          <p className="mt-10 border-t border-border pt-5 text-2xs leading-relaxed text-subtle-foreground">
+            By continuing you agree that GitHub activity on Innoverse challenges may be
+            published in a Proof-of-Work Report. Nothing is published until a challenge
+            is completed and signed off.
+          </p>
 
-          <div className="mt-8 pt-6 border-t border-border text-center">
-            <p className="text-xs text-muted-foreground">
-              By continuing, you agree to our{" "}
-              <Link href="#" className="text-brand-bright hover:underline">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="#" className="text-brand-bright hover:underline">
-                Privacy Policy
-              </Link>
-            </p>
-          </div>
+          <p className="mt-4 text-2xs text-subtle-foreground">
+            <Link href="/" className="hover:text-muted-foreground">
+              ← Back to home
+            </Link>
+          </p>
         </div>
-      </motion.div>
+      </main>
     </div>
   );
 }

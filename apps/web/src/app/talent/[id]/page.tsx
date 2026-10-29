@@ -3,20 +3,27 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
-  ShieldCheck,
-  GitPullRequest,
-  Star,
-  MapPin,
+  ArrowUpRight,
+  Bookmark,
+  BookmarkCheck,
+  CalendarDays,
   ExternalLink,
-  ArrowLeft,
+  FileText,
+  GitPullRequest,
+  MapPin,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { PageHeader, Meta } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Stat, StatBand } from "@/components/ui/stat";
+import { ProgressRow } from "@/components/ui/progress";
+import { Skeleton, SkeletonStats } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useUser } from "@/hooks/useUser";
 import { formatDate } from "@/lib/utils";
 
@@ -72,7 +79,9 @@ export default function TalentProfilePage() {
       .then((res) => res.json())
       .then((json) =>
         setShortlisted(
-          (json.shortlist ?? []).some((entry: any) => entry.student?.id === id)
+          (json.shortlist ?? []).some(
+            (entry: { student?: { id?: string } }) => entry.student?.id === id
+          )
         )
       )
       .catch(() => null);
@@ -101,168 +110,308 @@ export default function TalentProfilePage() {
     }
   };
 
+  const reports = data?.reports ?? [];
+  const mergedPRs = reports.reduce((sum, r) => sum + (r.evidence?.mergedPRs ?? 0), 0);
+  const confidences = reports
+    .map((r) => r.confidence?.score)
+    .filter((n): n is number => typeof n === "number");
+  const rubrics = reports
+    .map((r) => r.rubricOverall)
+    .filter((n): n is number => typeof n === "number");
+  const avgConfidence = confidences.length
+    ? Math.round(confidences.reduce((a, b) => a + b, 0) / confidences.length)
+    : null;
+  const avgRubric = rubrics.length
+    ? rubrics.reduce((a, b) => a + b, 0) / rubrics.length
+    : null;
+  const latest = reports.find((r) => r.token);
+
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-5">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/talent">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Talent
-              </Link>
-            </Button>
+      <div className="mx-auto w-full max-w-[1160px] px-4 pb-20 pt-10 sm:px-6 sm:pt-14">
+        {loading ? (
+          <div className="space-y-6">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-80" />
+            <SkeletonStats count={4} />
+            <Skeleton className="h-56 w-full rounded-lg" />
           </div>
+        ) : !data ? (
+          <div role="alert" className="mx-auto max-w-xl">
+            <EmptyState
+              icon={Users}
+              title="Profile not available"
+              description={error || "This student has not published a public profile."}
+              action={{ label: "Back to talent", href: "/talent" }}
+            />
+          </div>
+        ) : (
+          <>
+            <PageHeader
+              back={{ href: "/talent", label: "Talent" }}
+              eyebrow={
+                <Badge variant="success">
+                  <ShieldCheck className="h-3 w-3" aria-hidden />
+                  Verified evidence
+                </Badge>
+              }
+              title={data.student.name}
+              description={data.student.headline || "Student developer"}
+              meta={
+                <>
+                  {data.student.githubUsername && (
+                    <a
+                      href={`https://github.com/${data.student.githubUsername}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <span className="font-mono">@{data.student.githubUsername}</span>
+                      <ExternalLink className="h-3 w-3" aria-hidden />
+                    </a>
+                  )}
+                  {data.student.location && (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3" aria-hidden />
+                      {data.student.location}
+                    </span>
+                  )}
+                  {data.student.memberSince &&
+                    !Number.isNaN(new Date(data.student.memberSince).getTime()) && (
+                      <Meta label="Member since" value={formatDate(data.student.memberSince)} />
+                    )}
+                  <Meta label="Projects" value={data.student.projectsCompleted} />
+                </>
+              }
+              actions={
+                <>
+                  {latest?.token && (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/r/${latest.token}`}>
+                        <FileText />
+                        Open latest report
+                      </Link>
+                    </Button>
+                  )}
+                  {user?.role === "Startup" && (
+                    <Button
+                      size="sm"
+                      variant={shortlisted ? "outline" : "default"}
+                      onClick={toggleShortlist}
+                      disabled={savingShortlist}
+                    >
+                      {shortlisted ? <BookmarkCheck /> : <Bookmark />}
+                      {savingShortlist
+                        ? "Saving…"
+                        : shortlisted
+                          ? "Remove from shortlist"
+                          : "Shortlist"}
+                    </Button>
+                  )}
+                </>
+              }
+            />
 
-          {loading ? (
-            <Skeleton className="h-80 w-full rounded-2xl" />
-          ) : error || !data ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center">
-              <p className="text-muted-foreground">{error || "Profile not found"}</p>
-            </div>
-          ) : (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-              <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
-                      {data.student.name}
-                    </h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {data.student.headline || "Student developer"}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                      {data.student.githubUsername && (
-                        <a
-                          href={`https://github.com/${data.student.githubUsername}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 hover:text-foreground"
-                        >
-                          @{data.student.githubUsername}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
-                      {data.student.location && (
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {data.student.location}
-                        </span>
-                      )}
-                      <span className="inline-flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3 text-primary" />
-                        {data.reports.length} verified report{data.reports.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
-                  </div>
-                  {data.reports[0] && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/r/${data.reports[0].token}`}>
-                          Open latest report
-                          <ExternalLink className="ml-1 h-3 w-3" />
-                        </Link>
-                      </Button>
-                      {user?.role === "Startup" && (
-                        <Button
-                          size="sm"
-                          variant={shortlisted ? "ghost" : "gradient"}
-                          onClick={toggleShortlist}
-                          disabled={savingShortlist}
-                        >
-                          {savingShortlist
-                            ? "Saving…"
-                            : shortlisted
-                              ? "Remove from shortlist"
-                              : "Shortlist"}
-                        </Button>
-                      )}
-                    </div>
+            {error && (
+              <p
+                role="alert"
+                className="mb-5 rounded-md border border-danger-border bg-danger-subtle px-3 py-2 text-xs text-danger"
+              >
+                {error}
+              </p>
+            )}
+
+            <StatBand
+              className="mb-8"
+              items={[
+                { label: "Verified reports", value: reports.length },
+                { label: "Merged PRs", value: mergedPRs },
+                {
+                  label: "Avg confidence",
+                  value: avgConfidence != null ? `${avgConfidence}/100` : "—",
+                },
+                {
+                  label: "Avg rubric",
+                  value: avgRubric != null ? `${avgRubric.toFixed(1)}/5` : "—",
+                },
+              ]}
+            />
+
+            {data.student.skills.length > 0 && (
+              <ul className="mb-8 flex flex-wrap gap-1.5">
+                {data.student.skills.map((s) => (
+                  <li key={s}>
+                    <Badge variant="secondary" className="font-mono">
+                      {s}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
+              <section aria-labelledby="reports">
+                <h2 id="reports" className="mb-3 text-sm font-medium text-foreground">
+                  Proof-of-Work Reports
+                </h2>
+
+                {reports.length === 0 ? (
+                  <EmptyState
+                    icon={FileText}
+                    title="No published reports yet"
+                    description="Reports are issued by the startup when a project is complete. Nothing has been published for this student so far."
+                    action={{ label: "See open challenges", href: "/explore" }}
+                  />
+                ) : (
+                  <ul className="space-y-4">
+                    {reports.map((r) => (
+                      <li key={r.verificationCode}>
+                        <article className="overflow-hidden rounded-lg border border-border bg-card">
+                          <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
+                            <div className="min-w-0">
+                              <h3 className="text-sm font-medium text-foreground">{r.project}</h3>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {r.startup} ·{" "}
+                                <span className="tnum font-mono">{formatDate(r.issuedAt)}</span>
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              {r.confidence && (
+                                <Badge
+                                  variant={
+                                    r.confidence.level === "high"
+                                      ? "success"
+                                      : r.confidence.level === "medium"
+                                        ? "info"
+                                        : "danger"
+                                  }
+                                  className="tnum"
+                                >
+                                  {r.confidence.score}/100
+                                </Badge>
+                              )}
+                              {r.rubricOverall != null && (
+                                <Badge variant="outline" className="tnum">
+                                  {r.rubricOverall.toFixed(1)}/5
+                                </Badge>
+                              )}
+                            </div>
+                          </header>
+
+                          <div className="space-y-4 px-5 py-4">
+                            {r.rubricOverall != null && (
+                              <ProgressRow
+                                label="Reviewer rubric"
+                                value={r.rubricOverall}
+                                max={5}
+                                suffix={`${r.rubricOverall.toFixed(1)} / 5`}
+                                tone="brand"
+                              />
+                            )}
+
+                            {r.evidence && (
+                              <div className="grid grid-cols-3 gap-3 border-t border-border pt-3">
+                                <Stat
+                                  label="Merged PRs"
+                                  value={r.evidence.mergedPRs}
+                                  icon={GitPullRequest}
+                                />
+                                <Stat label="Commits" value={r.evidence.commitsByStudent} />
+                                <Stat label="Active days" value={r.evidence.activeDays} />
+                              </div>
+                            )}
+
+                            {r.summary && (
+                              <p className="border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+                                {r.summary}
+                              </p>
+                            )}
+                          </div>
+
+                          <footer className="flex flex-wrap items-center gap-2 border-t border-border bg-surface px-5 py-3">
+                            {r.token && (
+                              <Button size="sm" variant="outline" asChild>
+                                <Link href={`/r/${r.token}`}>
+                                  <FileText />
+                                  Open report
+                                </Link>
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" asChild>
+                              <Link href={`/verify/${r.verificationCode}`}>
+                                <ShieldCheck />
+                                Verify credential
+                              </Link>
+                            </Button>
+                            <span className="ml-auto font-mono text-2xs text-subtle-foreground">
+                              {r.verificationCode}
+                            </span>
+                          </footer>
+                        </article>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+                <div className="rounded-lg border border-border bg-card p-4">
+                  <h2 className="text-2xs font-medium uppercase tracking-[0.08em] text-subtle-foreground">
+                    For startups
+                  </h2>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    Shortlisting saves this student to your pipeline. Reports stay public, so every
+                    claim can be re-checked before you talk.
+                  </p>
+                  {user?.role === "Startup" ? (
+                    <Button
+                      className="mt-3 w-full"
+                      variant={shortlisted ? "outline" : "default"}
+                      onClick={toggleShortlist}
+                      disabled={savingShortlist}
+                    >
+                      {shortlisted ? <BookmarkCheck /> : <Bookmark />}
+                      {savingShortlist
+                        ? "Saving…"
+                        : shortlisted
+                          ? "Remove from shortlist"
+                          : "Add to shortlist"}
+                    </Button>
+                  ) : (
+                    <Button className="mt-3 w-full" variant="outline" asChild>
+                      <Link href="/login">
+                        Sign in as a startup
+                        <ArrowUpRight />
+                      </Link>
+                    </Button>
                   )}
                 </div>
 
-                {data.student.skills.length > 0 && (
-                  <div className="mt-5 flex flex-wrap gap-1.5">
-                    {data.student.skills.map((s) => (
-                      <Badge key={s} variant="secondary" className="text-[10px]">
-                        {s}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h2 className="mb-3 text-sm font-medium">Proof-of-Work Reports</h2>
-                {data.reports.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border py-12 text-center">
-                    <p className="text-sm text-muted-foreground">No published reports yet.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {data.reports.map((r) => (
-                      <div key={r.verificationCode} className="rounded-xl border border-border bg-card p-5">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <h3 className="text-sm font-medium">{r.project}</h3>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {r.startup} · {formatDate(r.issuedAt)}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            {r.confidence && (
-                              <Badge
-                                variant={r.confidence.level === "high" ? "success" : r.confidence.level === "medium" ? "info" : "destructive"}
-                                className="text-[10px]"
-                              >
-                                {r.confidence.score}/100
-                              </Badge>
-                            )}
-                            {r.rubricOverall != null && (
-                              <Badge variant="outline" className="text-[10px]">
-                                <Star className="mr-1 h-3 w-3 text-amber-500" />
-                                {r.rubricOverall.toFixed(1)}/5
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {r.evidence && (
-                          <div className="mt-3 flex flex-wrap gap-4 border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
-                            <span className="inline-flex items-center gap-1">
-                              <GitPullRequest className="h-3 w-3" />
-                              {r.evidence.mergedPRs} merged PRs
-                            </span>
-                            <span>{r.evidence.commitsByStudent} commits</span>
-                            <span>{r.evidence.activeDays} active days</span>
-                          </div>
-                        )}
-
-                        {r.summary && (
-                          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                            {r.summary}
-                          </p>
-                        )}
-
-                        <div className="mt-3 flex gap-2">
-                          {r.token && (
-                            <Button size="sm" variant="outline" asChild>
-                              <Link href={`/r/${r.token}`}>Open report</Link>
-                            </Button>
-                          )}
-                          <Button size="sm" variant="ghost" asChild>
-                            <Link href={`/verify/${r.verificationCode}`}>Verify</Link>
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </div>
+                <div className="rounded-lg border border-border bg-surface p-4">
+                  <h2 className="text-2xs font-medium uppercase tracking-[0.08em] text-subtle-foreground">
+                    How to read this
+                  </h2>
+                  <ul className="mt-2 space-y-2 text-xs leading-relaxed text-muted-foreground">
+                    <li className="flex gap-2">
+                      <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" aria-hidden />
+                      Confidence scores commit share, review activity and active days.
+                    </li>
+                    <li className="flex gap-2">
+                      <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" aria-hidden />
+                      Reports are signed by the issuing startup and fingerprinted with SHA-256.
+                    </li>
+                    <li className="flex gap-2">
+                      <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" aria-hidden />
+                      Every report carries an issue date you can verify by code.
+                    </li>
+                  </ul>
+                </div>
+              </aside>
+            </div>
+          </>
+        )}
       </div>
       <Footer />
     </main>

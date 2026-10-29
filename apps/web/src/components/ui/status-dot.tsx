@@ -1,15 +1,20 @@
 import { cn } from "@/lib/utils";
 
 const dotStyles: Record<string, string> = {
-  default: "bg-zinc-500",
-  active: "bg-emerald-500",
-  success: "bg-emerald-500",
-  pending: "bg-amber-500",
-  warning: "bg-amber-500",
-  error: "bg-red-500",
-  destructive: "bg-red-500",
-  info: "bg-blue-500",
-  brand: "bg-brand-bright",
+  default: "bg-subtle-foreground",
+  muted: "bg-subtle-foreground",
+  active: "bg-success",
+  success: "bg-success",
+  completed: "bg-success",
+  online: "bg-success",
+  pending: "bg-warning",
+  warning: "bg-warning",
+  review: "bg-info",
+  info: "bg-info",
+  error: "bg-danger",
+  destructive: "bg-danger",
+  failed: "bg-danger",
+  brand: "bg-brand",
 };
 
 export function StatusDot({
@@ -21,22 +26,13 @@ export function StatusDot({
   pulse?: boolean;
   className?: string;
 }) {
+  const color = dotStyles[status] ?? dotStyles.default;
   return (
-    <span className={cn("relative flex h-2 w-2 shrink-0", className)}>
+    <span className={cn("relative flex h-1.5 w-1.5 shrink-0", className)} aria-hidden>
       {pulse && (
-        <span
-          className={cn(
-            "absolute inline-flex h-full w-full animate-ping rounded-full opacity-40",
-            dotStyles[status] ?? dotStyles.default
-          )}
-        />
+        <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-50", color)} />
       )}
-      <span
-        className={cn(
-          "relative inline-flex h-2 w-2 rounded-full",
-          dotStyles[status] ?? dotStyles.default
-        )}
-      />
+      <span className={cn("relative inline-flex h-full w-full rounded-full", color)} />
     </span>
   );
 }

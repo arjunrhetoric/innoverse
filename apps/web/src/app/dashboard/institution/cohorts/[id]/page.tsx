@@ -3,14 +3,33 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { ArrowLeft, Users, FileCheck2, GitPullRequest, ShieldCheck, ExternalLink, Download } from "lucide-react";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
+import {
+  Users,
+  ExternalLink,
+  Download,
+  Landmark,
+  AlertCircle,
+  ArrowLeft,
+  FileText,
+} from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader, Meta } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Badge, StatusBadge } from "@/components/ui/badge";
+import { Section } from "@/components/ui/card";
+import { StatBand } from "@/components/ui/stat";
+import { ProgressRow } from "@/components/ui/progress";
 import { CopyButton } from "@/components/ui/copy-button";
+import {
+  Table,
+  TableWrap,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
 import { formatDate } from "@/lib/utils";
 
@@ -68,167 +87,302 @@ export default function CohortDetailPage() {
       .finally(() => setLoading(false));
   }, [id, isAuthenticated, user]);
 
-  return (
-    <main className="min-h-screen bg-background">
-      <Navbar />
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-5">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard/institution">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Cohorts
-              </Link>
-            </Button>
-          </div>
+  if (authLoading || loading) {
+    return (
+      <AppShell>
+        <CohortSkeleton />
+      </AppShell>
+    );
+  }
 
-          {loading ? (
-            <Skeleton className="h-96 w-full rounded-2xl" />
-          ) : error || !data ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center">
-              <p className="text-muted-foreground">{error || "Cohort not found"}</p>
+  if (error || !data) {
+    return (
+      <AppShell>
+        <PageHeader back={{ href: "/dashboard/institution", label: "Cohorts" }} title="Cohort" />
+        <div
+          role="alert"
+          className="flex flex-col items-start gap-3 rounded-lg border border-danger-border bg-danger-subtle px-5 py-4"
+        >
+          <p className="flex items-center gap-2 text-sm text-danger">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error || "Cohort not found"}
+          </p>
+          <Button size="sm" variant="outline" asChild>
+            <Link href="/dashboard/institution">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to cohorts
+            </Link>
+          </Button>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const { cohort, stats, skills, members } = data;
+  const topSkill = skills.length ? Math.max(...skills.map((s) => s.count)) : 0;
+  const skillsCapped = skills.length >= 12;
+
+  return (
+    <AppShell>
+      <PageHeader
+        back={{ href: "/dashboard/institution", label: "Cohorts" }}
+        eyebrow={
+          <span className="inline-flex items-center gap-1.5 text-2xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            <Landmark className="h-3.5 w-3.5 text-subtle-foreground" />
+            {user?.name || "Institution"}
+          </span>
+        }
+        title={cohort.name}
+        description={cohort.description || "Verified student evidence for this cohort."}
+        meta={
+          <>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="text-xs text-subtle-foreground">Join code</span>
+              <span className="font-mono text-xs font-medium text-foreground">
+                {cohort.joinCode}
+              </span>
+              <CopyButton value={cohort.joinCode} size="icon" label="Copy join code" />
+            </span>
+            <Meta label="Created" value={formatDate(cohort.createdAt)} />
+            <Meta label="Students" value={stats.members} />
+          </>
+        }
+        actions={
+          <Button size="sm" variant="outline" asChild>
+            <a href={`/api/cohorts/${cohort.id}/export`}>
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
+            </a>
+          </Button>
+        }
+      />
+
+      <StatBand
+        className="mb-6"
+        items={[
+          {
+            label: "Participation",
+            value: `${stats.participation}%`,
+            hint: `${stats.withReports} of ${stats.members} student${stats.members === 1 ? "" : "s"} with a report`,
+          },
+          {
+            label: "Reports issued",
+            value: stats.reports,
+            hint: stats.reports === 0 ? "None yet" : `${stats.avgConfidence ?? "—"} avg confidence`,
+          },
+          {
+            label: "Merged PRs",
+            value: stats.mergedPRs,
+            hint: "Evidence attached to reports",
+          },
+          {
+            label: "Skills covered",
+            value: skills.length,
+            hint: skillsCapped ? "Top 12 by frequency" : "Distinct member skills",
+          },
+        ]}
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
+        <Section
+          title="Members"
+          description="Reports are issued from verified GitHub evidence and startup sign-off."
+          actions={
+            <Badge variant="default">
+              {members.length} member{members.length === 1 ? "" : "s"}
+            </Badge>
+          }
+          contentClassName="p-0"
+        >
+          {members.length === 0 ? (
+            <EmptyRoster joinCode={cohort.joinCode} />
+          ) : (
+            <TableWrap sticky>
+              <Table stickyHead>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-5">Student</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead numeric>Reports</TableHead>
+                    <TableHead numeric>Merged PRs</TableHead>
+                    <TableHead numeric>Confidence</TableHead>
+                    <TableHead>Joined</TableHead>
+                    <TableHead className="pr-5 text-right">
+                      <span className="sr-only">Latest report</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {members.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell className="pl-5">
+                        <p className="text-sm font-medium text-foreground">{m.name}</p>
+                        <p className="mt-0.5 truncate text-2xs text-muted-foreground">
+                          {m.githubUsername ? `@${m.githubUsername}` : m.headline || "Student"}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={m.reportCount === 0 ? "Pending" : "Verified"} />
+                      </TableCell>
+                      <TableCell numeric>{m.reportCount}</TableCell>
+                      <TableCell numeric>{m.mergedPRs}</TableCell>
+                      <TableCell numeric className="text-muted-foreground">
+                        {m.avgConfidence != null ? `${m.avgConfidence}/100` : "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                        {formatDate(m.joinedAt)}
+                      </TableCell>
+                      <TableCell className="pr-5 text-right">
+                        {m.latestReportToken ? (
+                          <Button size="sm" variant="ghost" asChild>
+                            <Link href={`/r/${m.latestReportToken}`}>
+                              Report
+                              <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          </Button>
+                        ) : (
+                          <span className="text-2xs text-subtle-foreground">No report</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableWrap>
+          )}
+        </Section>
+
+        <Section
+          title="Skills coverage"
+          description={
+            skills.length
+              ? "Number of members whose profile lists each skill."
+              : "Populated from member profiles once students join."
+          }
+        >
+          {skills.length === 0 ? (
+            <div className="px-5 pb-5">
+              <p className="rounded-md border border-dashed border-border bg-surface/40 px-3 py-4 text-xs leading-relaxed text-muted-foreground">
+                No skills recorded yet. Skills appear here from the profiles of students in this
+                cohort.
+              </p>
             </div>
           ) : (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-              <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-                <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">{data.cohort.name}</h1>
-                {data.cohort.description && (
-                  <p className="mt-2 text-sm text-muted-foreground">{data.cohort.description}</p>
-                )}
-                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-background px-3 py-2 text-xs">
-                  <span className="text-muted-foreground">Join code</span>
-                  <span className="font-mono text-sm font-medium">{data.cohort.joinCode}</span>
-                  <CopyButton value={data.cohort.joinCode} />
-                  <span className="text-muted-foreground">Share this with students to enrol them.</span>
-                  <Button size="sm" variant="outline" asChild className="ml-auto">
-                    <a href={`/api/cohorts/${data.cohort.id}/export`}>
-                      <Download className="mr-1.5 h-3.5 w-3.5" />
-                      Export CSV
-                    </a>
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="rounded-xl border border-border bg-card p-4">
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Users className="h-3 w-3" /> Students
-                  </p>
-                  <p className="mt-1 text-2xl font-medium tracking-tight">{data.stats.members}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-card p-4">
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <FileCheck2 className="h-3 w-3" /> Reports
-                  </p>
-                  <p className="mt-1 text-2xl font-medium tracking-tight">{data.stats.reports}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-card p-4">
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <GitPullRequest className="h-3 w-3" /> Merged PRs
-                  </p>
-                  <p className="mt-1 text-2xl font-medium tracking-tight">{data.stats.mergedPRs}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-card p-4">
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <ShieldCheck className="h-3 w-3" /> Participation
-                  </p>
-                  <p className="mt-1 text-2xl font-medium tracking-tight">
-                    {data.stats.participation}%
-                  </p>
-                </div>
-              </div>
-
-              {data.skills.length > 0 && (
-                <div className="rounded-xl border border-border bg-card p-5">
-                  <h2 className="mb-3 text-sm font-medium">Skills coverage</h2>
-                  <div className="space-y-2">
-                    {data.skills.map((s) => {
-                      const max = data.skills[0]?.count || 1;
-                      return (
-                        <div key={s.name} className="flex items-center gap-3">
-                          <span className="w-32 shrink-0 truncate text-xs">{s.name}</span>
-                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-primary"
-                              style={{ width: `${(s.count / max) * 100}%` }}
-                            />
-                          </div>
-                          <span className="w-8 text-right text-[11px] text-muted-foreground">{s.count}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <h2 className="mb-3 text-sm font-medium">Students</h2>
-                {data.members.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border py-16 text-center">
-                    <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-                    <p className="text-sm text-muted-foreground">
-                      No students have joined yet. Share the join code.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="overflow-hidden rounded-xl border border-border">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                        <tr>
-                          <th className="px-4 py-2.5 font-medium">Student</th>
-                          <th className="px-4 py-2.5 font-medium">Reports</th>
-                          <th className="px-4 py-2.5 font-medium">Confidence</th>
-                          <th className="px-4 py-2.5 font-medium">Merged PRs</th>
-                          <th className="px-4 py-2.5 font-medium">Joined</th>
-                          <th className="px-4 py-2.5 font-medium" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.members.map((m) => (
-                          <tr key={m.id} className="border-t border-border/60">
-                            <td className="px-4 py-2.5">
-                              <p className="font-medium">{m.name}</p>
-                              <p className="text-[11px] text-muted-foreground">
-                                {m.githubUsername ? `@${m.githubUsername}` : m.headline || "Student"}
-                              </p>
-                            </td>
-                            <td className="px-4 py-2.5">{m.reportCount}</td>
-                            <td className="px-4 py-2.5">
-                              {m.avgConfidence != null ? (
-                                <Badge variant="secondary" className="text-[10px]">
-                                  {m.avgConfidence}/100
-                                </Badge>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-2.5">{m.mergedPRs}</td>
-                            <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                              {formatDate(m.joinedAt)}
-                            </td>
-                            <td className="px-4 py-2.5 text-right">
-                              {m.latestReportToken && (
-                                <Link
-                                  href={`/r/${m.latestReportToken}`}
-                                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                                >
-                                  Report
-                                  <ExternalLink className="h-3 w-3" />
-                                </Link>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+            <div className="space-y-3 px-5 pb-5">
+              {skills.map((s) => (
+                <ProgressRow
+                  key={s.name}
+                  label={s.name}
+                  value={s.count}
+                  max={topSkill || 1}
+                  tone="brand"
+                  suffix={`${s.count}`}
+                />
+              ))}
+            </div>
           )}
+        </Section>
+      </div>
+    </AppShell>
+  );
+}
+
+/** Honest zero state for a cohort with no members: the join code is the next action. */
+function EmptyRoster({ joinCode }: { joinCode: string }) {
+  return (
+    <div className="flex flex-col items-center px-6 py-12 text-center">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card shadow-2xs">
+        <Users className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <p className="mt-3 text-sm font-medium text-foreground">No students have joined yet</p>
+      <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
+        Students join by entering this code from their dashboard. Reports and participation appear
+        here as soon as they do.
+      </p>
+      <div className="mt-4 flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1.5">
+        <FileText className="h-3.5 w-3.5 text-subtle-foreground" aria-hidden />
+        <span className="font-mono text-sm font-medium tracking-wide text-foreground">
+          {joinCode}
+        </span>
+        <CopyButton value={joinCode} size="icon" label="Copy join code" />
+      </div>
+    </div>
+  );
+}
+
+/** Mirrors the loaded detail: header, stat band, member table + skills rail. */
+function CohortSkeleton() {
+  return (
+    <div>
+      <div className="mb-6">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="mt-4 h-2.5 w-28" />
+        <Skeleton className="mt-3 h-7 w-72" />
+        <Skeleton className="mt-2.5 h-3.5 w-full max-w-xl" />
+        <div className="mt-4 flex flex-wrap gap-4">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+        <div className="mt-6 h-px bg-border" />
+      </div>
+
+      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="bg-card px-4 py-3">
+            <Skeleton className="h-2.5 w-20" />
+            <Skeleton className="mt-2 h-5 w-12" />
+            <Skeleton className="mt-2 h-2.5 w-24" />
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-4 w-20 rounded-full" />
+          </div>
+          <div className="flex items-center gap-4 border-b border-border px-5 py-2.5">
+            <Skeleton className="h-2.5 w-16" />
+            <Skeleton className="h-2.5 w-12" />
+            <Skeleton className="ml-auto h-2.5 w-12" />
+            <Skeleton className="h-2.5 w-16" />
+          </div>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-4 border-b border-border px-5 py-3.5 last:border-b-0"
+            >
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-40" />
+                <Skeleton className="h-2.5 w-24" />
+              </div>
+              <Skeleton className="h-5 w-16 rounded-full" />
+              <Skeleton className="h-3 w-8" />
+              <Skeleton className="h-3 w-8" />
+              <Skeleton className="h-3 w-14" />
+              <Skeleton className="h-7 w-16 rounded-md" />
+            </div>
+          ))}
+        </div>
+        <div className="rounded-lg border border-border bg-card">
+          <div className="border-b border-border px-5 py-4">
+            <Skeleton className="h-3.5 w-28" />
+          </div>
+          <div className="space-y-3 px-5 py-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="space-y-1.5">
+                <div className="flex justify-between">
+                  <Skeleton className="h-2.5 w-24" />
+                  <Skeleton className="h-2.5 w-6" />
+                </div>
+                <Skeleton className="h-1.5 w-full rounded-full" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-      <Footer />
-    </main>
+    </div>
   );
 }

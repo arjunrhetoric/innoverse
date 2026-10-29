@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-import { motion } from "framer-motion";
-import Link from "next/link";
-import Image from "next/image";
-import { Building2, PenLine, Loader2, AlertCircle, CheckCircle2, Upload, ArrowLeft } from "lucide-react";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
+import { Loader2, AlertCircle, CheckCircle2, X } from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
+import { SettingsNav, startupSettingsItems } from "@/components/layout/settings-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
+import { Badge, StatusBadge } from "@/components/ui/badge";
+import { Section } from "@/components/ui/card";
+import { PageHeader, Meta } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AssetImage } from "@/components/ui/asset-image";
+import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/useUser";
 import { uploadDirect, DirectUploadUnavailableError } from "@/lib/blob-upload";
 
@@ -128,117 +129,461 @@ function BrandingForm() {
 
   if (authLoading || loading) {
     return (
-      <main className="min-h-screen bg-background">
-        <Navbar />
-        <div className="pt-20 pb-16 px-4">
-          <div className="mx-auto max-w-2xl">
-            <Skeleton className="h-10 w-64 mb-6 rounded-lg" />
-            <Skeleton className="h-96 w-full rounded-2xl" />
+      <AppShell>
+        <div className="px-4 pb-16 pt-24">
+          <div className="mx-auto max-w-6xl">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="mt-3 h-7 w-56" />
+            <Skeleton className="mt-2 h-4 w-full max-w-md" />
+            <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+              <div className="space-y-6">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="rounded-lg border border-border bg-card">
+                    <div className="border-b border-border px-5 py-4">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="mt-2 h-3 w-64" />
+                    </div>
+                    <div className="space-y-4 p-5">
+                      <Skeleton className="h-9 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-xl border border-border bg-card">
+                <div className="border-b border-border px-4 py-3">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="mt-2 h-4 w-40" />
+                </div>
+                <div className="paper space-y-4 p-4">
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-px w-full" />
+                  <Skeleton className="h-28 w-full" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </main>
+      </AppShell>
     );
   }
 
+  const logoSrc = logo
+    ? null
+    : branding?.startupLogo
+      ? `/api/branding/logo?v=${encodeURIComponent(branding.startupLogo)}`
+      : null;
+  const signatureSrc = signature
+    ? null
+    : branding?.signatureImage
+      ? `/api/branding/signature?v=${encodeURIComponent(branding.signatureImage)}`
+      : null;
+
   return (
-    <main className="min-h-screen bg-background">
-      <Navbar />
-      <div className="pt-20 pb-16 px-4">
-        <div className="mx-auto max-w-2xl">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-                <Building2 className="h-6 w-6 text-primary" />
-                Company Branding
-              </h1>
-              {returnTo && (
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={returnTo}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Issuance
-                  </Link>
-                </Button>
-              )}
-            </div>
-            <p className="text-muted-foreground mt-2 text-sm">
-              Your logo and authorized signature appear on every Innoverse certificate you issue. Both are required before certificates can be issued.
-            </p>
-            {branding && (
-              <p className={`text-xs mt-2 font-medium ${branding.complete ? "text-emerald-500" : "text-amber-500"}`}>
-                {branding.complete
-                  ? "Branding kit complete — certificates enabled."
-                  : `Still missing: ${(branding.missing ?? []).join(", ") || "logo, signature, signatory name"}.`}
-              </p>
-            )}
-          </motion.div>
+    <AppShell>
+      <div className="px-4 pb-16 pt-24">
+        <div className="mx-auto max-w-6xl">
+<SettingsNav items={startupSettingsItems} />
+          <PageHeader
+            back={returnTo ? { href: returnTo, label: "Back to issuance" } : undefined}
+            eyebrow={
+              <span className="font-mono text-2xs uppercase tracking-[0.14em] text-subtle-foreground">
+                Settings · Branding
+              </span>
+            }
+            title="Branding kit"
+            description="The logo, signatory and signature below are printed on every certificate you issue. Issuance stays disabled until all three are set."
+            meta={
+              <>
+                <StatusBadge status={branding?.complete ? "complete" : "pending"} />
+                {branding?.missing && branding.missing.length > 0 && (
+                  <Meta label="Missing" value={branding.missing.join(", ")} />
+                )}
+              </>
+            }
+          />
 
           {error && (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 mb-6 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-              <p className="text-sm text-destructive">{error}</p>
+            <div
+              role="alert"
+              className="mb-6 flex items-start gap-2 rounded-lg border border-danger-border bg-danger-subtle px-4 py-3"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+              <p className="text-sm text-danger">{error}</p>
             </div>
           )}
           {done && (
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 mb-6 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-              <p className="text-sm text-emerald-500">{done}</p>
+            <div className="mb-6 flex items-start gap-2 rounded-lg border border-success-border bg-success-subtle px-4 py-3">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+              <p className="text-sm text-success">{done}</p>
             </div>
           )}
 
-          <div className="rounded-2xl border border-border bg-card p-6 space-y-5">
-            <div>
-              <Label htmlFor="companyName" className="mb-1.5 block text-sm">Company name</Label>
-              <Input id="companyName" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Acme Inc." className="h-11" />
-            </div>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+            <div className="space-y-6">
+              <Section
+                title="Company identity"
+                description="Printed in the certificate header, under the logo."
+                contentClassName="p-5"
+              >
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <Field id="companyName" label="Company name" hint="Uppercase on the certificate">
+                    <Input
+                      id="companyName"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="Acme Inc."
+                    />
+                  </Field>
+                </div>
+              </Section>
 
-            <div>
-              <Label className="mb-1.5 block text-sm">Company logo (PNG/JPG, under 5MB)</Label>
-              <div className="flex items-center gap-4">
-                {branding?.startupLogo && (
-                  <Image src={`/api/branding/logo?v=${encodeURIComponent(branding.startupLogo)}`} alt="Company logo" width={80} height={80} unoptimized className="rounded-lg border border-border object-contain bg-white h-20 w-20" />
-                )}
-                <label className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground cursor-pointer hover:border-primary/50">
-                  <Upload className="h-3.5 w-3.5" />
-                  {logo ? logo.name : "Choose logo"}
-                  <input type="file" accept=".png,.jpg,.jpeg" className="hidden" onChange={(e) => setLogo(e.target.files?.[0] ?? null)} />
-                </label>
+              <Section
+                title="Logo"
+                description="Appears top-right in the certificate header, above the company name."
+                contentClassName="p-5"
+              >
+                <AssetDrop
+                  id="logo"
+                  title="Company logo"
+                  shape="square"
+                  assetUrl={logoSrc}
+                  file={logo}
+                  onFile={setLogo}
+                  onClear={() => setLogo(null)}
+                />
+                <p className="mt-3 text-2xs leading-relaxed text-subtle-foreground">
+                  PNG or JPG, up to 5MB. A wide mark on a transparent background reads best at
+                  certificate size.
+                </p>
+              </Section>
+
+              <Section
+                title="Signature"
+                description="Prints above a rule at the bottom-left of the certificate, with the name and title."
+                contentClassName="p-5 space-y-5"
+              >
+                <AssetDrop
+                  id="signature"
+                  title="Signature image"
+                  shape="wide"
+                  assetUrl={signatureSrc}
+                  file={signature}
+                  onFile={setSignature}
+                  onClear={() => setSignature(null)}
+                />
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <Field id="signatoryName" label="Authorized signatory" hint="Set in serif">
+                    <Input
+                      id="signatoryName"
+                      value={signatoryName}
+                      onChange={(e) => setSignatoryName(e.target.value)}
+                      placeholder="Jane Doe"
+                    />
+                  </Field>
+                  <Field id="signatoryTitle" label="Title" hint="Under the name">
+                    <Input
+                      id="signatoryTitle"
+                      value={signatoryTitle}
+                      onChange={(e) => setSignatoryTitle(e.target.value)}
+                      placeholder="CTO"
+                    />
+                  </Field>
+                </div>
+
+                <p className="text-2xs leading-relaxed text-subtle-foreground">
+                  A transparent PNG of a handwritten signature looks best; a scan on white paper
+                  will show its background.
+                </p>
+              </Section>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-5 py-3">
+                <p className="text-xs text-muted-foreground">
+                  {logo || signature
+                    ? "New files are staged. Save to upload them."
+                    : "Name and title changes are saved with the kit."}
+                </p>
+                <Button variant="default" onClick={handleSave} disabled={saving}>
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {saving ? "Saving…" : "Save branding kit"}
+                </Button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="signatoryName" className="mb-1.5 block text-sm">Authorized signatory</Label>
-                <Input id="signatoryName" value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} placeholder="Jane Doe" className="h-11" />
-              </div>
-              <div>
-                <Label htmlFor="signatoryTitle" className="mb-1.5 block text-sm">Title</Label>
-                <Input id="signatoryTitle" value={signatoryTitle} onChange={(e) => setSignatoryTitle(e.target.value)} placeholder="CTO" className="h-11" />
-              </div>
-            </div>
-
-            <div>
-              <Label className="mb-1.5 block text-sm">Signature image (PNG/JPG, under 5MB)</Label>
-              <div className="flex items-center gap-4">
-                {branding?.signatureImage && (
-                  <Image src={`/api/branding/signature?v=${encodeURIComponent(branding.signatureImage)}`} alt="Signature" width={120} height={60} unoptimized className="rounded-lg border border-border object-contain bg-white h-15 w-30" />
-                )}
-                <label className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground cursor-pointer hover:border-primary/50">
-                  <PenLine className="h-3.5 w-3.5" />
-                  {signature ? signature.name : "Choose signature"}
-                  <input type="file" accept=".png,.jpg,.jpeg" className="hidden" onChange={(e) => setSignature(e.target.files?.[0] ?? null)} />
-                </label>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1.5">Tip: a transparent PNG of a handwritten signature looks best on the certificate.</p>
-            </div>
-
-            <Button variant="gradient" onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Save Branding Kit
-            </Button>
+            <CertificatePreview
+              logoSrc={logoSrc}
+              logoStaged={Boolean(logo)}
+              signatureSrc={signatureSrc}
+              signatureStaged={Boolean(signature)}
+              companyName={companyName}
+              signatoryName={signatoryName}
+              signatoryTitle={signatoryTitle}
+            />
           </div>
         </div>
       </div>
-      <Footer />
-    </main>
+    </AppShell>
+  );
+}
+
+/* ── Upload target: drag and drop, preview, replace, remove ─────────────── */
+
+function AssetDrop({
+  id,
+  title,
+  shape,
+  assetUrl,
+  file,
+  onFile,
+  onClear,
+}: {
+  id: string;
+  title: string;
+  shape: "square" | "wide";
+  assetUrl: string | null;
+  file: File | null;
+  onFile: (file: File | null) => void;
+  onClear: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [localError, setLocalError] = useState("");
+  // Staged file preview is derived, so no setState inside an effect.
+  const stagedPreview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  useEffect(() => {
+    if (!stagedPreview) return;
+    return () => URL.revokeObjectURL(stagedPreview);
+  }, [stagedPreview]);
+
+  const accept = (picked: File | null | undefined) => {
+    if (!picked) return;
+    if (!/^image\/(png|jpeg)$/.test(picked.type)) {
+      setLocalError("Choose a PNG or JPG file.");
+      return;
+    }
+    if (picked.size > 5 * 1024 * 1024) {
+      setLocalError("That file is over 5MB.");
+      return;
+    }
+    setLocalError("");
+    onFile(picked);
+  };
+
+  const preview = stagedPreview ?? assetUrl;
+  const state = file ? "staged" : assetUrl ? "uploaded" : "missing";
+
+  return (
+    <div>
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          accept(e.dataTransfer.files?.[0]);
+        }}
+        className={cn(
+          "flex flex-wrap items-center gap-4 rounded-md border border-dashed p-3 transition-colors sm:flex-nowrap",
+          dragOver ? "border-brand/60 bg-brand-subtle" : "border-border bg-surface/50"
+        )}
+      >
+        <div
+          className={cn(
+            "flex shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-card",
+            shape === "square" ? "h-16 w-16" : "h-16 w-28"
+          )}
+        >
+          <AssetImage
+            src={preview}
+            alt={`${title} preview`}
+            className="h-full w-full"
+            fallback="Not uploaded"
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-foreground">{title}</p>
+          <p className="mt-0.5 truncate font-mono text-2xs text-muted-foreground">
+            {file ? file.name : state === "uploaded" ? "Uploaded" : "Not uploaded"}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {state === "uploaded" && <Badge variant="success">Uploaded</Badge>}
+            {state === "staged" && <Badge variant="warning">New file — not saved</Badge>}
+            {state === "missing" && <Badge variant="outline">Not uploaded</Badge>}
+            {state === "uploaded" && (
+              <span className="text-2xs text-subtle-foreground">Replace to change it.</span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button size="sm" variant="outline" onClick={() => inputRef.current?.click()}>
+            {preview ? "Replace" : "Upload"}
+          </Button>
+          {file && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label={`Remove staged ${title.toLowerCase()}`}
+              onClick={onClear}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+
+        <input
+          ref={inputRef}
+          id={id}
+          type="file"
+          accept=".png,.jpg,.jpeg"
+          className="sr-only"
+          aria-label={title}
+          onChange={(e) => {
+            accept(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+      </div>
+      <p className="mt-2 text-2xs text-subtle-foreground">
+        {dragOver ? "Drop to stage the file." : "Drag a file here, or use Upload."}
+      </p>
+      {localError && (
+        <p role="alert" className="mt-1 text-xs text-danger">
+          {localError}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ── Live certificate preview ───────────────────────────────────────────── */
+
+function CertificatePreview({
+  logoSrc,
+  logoStaged,
+  signatureSrc,
+  signatureStaged,
+  companyName,
+  signatoryName,
+  signatoryTitle,
+}: {
+  logoSrc: string | null;
+  logoStaged: boolean;
+  signatureSrc: string | null;
+  signatureStaged: boolean;
+  companyName: string;
+  signatoryName: string;
+  signatoryTitle: string;
+}) {
+  const company = companyName.trim() || "Your company";
+  const title = signatoryTitle.trim();
+  const sigCaption = title ? `${title} · ${company}` : company;
+
+  return (
+    <aside className="lg:sticky lg:top-24">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <p className="text-2xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+              Live preview
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-foreground">
+              Certificate header &amp; signature
+            </p>
+          </div>
+          <Badge variant="outline" className="font-mono">
+            A4 landscape
+          </Badge>
+        </div>
+
+        <div className="paper space-y-4 p-4">
+          {/* Header block */}
+          <div className="rounded-md border border-border bg-background p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-2xs font-semibold uppercase tracking-[0.22em] text-foreground">
+                  Innoverse
+                </p>
+                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.18em] text-subtle-foreground">
+                  Innovation ecosystem
+                </p>
+              </div>
+              <div className="flex min-w-0 flex-col items-end gap-1.5">
+                <div className="flex h-12 w-24 items-center justify-center overflow-hidden rounded-sm border border-border bg-surface">
+                  <AssetImage
+                    src={logoSrc}
+                    alt="Company logo on the certificate"
+                    className="h-full w-full"
+                    fallback="No logo"
+                  />
+                </div>
+                <p className="max-w-[8rem] truncate text-right font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+                  {company}
+                </p>
+              </div>
+            </div>
+            <div className="relative mt-3 h-px bg-border">
+              <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 bg-brand" />
+            </div>
+            <p className="mt-3 font-serif text-lg leading-tight text-foreground">
+              Certificate of Completion
+            </p>
+          </div>
+
+          {/* Signature block */}
+          <div className="rounded-md border border-border bg-background p-3">
+            <div className="flex h-12 w-40 items-end">
+              <AssetImage
+                src={signatureSrc}
+                alt="Signature on the certificate"
+                className="max-h-12 w-auto"
+                fallback="Signature not uploaded"
+                fallbackClassName="items-start text-left pb-1 font-mono uppercase tracking-[0.12em]"
+              />
+            </div>
+            <div className="mt-2 h-px w-40 bg-foreground/70" />
+            <p className="mt-2 truncate font-serif text-lg leading-tight text-foreground">
+              {signatoryName.trim() || "Authorized signatory"}
+            </p>
+            <p className="mt-0.5 max-w-[16rem] truncate font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+              {sigCaption}
+            </p>
+          </div>
+
+          <ol className="space-y-2 border-t border-border pt-3 text-xs text-muted-foreground">
+            <li className="flex gap-2">
+              <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border font-mono text-[9px] text-subtle-foreground">
+                1
+              </span>
+              <span>
+                <span className="text-foreground">Logo</span> — header, top right
+                {logoStaged && <span className="text-warning"> · new file staged</span>}
+                {!logoSrc && <span className="text-warning"> · not uploaded</span>}
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border font-mono text-[9px] text-subtle-foreground">
+                2
+              </span>
+              <span>
+                <span className="text-foreground">Signature</span> — footer, bottom left
+                {signatureStaged && <span className="text-warning"> · new file staged</span>}
+                {!signatureSrc && <span className="text-warning"> · not uploaded</span>}
+              </span>
+            </li>
+          </ol>
+
+          <p className="text-2xs leading-relaxed text-subtle-foreground">
+            Scaled-down mock. The PDF reserves a fixed height for each image, so tall or very wide
+            files are fitted, not cropped.
+          </p>
+        </div>
+      </div>
+    </aside>
   );
 }

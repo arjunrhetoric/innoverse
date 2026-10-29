@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { ShieldCheck, Loader2, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
+import { ShieldCheck, Loader2, AlertCircle, CheckCircle2, ShieldOff, Eye, Lock } from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
+import { SettingsNav, startupSettingsItems } from "@/components/layout/settings-nav";
 import { Button } from "@/components/ui/button";
+import { Badge, StatusBadge } from "@/components/ui/badge";
+import { Section } from "@/components/ui/card";
+import { StatBand } from "@/components/ui/stat";
+import { PageHeader } from "@/components/ui/page-header";
+import { ConfirmAction } from "@/components/ui/confirm-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
 
 interface Result {
@@ -25,6 +29,7 @@ export default function SecuritySettingsPage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (!isLoading && (!isAuthenticated || user?.role !== "Startup")) {
     router.push(isAuthenticated ? "/dashboard" : "/login");
@@ -42,89 +47,266 @@ export default function SecuritySettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Downgrade failed");
       setResult(data);
+      setConfirmOpen(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Downgrade failed");
+      setConfirmOpen(false);
     } finally {
       setRunning(false);
     }
   };
 
-  return (
-    <main className="min-h-screen bg-background">
-      <Navbar />
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-2xl">
-          <Link
-            href="/dashboard/startup"
-            className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Dashboard
-          </Link>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <h1 className="flex items-center gap-2 text-2xl font-medium tracking-tight sm:text-3xl">
-              <ShieldCheck className="h-6 w-6 text-primary" />
-              Repository access
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Students contribute through forks and pull requests. Older approvals may still have
-              write access from before that rule; this downgrades every approved contributor on your
-              challenges to read-only.
-            </p>
-
-            <div className="mt-6 rounded-xl border border-border bg-card p-5">
-              <p className="text-sm font-medium">Downgrade legacy write access</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Uses your GitHub authorization to set the collaborator permission to{" "}
-                <span className="font-mono">pull</span> for every approved student on your linked
-                repositories. It is safe to run more than once.
-              </p>
-
-              {error && (
-                <div className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-                  <AlertCircle className="h-4 w-4 text-destructive" />
-                  <p className="text-xs text-destructive">{error}</p>
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="px-4 pb-16 pt-24">
+          <div className="mx-auto max-w-3xl">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="mt-3 h-7 w-64" />
+            <Skeleton className="mt-2 h-4 w-full max-w-lg" />
+            <div className="mt-8 space-y-6">
+              <div className="rounded-lg border border-border bg-card p-5">
+                <Skeleton className="h-4 w-40" />
+                <div className="mt-4 space-y-3">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-11/12" />
+                  <Skeleton className="h-3 w-9/12" />
                 </div>
-              )}
-
-              {result && (
-                <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs">
-                  <p className="flex items-center gap-1.5 font-medium text-emerald-500">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    {result.message}
-                  </p>
-                  <p className="mt-2 text-muted-foreground">
-                    {result.repositories} repositories · {result.checked} collaborators checked ·{" "}
-                    {result.downgraded} downgraded · {result.skipped} skipped
-                  </p>
-                  {result.failed.length > 0 && (
-                    <ul className="mt-2 space-y-1 text-destructive">
-                      {result.failed.map((f, i) => (
-                        <li key={i}>
-                          {f.repo} · @{f.student}: {f.message}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-
-              <Button className="mt-4" variant="gradient" onClick={run} disabled={running}>
-                {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {running ? "Downgrading…" : "Downgrade to read-only"}
-              </Button>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-5">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="mt-3 h-3 w-2/3" />
+                <Skeleton className="mt-4 h-8 w-52" />
+              </div>
             </div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
-            <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
-              For defense in depth, also enable branch protection on your repositories: require pull
-              requests and reviews for <span className="font-mono">main</span>. Innoverse cannot
-              change GitHub branch rules for you.
+  return (
+    <AppShell>
+      <div className="px-4 pb-16 pt-24">
+        <div className="mx-auto max-w-3xl">
+<SettingsNav items={startupSettingsItems} />
+          <PageHeader
+            back={{ href: "/dashboard/startup", label: "Dashboard" }}
+            eyebrow={
+              <span className="font-mono text-2xs uppercase tracking-[0.14em] text-subtle-foreground">
+                Settings · Security
+              </span>
+            }
+            title="Repository access"
+            description="Students contribute through forks and pull requests. Approvals made before that rule may still grant write access; this resets every approved contributor on your linked repositories to read-only."
+            meta={
+              <Badge variant="outline" className="font-mono">
+                POST /api/github/downgrade-collaborators
+              </Badge>
+            }
+          />
+
+          <div className="space-y-6">
+            <Section
+              title="What this changes"
+              description="Read this before running it. The action uses your GitHub authorization and is safe to run more than once."
+              contentClassName="divide-y divide-border"
+            >
+              <div className="flex gap-3 p-5">
+                <ShieldOff className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">Removed</p>
+                  <ul className="mt-1.5 space-y-1 text-sm leading-relaxed text-muted-foreground">
+                    <li className="flex gap-2">
+                      <span aria-hidden className="text-subtle-foreground">
+                        •
+                      </span>
+                      Write, maintain and admin permission on your linked repositories for every
+                      approved student.
+                    </li>
+                    <li className="flex gap-2">
+                      <span aria-hidden className="text-subtle-foreground">
+                        •
+                      </span>
+                      Their ability to push branches, merge pull requests and change repository
+                      settings.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex gap-3 p-5">
+                <Eye className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">
+                    Collaborators keep read access
+                  </p>
+                  <ul className="mt-1.5 space-y-1 text-sm leading-relaxed text-muted-foreground">
+                    <li className="flex gap-2">
+                      <span aria-hidden className="text-subtle-foreground">
+                        •
+                      </span>
+                      Each collaborator is set to <span className="font-mono">pull</span>, not
+                      removed: they can still clone the repo, read the code and open pull requests
+                      from their forks.
+                    </li>
+                    <li className="flex gap-2">
+                      <span aria-hidden className="text-subtle-foreground">
+                        •
+                      </span>
+                      Pending, unapproved invitations and accounts already at read-only are skipped.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex gap-3 p-5">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">Unchanged</p>
+                  <ul className="mt-1.5 space-y-1 text-sm leading-relaxed text-muted-foreground">
+                    <li className="flex gap-2">
+                      <span aria-hidden className="text-subtle-foreground">
+                        •
+                      </span>
+                      Your own ownership of the repositories, and the fork-and-PR review workflow.
+                    </li>
+                    <li className="flex gap-2">
+                      <span aria-hidden className="text-subtle-foreground">
+                        •
+                      </span>
+                      GitHub branch protection rules. Innoverse cannot change those; enable them on
+                      GitHub and require reviews on <span className="font-mono">main</span>.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </Section>
+
+            <Section
+              title="Run the downgrade"
+              description="One request covers every linked repository. Progress is reported per repository when it finishes."
+              contentClassName="p-5"
+            >
+              {error && (
+                <div
+                  role="alert"
+                  className="mb-4 flex items-start gap-2 rounded-md border border-danger-border bg-danger-subtle px-3 py-2.5"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                  <p className="text-sm text-danger">{error}</p>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="destructive-outline"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={running}
+                >
+                  {running ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {running ? "Downgrading…" : "Downgrade to read-only"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Asks for confirmation, then reports what changed.
+                </p>
+              </div>
+            </Section>
+
+            {result && (
+              <section className="overflow-hidden rounded-lg border border-success-border bg-card">
+                <header className="flex flex-col gap-2 border-b border-border px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
+                    <div>
+                      <h2 className="text-md font-semibold tracking-tight text-foreground">
+                        Downgrade complete
+                      </h2>
+                      <p className="mt-0.5 text-sm text-muted-foreground">{result.message}</p>
+                    </div>
+                  </div>
+                  <StatusBadge status="complete" />
+                </header>
+
+                <div className="p-5">
+                  <StatBand
+                    items={[
+                      { label: "Repositories", value: result.repositories },
+                      { label: "Checked", value: result.checked },
+                      { label: "Downgraded", value: result.downgraded },
+                      { label: "Skipped", value: result.skipped },
+                    ]}
+                  />
+
+                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                    {result.downgraded === 0
+                      ? "No collaborator was above read-only, so nothing changed."
+                      : `${result.downgraded} collaborator${result.downgraded === 1 ? "" : "s"} moved from write to read-only across ${result.repositories} repositor${result.repositories === 1 ? "y" : "ies"}.`}{" "}
+                    {result.skipped > 0 &&
+                      `${result.skipped} already at read-only or not approved, left untouched.`}
+                  </p>
+
+                  {result.failed.length > 0 && (
+                    <div className="mt-4 rounded-md border border-danger-border">
+                      <div className="flex items-center justify-between gap-2 border-b border-danger-border bg-danger-subtle px-3 py-2">
+                        <p className="text-xs font-medium text-danger">
+                          {result.failed.length} could not be changed
+                        </p>
+                        <Badge variant="danger">Action needed</Badge>
+                      </div>
+                      <ul className="divide-y divide-border">
+                        {result.failed.map((f, i) => (
+                          <li key={i} className="px-3 py-2.5">
+                            <p className="font-mono text-xs text-foreground">
+                              {f.repo} · @{f.student}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {f.message}
+                              {f.status ? ` (HTTP ${f.status})` : ""}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+                    <Button variant="outline" size="sm" onClick={() => setResult(null)}>
+                      Dismiss
+                    </Button>
+                    <p className="text-2xs text-subtle-foreground">
+                      Re-running is safe; already read-only collaborators are skipped.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <p className="flex items-start gap-1.5 text-2xs leading-relaxed text-subtle-foreground">
+              <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+              For defense in depth, also enable branch protection on GitHub: require pull requests
+              and reviews for <span className="font-mono text-muted-foreground">main</span>.
             </p>
-          </motion.div>
+          </div>
         </div>
       </div>
-      <Footer />
-    </main>
+
+      <ConfirmAction
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Remove write access from every approved contributor?"
+        description={
+          <>
+            Every approved student on your linked repositories is set to{" "}
+            <span className="font-mono">pull</span> (read-only). They can still clone, read and open
+            pull requests from forks, but can no longer push to your branches. Safe to run again.
+          </>
+        }
+        confirmLabel="Downgrade to read-only"
+        pending={running}
+        onConfirm={run}
+      />
+
+    </AppShell>
   );
 }

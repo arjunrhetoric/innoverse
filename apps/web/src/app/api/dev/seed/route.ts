@@ -1,19 +1,36 @@
 import { NextResponse } from "next/server";
-import { connectDB, Certificate, Cohort, CohortMember, Engagement, Problem, Proposal, User } from "@innoverse/database";
+import {
+  AuditEvent,
+  Certificate,
+  Cohort,
+  CohortMember,
+  connectDB,
+  Engagement,
+  InlineComment,
+  KnowledgeEntry,
+  Milestone,
+  Notification,
+  Problem,
+  Proposal,
+  Shortlist,
+  User,
+} from "@innoverse/database";
 import crypto from "crypto";
 import QRCode from "qrcode";
 import { renderCertificatePdf, getBaseUrl } from "@/lib/certificate-pdf";
 import { renderContractPdf } from "@/lib/engagement-pdf";
-import { hashPassword } from "@/lib/password";
+import { generateCollaborationAgreement } from "@/lib/collaboration-agreement";
 import { uploadFile } from "@/lib/storage";
+import { computeConfidence, computeRubricScore } from "@/lib/evidence";
+import { hashPassword } from "@/lib/password";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Seeds a realistic demo dataset. Development only — hard-disabled in
- * production builds and behind the local bypass flag.
+ * Development-only demo dataset. Pass ?reset=1 to wipe demo collections first.
+ * Hard-disabled in production and behind the local bypass flag.
  */
-export async function POST() {
+export async function POST(req: Request) {
   if (process.env.NODE_ENV === "production") {
     return NextResponse.json({ message: "Not available" }, { status: 404 });
   }
@@ -27,386 +44,450 @@ export async function POST() {
   try {
     await connectDB();
 
-    const startups = [
-      { name: "Acme Labs", email: "founder@acmelabs.dev", companyName: "Acme Labs" },
-      { name: "Northwind AI", email: "founder@northwind.ai", companyName: "Northwind AI" },
-    ];
-    const students = [
-      {
-        name: "Arjun Singh",
-        email: "arjun@student.dev",
-        githubUsername: "arjun-dev",
-        headline: "Full-stack developer · React + Node",
-        location: "Bengaluru, India",
-        skills: ["React", "TypeScript", "Node.js", "MongoDB"],
-      },
-      {
-        name: "Meera Iyer",
-        email: "meera@student.dev",
-        githubUsername: "meera-builds",
-        headline: "Backend engineer · Python + Postgres",
-        location: "Pune, India",
-        skills: ["Python", "FastAPI", "Postgres"],
-      },
-      {
-        name: "Karan Patel",
-        email: "karan@student.dev",
-        githubUsername: "karanp",
-        headline: "Frontend developer · Design systems",
-        location: "Ahmedabad, India",
-        skills: ["React", "Tailwind", "Figma"],
-      },
-    ];
-
-    const startupDocs: any[] = [];
-    for (const s of startups) {
-      const doc = await User.findOneAndUpdate(
-        { email: s.email },
-        {
-          $setOnInsert: {
-            githubId: `seed-${s.email}`,
-            name: s.name,
-            role: "Startup",
-            isVerified: true,
-            businessEmail: s.email,
-            companyName: s.companyName,
-            signatoryName: "Demo Founder",
-            signatoryTitle: "CEO",
-          },
-        },
-        { upsert: true, new: true }
-      );
-      startupDocs.push(doc);
-    }
-
-    const studentDocs: any[] = [];
-    for (const s of students) {
-      const doc = await User.findOneAndUpdate(
-        { email: s.email },
-        {
-          $setOnInsert: {
-            githubId: `seed-${s.email}`,
-            role: "Student",
-          },
-          $set: {
-            name: s.name,
-            githubUsername: s.githubUsername,
-            headline: s.headline,
-            location: s.location,
-            skills: s.skills,
-            profilePublic: true,
-          },
-        },
-        { upsert: true, new: true }
-      );
-      studentDocs.push(doc);
-    }
-
-    const institution = await User.findOneAndUpdate(
-      { email: "coordinator@statetech.edu" },
-      {
-        $setOnInsert: {
-          githubId: "seed-coordinator@statetech.edu",
-          name: "State Tech University",
-          role: "Institution",
-          isVerified: true,
-        },
-        $set: {
-          companyName: "State Tech University",
-          passwordHash: await hashPassword("Innoverse2026"),
-        },
-      },
-      { upsert: true, new: true }
-    );
-
-    const cohort = await Cohort.findOneAndUpdate(
-      { joinCode: "INNOV26" },
-      {
-        $setOnInsert: {
-          name: "CSE 2026 · Capstone Batch A",
-          description: "Industry-sponsored capstones, autumn term.",
-          institutionId: institution._id,
-          joinCode: "INNOV26",
-        },
-      },
-      { upsert: true, new: true }
-    );
-
-    for (const student of studentDocs) {
-      await CohortMember.updateOne(
-        { cohortId: cohort._id, studentId: student._id },
-        { $setOnInsert: { cohortId: cohort._id, studentId: student._id } },
-        { upsert: true }
-      );
-    }
-
-    const challenges = [
-      {
-        title: "Realtime analytics dashboard for fleet telemetry",
-        description:
-          "Build a dashboard that ingests vehicle telemetry over websockets and renders live throughput, error rates and per-device drilldowns. Ship behind a feature flag.",
-        skillsRequired: ["React", "Node.js", "WebSockets", "MongoDB"],
-        createdBy: startupDocs[0]._id,
-      },
-      {
-        title: "Document ingestion pipeline with LLM summaries",
-        description:
-          "Design a queue-based ingestion pipeline that extracts text from PDFs, chunks it, and produces cited summaries with a review workflow.",
-        skillsRequired: ["Python", "FastAPI", "Postgres", "LLM"],
-        createdBy: startupDocs[1]._id,
-      },
-    ];
-
-    const problemDocs: any[] = [];
-    for (const c of challenges) {
-      const existing = await Problem.findOne({ title: c.title });
-      const doc =
-        existing ??
-        (await Problem.create({
-          ...c,
-          finalDeadline: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
-          githubOwner: null,
-          githubRepoName: null,
-        }));
-      problemDocs.push(doc);
-    }
-
-    const proposals: any[] = [];
-    for (let i = 0; i < 3; i++) {
-      const problem = problemDocs[i % problemDocs.length];
-      const student = studentDocs[i];
-      const existing = await Proposal.findOne({ problemId: problem._id, studentId: student._id });
-      const doc =
-        existing ??
-        (await Proposal.create({
-          studentId: student._id,
-          problemId: problem._id,
-          description:
-            "I would start by shipping a thin vertical slice: schema, one ingest path, and the main dashboard view, then harden with tests.",
-          pptUrl: "https://example.com/demo-proposal.pdf",
-          status: "Approved",
-          feedback: "Strong plan. Start with the ingestion slice.",
-        }));
-      proposals.push(doc);
-    }
-
-    const existingCert = await Certificate.findOne({ problemId: problemDocs[0]._id });
-    let demoToken: string | null = null;
-    if (!existingCert) {
-      const publicToken = crypto.randomBytes(9).toString("hex");
-      demoToken = publicToken;
-      const verificationCode = crypto.randomUUID();
-      const summary =
-        "Delivered the telemetry pipeline ahead of schedule, wrote the rollout plan and mentored a second contributor. Strong ownership; add more unit tests around the ingest edge cases.";
-      const evidence = {
-        mergedPRs: 12,
-        prsOpened: 14,
-        commits: 87,
-        commitsByStudent: 79,
-        commitsByOthers: 8,
-        activeDays: 21,
-        linesAdded: 2431,
-        linesDeleted: 512,
-        reviewsGiven: 9,
-        milestonesCompleted: 6,
-        milestonesTotal: 6,
-        snapshotAt: new Date(),
-      };
-      const rubric = {
-        rows: [
-          { key: "codeQuality", label: "Code quality", score: 4.5, weight: 0.35, weighted: 1.575 },
-          { key: "delivery", label: "Delivery & reliability", score: 4, weight: 0.3, weighted: 1.2 },
-          { key: "communication", label: "Communication", score: 5, weight: 0.2, weighted: 1 },
-          { key: "testing", label: "Testing & robustness", score: 3.5, weight: 0.15, weighted: 0.525 },
-        ],
-        overall: 4.3,
-      };
-      const confidence = {
-        score: 86,
-        level: "high" as const,
-        reasons: [
-          "79 of the last 87 commits were authored by the student (91% attribution, +23)",
-          "12 merged pull requests by the student (+15)",
-          "6/6 milestones completed (+10)",
-          "9 review comments given (+10)",
-        ],
-      };
-
-      // Render a real demo report so its download link works.
-      const [logoBytes, signatureBytes] = await Promise.all([
-        QRCode.toBuffer("ACME LABS", { width: 320, margin: 1 }),
-        QRCode.toBuffer("SIGNATURE", { width: 320, margin: 1 }),
+    const reset = new URL(req.url).searchParams.get("reset") === "1";
+    if (reset) {
+      await Promise.all([
+        AuditEvent.deleteMany({}),
+        Certificate.deleteMany({}),
+        Cohort.deleteMany({}),
+        CohortMember.deleteMany({}),
+        Engagement.deleteMany({}),
+        InlineComment.deleteMany({}),
+        KnowledgeEntry.deleteMany({}),
+        Milestone.deleteMany({}),
+        Notification.deleteMany({}),
+        Problem.deleteMany({}),
+        Proposal.deleteMany({}),
+        Shortlist.deleteMany({}),
+        User.deleteMany({}),
       ]);
-      const pdfBytes = await renderCertificatePdf({
-        studentName: studentDocs[0].name,
-        problemTitle: problemDocs[0].title,
-        companyName: "Acme Labs",
-        rating: 5,
-        issuedAt: new Date(),
-        verificationCode,
-        evidence,
-        startupLogoBytes: new Uint8Array(logoBytes),
-        signatureBytes: new Uint8Array(signatureBytes),
-        signatoryName: "Demo Founder",
-        signatoryTitle: "CEO",
-        rubric,
-        confidence,
-        summary,
-        reportUrl: `${getBaseUrl()}/r/${publicToken}`,
-      });
-      const certificateFile = await uploadFile(
-        Buffer.from(pdfBytes),
-        "certificates",
-        "demo-proof-of-work-report.pdf",
-        "application/pdf"
-      );
-
-      await Certificate.create({
-        studentId: studentDocs[0]._id,
-        startupId: startupDocs[0]._id,
-        problemId: problemDocs[0]._id,
-        rating: 5,
-        review: "Delivered the telemetry pipeline ahead of schedule and owned the rollout.",
-        summary,
-        certificateFile,
-        verificationCode,
-        publicToken,
-        sha256: crypto.createHash("sha256").update(Buffer.from(pdfBytes)).digest("hex"),
-        evidence,
-        rubric,
-        confidence,
-      });
     }
 
-    // Paid engagement demo: active, with mixed milestone states.
-    const existingEngagement = await Engagement.findOne({
-      problemId: problemDocs[0]._id,
-      studentId: studentDocs[0]._id,
+    const now = Date.now();
+    const inDays = (days: number) => new Date(now + days * 86400000);
+    const demoPassword = await hashPassword("Innoverse2026");
+
+    // ── Branding placeholders (real files, so the PDFs render) ──
+    const [logoBytes, signatureBytes, studentSignatureBytes] = await Promise.all([
+      QRCode.toBuffer("ACME LABS", { width: 360, margin: 1 }),
+      QRCode.toBuffer("ACME SIGNATURE", { width: 360, margin: 1 }),
+      QRCode.toBuffer("ARJUN", { width: 360, margin: 1 }),
+    ]);
+    const startupLogo = await uploadFile(logoBytes, "uploads/branding", "acme-logo.png", "image/png");
+    const startupSignature = await uploadFile(
+      signatureBytes,
+      "uploads/branding",
+      "acme-signature.png",
+      "image/png"
+    );
+
+    // ── Users ──
+    const startup = await User.create({
+      githubId: "seed-foundr-acme",
+      githubUsername: "arjundsingh",
+      name: "Acme Labs",
+      email: "founder@acmelabs.dev",
+      role: "Startup",
+      isVerified: true,
+      businessEmail: "founder@acmelabs.dev",
+      companyName: "Acme Labs",
+      signatoryName: "Aarav Mehta",
+      signatoryTitle: "Founder & CEO",
+      startupLogo,
+      signatureImage: startupSignature,
+      passwordHash: demoPassword,
     });
-    if (!existingEngagement) {
-      const contractCode = `INV-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
-      const acceptedAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-      const contractMilestones = [
-        { title: "Ingestion service + schema", amount: 20000, dueDate: new Date(Date.now() - 20 * 864e5).toISOString() },
-        { title: "Realtime dashboard", amount: 25000, dueDate: new Date(Date.now() - 5 * 864e5).toISOString() },
-        { title: "Load test + handover", amount: 15000, dueDate: new Date(Date.now() + 10 * 864e5).toISOString() },
-      ];
-      const contractPdf = await renderContractPdf({
-        contractCode,
-        title: "Telemetry pipeline delivery",
-        description:
-          "Build the ingestion service and realtime dashboard for fleet telemetry, then load-test and hand over.",
-        challengeTitle: problemDocs[0].title,
-        startupName: "Acme Labs",
-        studentName: studentDocs[0].name,
-        currency: "INR",
-        totalAmount: 60000,
-        milestones: contractMilestones,
-        issuedAt: acceptedAt,
-        startupSignatoryName: "Demo Founder",
-        startupSignatoryTitle: "CEO",
-        signatureBytes: null,
-        studentAcceptedName: studentDocs[0].name,
-        studentAcceptedAt: acceptedAt,
-      });
-      const contractFile = await uploadFile(
-        Buffer.from(contractPdf),
-        "contracts",
-        `engagement-${contractCode}.pdf`,
-        "application/pdf"
-      );
 
-      await Engagement.create({
-        problemId: problemDocs[0]._id,
-        startupId: startupDocs[0]._id,
-        studentId: studentDocs[0]._id,
-        title: "Telemetry pipeline delivery",
-        description:
-          "Build the ingestion service and realtime dashboard for fleet telemetry, then load-test and hand over.",
-        currency: "INR",
-        totalAmount: 60000,
-        milestones: [
-          {
-            title: "Ingestion service + schema",
-            amount: 20000,
-            dueDate: new Date(Date.now() - 20 * 864e5),
-            status: "Confirmed",
-            paidAt: new Date(Date.now() - 18 * 864e5),
-            confirmedAt: new Date(Date.now() - 17 * 864e5),
-          },
-          {
-            title: "Realtime dashboard",
-            amount: 25000,
-            dueDate: new Date(Date.now() - 5 * 864e5),
-            status: "Paid",
-            paidAt: new Date(Date.now() - 2 * 864e5),
-            paidReference: "UTR-8842",
-          },
-          {
-            title: "Load test + handover",
-            amount: 15000,
-            dueDate: new Date(Date.now() + 10 * 864e5),
-            status: "Delivered",
-            evidenceUrl: "https://github.com/acme-labs/telemetry/pull/12",
-            deliveredAt: new Date(Date.now() - 1 * 864e5),
-          },
-        ],
-        status: "Active",
-        ipAssignmentAccepted: true,
-        studentAcceptedAt: acceptedAt,
-        studentAcceptedName: studentDocs[0].name,
-        contractCode,
-        contractFile,
+    const northwind = await User.create({
+      githubId: "seed-founder-northwind",
+      githubUsername: "northwind-ai",
+      name: "Northwind AI",
+      email: "founder@northwind.ai",
+      role: "Startup",
+      isVerified: true,
+      businessEmail: "founder@northwind.ai",
+      companyName: "Northwind AI",
+      signatoryName: "Sara Iyer",
+      signatoryTitle: "CTO",
+      passwordHash: demoPassword,
+    });
+
+    const arjun = await User.create({
+      githubId: "seed-arjun",
+      githubUsername: "arjun-dev",
+      name: "Arjun Singh",
+      email: "arjun@student.dev",
+      role: "Student",
+      headline: "Full-stack developer · React + Node",
+      location: "Bengaluru, India",
+      skills: ["React", "TypeScript", "Node.js", "MongoDB"],
+      profilePublic: true,
+      passwordHash: demoPassword,
+    });
+
+    const meera = await User.create({
+      githubId: "seed-meera",
+      githubUsername: "meera-builds",
+      name: "Meera Iyer",
+      email: "meera@student.dev",
+      role: "Student",
+      headline: "Backend engineer · Python + Postgres",
+      location: "Pune, India",
+      skills: ["Python", "FastAPI", "Postgres"],
+      profilePublic: true,
+      passwordHash: demoPassword,
+    });
+
+    const karan = await User.create({
+      githubId: "seed-karan",
+      githubUsername: "karanp",
+      name: "Karan Patel",
+      email: "karan@student.dev",
+      role: "Student",
+      headline: "Frontend developer · Design systems",
+      location: "Ahmedabad, India",
+      skills: ["React", "Tailwind", "Figma"],
+      profilePublic: true,
+      passwordHash: demoPassword,
+    });
+
+    const institution = await User.create({
+      githubId: "seed-institution",
+      name: "State Tech University",
+      email: "coordinator@statetech.edu",
+      role: "Institution",
+      isVerified: true,
+      companyName: "State Tech University",
+      passwordHash: await hashPassword("Innoverse2026"),
+    });
+
+    // ── Challenges ──
+    const telemetry = await Problem.create({
+      title: "Realtime analytics dashboard for fleet telemetry",
+      description:
+        "Build a dashboard that ingests vehicle telemetry over websockets and renders live throughput, error rates and per-device drilldowns. Ship behind a feature flag with a short design note.",
+      skillsRequired: ["React", "Node.js", "WebSockets", "MongoDB"],
+      createdBy: startup._id,
+      finalDeadline: inDays(21),
+      githubOwner: "arjundsingh",
+      githubRepoName: "meet-web",
+      githubRepoUrl: "https://github.com/arjundsingh/meet-web",
+      contributionType: "project",
+      progress: 75,
+    });
+
+    const csvIssue = await Problem.create({
+      title: "Add CSV export to the billing report",
+      description:
+        "Open-source issue: add a streaming CSV export to the billing report endpoint, with a column header row, timezone-safe dates and tests. Good first issue for a backend contributor.",
+      skillsRequired: ["TypeScript", "Node.js", "Testing"],
+      createdBy: startup._id,
+      finalDeadline: inDays(14),
+      githubOwner: "arjundsingh",
+      githubRepoName: "meet-web",
+      githubRepoUrl: "https://github.com/arjundsingh/meet-web",
+      contributionType: "issue",
+      githubIssueNumber: 1,
+      githubIssueUrl: "https://github.com/arjundsingh/meet-web/issues/1",
+      labels: ["good first issue", "backend"],
+    });
+
+    const ingestion = await Problem.create({
+      title: "Document ingestion pipeline with LLM summaries",
+      description:
+        "Design a queue-based ingestion pipeline that extracts text from PDFs, chunks it, and produces cited summaries with a human review step. Deliver a working slice and a rollout plan.",
+      skillsRequired: ["Python", "FastAPI", "Postgres", "LLM"],
+      createdBy: northwind._id,
+      finalDeadline: inDays(28),
+      contributionType: "project",
+    });
+
+    const onboarding = await Problem.create({
+      title: "Redesign first-run onboarding for mobile",
+      description:
+        "Audit the current first-run experience and ship a progressive onboarding flow with clear empty states, sample data and a measurable activation metric.",
+      skillsRequired: ["React Native", "Product design", "Analytics"],
+      createdBy: northwind._id,
+      finalDeadline: inDays(35),
+      contributionType: "project",
+    });
+
+    // ── Milestones on the main challenge ──
+    const milestoneTitles = [
+      { title: "Planning & schema", description: "Scope, schema and rollout plan", days: -24, done: true },
+      { title: "Ingest workers", description: "Websocket ingest and buffering", days: -17, done: true },
+      { title: "Dashboard views", description: "Throughput, errors and drilldowns", days: -8, done: true },
+      { title: "Load test & handover", description: "Load test, runbook and demo", days: 8, done: false },
+    ];
+    for (const m of milestoneTitles) {
+      await Milestone.create({
+        problemId: telemetry._id,
+        repoOwner: "arjundsingh",
+        repoName: "meet-web",
+        title: m.title,
+        description: m.description,
+        deadline: inDays(m.days),
+        completed: m.done,
+        completedAt: m.done ? inDays(m.days - 1) : null,
       });
     }
 
-    // Draft invitation, ready to accept during the demo.
-    if (!(await Engagement.exists({ problemId: problemDocs[1]._id, studentId: studentDocs[1]._id }))) {
-      await Engagement.create({
-        problemId: problemDocs[1]._id,
-        startupId: startupDocs[0]._id,
-        studentId: studentDocs[1]._id,
-        title: "Document ingestion pipeline",
-        description: "Extract, chunk and summarise PDFs with cited summaries.",
-        currency: "INR",
-        totalAmount: 45000,
-        milestones: [
-          { title: "Ingestion + extraction", amount: 20000, status: "Pending" },
-          { title: "Summaries with citations", amount: 25000, status: "Pending" },
-        ],
-        status: "Draft",
-      });
+    // ── Proposals ──
+    const arjunProposal = await Proposal.create({
+      studentId: arjun._id,
+      problemId: telemetry._id,
+      description:
+        "I would ship a thin vertical slice first: schema, one ingest path and the main dashboard view, then harden with tests and a load test.",
+      pptUrl: "https://example.com/demo-proposal.pdf",
+      status: "Approved",
+      feedback: "Strong plan. Start with the ingest slice.",
+      repoUrl: "https://github.com/arjundsingh/meet-web",
+    });
+
+    const meeraProposal = await Proposal.create({
+      studentId: meera._id,
+      problemId: csvIssue._id,
+      description:
+        "I would implement a streaming CSV writer with a proper header row and tests for date/timezone edge cases, then a small benchmark.",
+      pptUrl: "https://example.com/demo-proposal.pdf",
+      status: "Approved",
+      feedback: "Approved — sign the agreement to get read access.",
+      repoUrl: "https://github.com/arjundsingh/meet-web/issues/1",
+    });
+
+    await Proposal.create({
+      studentId: karan._id,
+      problemId: ingestion._id,
+      description:
+        "I would start with a FastAPI worker and Postgres queue, then add chunking and cited summaries with a review UI.",
+      pptUrl: "https://example.com/demo-proposal.pdf",
+      status: "Pending",
+      feedback: "",
+    });
+
+    // Signed collaboration agreement for Arjun (no GitHub calls in seed).
+    const agreement = await generateCollaborationAgreement({
+      problem: telemetry,
+      student: arjun,
+      startup,
+      signedAt: inDays(-25),
+      studentSignatureBytes,
+    });
+    await Proposal.updateOne(
+      { _id: arjunProposal._id },
+      {
+        $set: {
+          termsAcceptedAt: inDays(-25),
+          termsAcceptedName: arjun.name,
+          accessGrantedAt: inDays(-25),
+          agreementCode: agreement.agreementCode,
+          agreementFile: agreement.agreementFile,
+        },
+      }
+    );
+
+    // ── Proof-of-work report for Arjun ──
+    const reportEvidence = {
+      mergedPRs: 4,
+      prsOpened: 5,
+      commits: 42,
+      commitsByStudent: 38,
+      commitsByOthers: 4,
+      activeDays: 12,
+      linesAdded: 1200,
+      linesDeleted: 180,
+      reviewsGiven: 4,
+      milestonesCompleted: 3,
+      milestonesTotal: 4,
+      snapshotAt: new Date(),
+    };
+    const confidence = computeConfidence(reportEvidence as any);
+    const rubric = computeRubricScore({
+      codeQuality: 4,
+      delivery: 5,
+      communication: 4,
+      testing: 4,
+    });
+    const summary =
+      "Delivered the telemetry pipeline ahead of schedule, wrote the rollout plan and reviewed a teammate's PRs. Strong ownership; add more unit tests around ingest edge cases.";
+    const verificationCode = crypto.randomUUID();
+    const publicToken = crypto.randomBytes(9).toString("hex");
+
+    const reportPdf = await renderCertificatePdf({
+      studentName: arjun.name,
+      problemTitle: telemetry.title,
+      companyName: "Acme Labs",
+      rating: 5,
+      issuedAt: inDays(-2),
+      verificationCode,
+      evidence: reportEvidence as any,
+      startupLogoBytes: new Uint8Array(logoBytes),
+      signatureBytes: new Uint8Array(signatureBytes),
+      signatoryName: "Aarav Mehta",
+      signatoryTitle: "Founder & CEO",
+      rubric,
+      confidence,
+      summary,
+      reportUrl: `${getBaseUrl()}/r/${publicToken}`,
+    });
+    const certificateFile = await uploadFile(
+      Buffer.from(reportPdf),
+      "certificates",
+      "acme-telemetry-report.pdf",
+      "application/pdf"
+    );
+
+    await Certificate.create({
+      studentId: arjun._id,
+      startupId: startup._id,
+      problemId: telemetry._id,
+      rating: 5,
+      review: "Delivered the telemetry pipeline ahead of schedule.",
+      summary,
+      certificateFile,
+      verificationCode,
+      publicToken,
+      sha256: crypto.createHash("sha256").update(Buffer.from(reportPdf)).digest("hex"),
+      evidence: reportEvidence,
+      rubric,
+      confidence,
+    });
+
+    // ── Engagements ──
+    const contractCode = `INV-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    const contractPdf = await renderContractPdf({
+      contractCode,
+      title: "Telemetry pipeline delivery",
+      description:
+        "Build the ingestion service and realtime dashboard for fleet telemetry, then load-test and hand over.",
+      challengeTitle: telemetry.title,
+      startupName: "Acme Labs",
+      studentName: arjun.name,
+      currency: "INR",
+      totalAmount: 60000,
+      milestones: [
+        { title: "Ingestion service + schema", amount: 20000, dueDate: inDays(-20).toISOString() },
+        { title: "Realtime dashboard", amount: 25000, dueDate: inDays(-5).toISOString() },
+        { title: "Load test + handover", amount: 15000, dueDate: inDays(8).toISOString() },
+      ],
+      issuedAt: inDays(-24),
+      startupSignatoryName: "Aarav Mehta",
+      startupSignatoryTitle: "Founder & CEO",
+      signatureBytes: new Uint8Array(signatureBytes),
+      studentAcceptedName: arjun.name,
+      studentAcceptedAt: inDays(-24),
+      studentSignatureBytes,
+    });
+    const contractFile = await uploadFile(
+      Buffer.from(contractPdf),
+      "contracts",
+      `engagement-${contractCode}.pdf`,
+      "application/pdf"
+    );
+
+    await Engagement.create({
+      problemId: telemetry._id,
+      startupId: startup._id,
+      studentId: arjun._id,
+      title: "Telemetry pipeline delivery",
+      description:
+        "Build the ingestion service and realtime dashboard for fleet telemetry, then load-test and hand over.",
+      currency: "INR",
+      totalAmount: 60000,
+      milestones: [
+        {
+          title: "Ingestion service + schema",
+          amount: 20000,
+          dueDate: inDays(-20),
+          status: "Confirmed",
+          deliveredAt: inDays(-22),
+          paidAt: inDays(-21),
+          confirmedAt: inDays(-20),
+        },
+        {
+          title: "Realtime dashboard",
+          amount: 25000,
+          dueDate: inDays(-5),
+          status: "Paid",
+          deliveredAt: inDays(-7),
+          paidAt: inDays(-5),
+          paidReference: "UTR-8842",
+        },
+        {
+          title: "Load test + handover",
+          amount: 15000,
+          dueDate: inDays(8),
+          status: "Delivered",
+          deliveredAt: inDays(-1),
+          evidenceUrl: "https://github.com/arjundsingh/meet-web/pull/1",
+        },
+      ],
+      status: "Active",
+      ipAssignmentAccepted: true,
+      studentAcceptedAt: inDays(-24),
+      studentAcceptedName: arjun.name,
+      contractCode,
+      contractFile,
+    });
+
+    await Engagement.create({
+      problemId: csvIssue._id,
+      startupId: startup._id,
+      studentId: meera._id,
+      title: "CSV export for billing",
+      description: "Streaming CSV export for the billing report.",
+      currency: "INR",
+      totalAmount: 30000,
+      milestones: [
+        { title: "Streaming export + headers", amount: 18000, status: "Pending" },
+        { title: "Tests + benchmark", amount: 12000, status: "Pending" },
+      ],
+      status: "Draft",
+    });
+
+    // ── Cohort ──
+    const cohort = await Cohort.create({
+      name: "CSE 2026 · Capstone Batch A",
+      description: "Industry-sponsored capstones, autumn term.",
+      institutionId: institution._id,
+      joinCode: "INNOV26",
+    });
+    for (const student of [arjun, meera, karan]) {
+      await CohortMember.create({ cohortId: cohort._id, studentId: student._id });
     }
 
-    // Backfill shareable links on older certificates so Explore can show them.
-    const missing = await Certificate.find({
-      $or: [{ publicToken: { $exists: false } }, { publicToken: null }],
-    })
-      .select("_id")
-      .limit(50)
-      .lean();
-    for (const cert of missing) {
-      await Certificate.updateOne(
-        { _id: (cert as any)._id },
-        { $set: { publicToken: crypto.randomBytes(9).toString("hex") } }
-      );
-    }
+    await Shortlist.create({
+      startupId: startup._id,
+      studentId: arjun._id,
+      note: "Strong fit for the backend role in January.",
+    });
 
     return NextResponse.json({
-      message: "Demo data seeded",
-      startups: startupDocs.length,
-      students: studentDocs.length,
-      challenges: problemDocs.length,
-      proposals: proposals.length,
-      backfilledReports: missing.length,
-      demoReportToken: demoToken,
-      institution: { email: "coordinator@statetech.edu", password: "Innoverse2026", joinCode: cohort.joinCode },
-      logins: {
-        startups: startups.map((s) => s.email),
-        students: students.map((s) => s.email),
+      message: reset ? "Demo data reset and seeded" : "Demo data seeded",
+      reset,
+      counts: {
+        startups: 2,
+        students: 3,
+        challenges: 4,
+        proposals: 3,
+        reports: 1,
+        engagements: 2,
+        cohorts: 1,
       },
+      logins: {
+        institution: {
+          email: "coordinator@statetech.edu",
+          password: "Innoverse2026",
+          joinCode: "INNOV26",
+        },
+        students: ["arjun@student.dev", "meera@student.dev", "karan@student.dev"],
+        startups: ["founder@acmelabs.dev", "founder@northwind.ai"],
+        password: "Innoverse2026",
+      },
+      reportToken: publicToken,
     });
   } catch (error: any) {
+    console.error("Seed failed:", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

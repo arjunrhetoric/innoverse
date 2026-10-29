@@ -3,18 +3,36 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Handshake, Plus, Loader2, AlertCircle, ArrowRight, Trash2, Info } from "lucide-react";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
+import {
+  Plus,
+  Loader2,
+  AlertCircle,
+  Handshake,
+  ArrowRight,
+  Trash2,
+  Compass,
+  Users,
+} from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Input, Textarea, Select } from "@/components/ui/input";
+import { Field } from "@/components/ui/field";
+import { StatusBadge } from "@/components/ui/badge";
+import { Section } from "@/components/ui/card";
+import { SkeletonRows } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Table,
+  TableWrap,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { useUser } from "@/hooks/useUser";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 interface Engagement {
   id: string;
@@ -41,13 +59,6 @@ interface ApprovedStudent {
   name: string;
   email?: string;
 }
-
-const statusVariant: Record<string, "success" | "info" | "warning" | "destructive"> = {
-  Draft: "warning",
-  Active: "info",
-  Completed: "success",
-  Cancelled: "destructive",
-};
 
 export default function EngagementsPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useUser();
@@ -169,206 +180,388 @@ export default function EngagementsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background">
-      <Navbar />
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-4xl">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-end justify-between gap-4">
+    <AppShell>
+      <PageHeader
+        eyebrow={<span className="eyebrow">Workspace · Contracted work</span>}
+        title="Engagements"
+        description="Paid, contracted work with one approved student — a separate agreement from the challenge itself. Each engagement tracks its own scope, fee and milestone payments."
+        actions={
+          isStartup ? (
+            <Button variant="default" onClick={() => setShowForm((v) => !v)}>
+              <Plus />
+              New engagement
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {error && (
+        <div
+          role="alert"
+          className="mb-5 flex items-start gap-2 rounded-md border border-danger-border bg-danger-subtle px-3 py-2.5"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+          <p className="text-sm text-danger">{error}</p>
+        </div>
+      )}
+
+      {isStartup && showForm && (
+        <Section
+          className="mb-6"
+          title="New engagement"
+          description="Choose the approved challenge and student, then split the fee into milestones. The student accepts the schedule before work starts."
+        >
+          <div className="space-y-4 p-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field id="engagement-challenge" label="Challenge" hint="Challenges you own">
+                <Select
+                  id="engagement-challenge"
+                  value={problemId}
+                  onChange={(e) => setProblemId(e.target.value)}
+                >
+                  <option value="">Select a challenge</option>
+                  {challenges.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field
+                id="engagement-student"
+                label="Approved student"
+                hint={problemId ? undefined : "Pick a challenge first"}
+              >
+                <Select
+                  id="engagement-student"
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value)}
+                  disabled={!problemId}
+                >
+                  <option value="">Select a student</option>
+                  {students.map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+
+            <Field
+              id="engagement-title"
+              label="Engagement title"
+              hint="One line the student will recognise"
+            >
+              <Input
+                id="engagement-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Build the telemetry ingestion service"
+              />
+            </Field>
+
+            <Field
+              id="engagement-scope"
+              label="Scope"
+              hint="Deliverables, expectations, working arrangement"
+            >
+              <Textarea
+                id="engagement-scope"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Deliverables, expectations, working arrangement"
+                className="min-h-16"
+              />
+            </Field>
+
             <div>
-              <h1 className="flex items-center gap-2 text-2xl font-medium tracking-tight sm:text-3xl">
-                <Handshake className="h-6 w-6 text-primary" />
-                Engagements
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                {isStartup
-                  ? "Scope paid work with an approved student. Milestones, payments and the signed agreement live in one place."
-                  : "Paid work you have agreed with a startup. Confirm each payment when it lands."}
-              </p>
-            </div>
-            {isStartup && (
-              <Button variant="gradient" onClick={() => setShowForm((v) => !v)}>
-                <Plus className="mr-2 h-4 w-4" />
-                New engagement
-              </Button>
-            )}
-          </motion.div>
-
-          {error && (
-            <div className="mt-6 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-              <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          )}
-
-          <div className="mt-5 flex gap-2 rounded-xl border border-border bg-card p-4">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="text-xs leading-relaxed text-muted-foreground">
-              <p className="font-medium text-foreground">What is an engagement?</p>
-              <p className="mt-0.5">
-                An optional, paid scope agreed after a project is approved: milestones with amounts,
-                a signed agreement, and payment tracking. Repository access is governed separately by
-                the collaboration agreement the student signs before starting. Payments are recorded
-                here; money moves outside the platform.
-              </p>
-            </div>
-          </div>
-
-          {isStartup && showForm && (
-            <div className="mt-6 space-y-4 rounded-xl border border-border bg-card p-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label className="mb-1.5 block text-sm">Challenge</Label>
-                  <select
-                    value={problemId}
-                    onChange={(e) => setProblemId(e.target.value)}
-                    className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm"
-                  >
-                    <option value="">Select a challenge</option>
-                    {challenges.map((c) => (
-                      <option key={c._id} value={c._id}>{c.title}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label className="mb-1.5 block text-sm">Approved student</Label>
-                  <select
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    disabled={!problemId}
-                    className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm disabled:opacity-50"
-                  >
-                    <option value="">Select a student</option>
-                    {students.map((s) => (
-                      <option key={s._id} value={s._id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="mb-2 flex items-baseline justify-between gap-3">
+                <h3 className="text-2xs font-medium uppercase tracking-[0.08em] text-subtle-foreground">
+                  Milestones
+                </h3>
+                <span className="font-mono text-xs text-muted-foreground">
+                  Total{" "}
+                  <span className="tnum text-foreground">
+                    {currency} {total.toLocaleString("en-IN")}
+                  </span>
+                </span>
               </div>
-
-              <div>
-                <Label className="mb-1.5 block text-sm">Engagement title</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Build the telemetry ingestion service" className="h-11" />
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-sm">Scope</Label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Deliverables, expectations, working arrangement" className="min-h-16" />
-              </div>
-
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <Label className="text-sm">Milestones</Label>
-                  <span className="text-xs text-muted-foreground">Total: {currency} {total.toLocaleString("en-IN")}</span>
-                </div>
-                <div className="space-y-2">
-                  {milestones.map((m, i) => (
-                    <div key={i} className="grid gap-2 sm:grid-cols-[1fr_140px_150px_auto]">
-                      <Input
-                        value={m.title}
-                        onChange={(e) => setMilestones((prev) => prev.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
-                        placeholder="Deliverable"
-                        className="h-10"
-                      />
-                      <Input
-                        value={m.amount}
-                        onChange={(e) => setMilestones((prev) => prev.map((x, j) => j === i ? { ...x, amount: e.target.value.replace(/[^0-9.]/g, "") } : x))}
-                        placeholder="Amount"
-                        inputMode="decimal"
-                        className="h-10"
-                      />
-                      <Input
-                        type="date"
-                        value={m.dueDate}
-                        onChange={(e) => setMilestones((prev) => prev.map((x, j) => j === i ? { ...x, dueDate: e.target.value } : x))}
-                        className="h-10"
-                      />
+              <div className="space-y-2">
+                {milestones.map((m, i) => (
+                  <div key={i} className="rounded-md border border-border bg-surface-2/50 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-2xs font-medium uppercase tracking-[0.08em] text-subtle-foreground">
+                        Milestone {i + 1}
+                      </span>
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-10 w-10 text-destructive"
+                        size="icon-xs"
+                        className="text-danger"
+                        aria-label={`Remove milestone ${i + 1}`}
                         disabled={milestones.length === 1}
                         onClick={() => setMilestones((prev) => prev.filter((_, j) => j !== i))}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 />
                       </Button>
                     </div>
-                  ))}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  disabled={milestones.length >= 10}
-                  onClick={() => setMilestones((prev) => [...prev, { title: "", amount: "", dueDate: "" }])}
-                >
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Add milestone
-                </Button>
+                    <div className="grid gap-3 sm:grid-cols-[1fr_140px_150px]">
+                      <Field id={`milestone-title-${i}`} label="Deliverable">
+                        <Input
+                          id={`milestone-title-${i}`}
+                          value={m.title}
+                          onChange={(e) =>
+                            setMilestones((prev) =>
+                              prev.map((x, j) => (j === i ? { ...x, title: e.target.value } : x))
+                            )
+                          }
+                          placeholder="Deliverable"
+                        />
+                      </Field>
+                      <Field id={`milestone-amount-${i}`} label="Amount">
+                        <Input
+                          id={`milestone-amount-${i}`}
+                          value={m.amount}
+                          onChange={(e) =>
+                            setMilestones((prev) =>
+                              prev.map((x, j) =>
+                                j === i
+                                  ? { ...x, amount: e.target.value.replace(/[^0-9.]/g, "") }
+                                  : x
+                              )
+                            )
+                          }
+                          placeholder="0"
+                          inputMode="decimal"
+                          className="font-mono tnum"
+                        />
+                      </Field>
+                      <Field id={`milestone-due-${i}`} label="Due date">
+                        <Input
+                          id={`milestone-due-${i}`}
+                          type="date"
+                          value={m.dueDate}
+                          onChange={(e) =>
+                            setMilestones((prev) =>
+                              prev.map((x, j) => (j === i ? { ...x, dueDate: e.target.value } : x))
+                            )
+                          }
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                ))}
               </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="gradient"
-                  onClick={create}
-                  disabled={creating || !problemId || !studentId || title.trim().length < 3 || total <= 0}
-                >
-                  {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Create engagement
-                </Button>
-                <Button variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2"
+                disabled={milestones.length >= 10}
+                onClick={() =>
+                  setMilestones((prev) => [...prev, { title: "", amount: "", dueDate: "" }])
+                }
+              >
+                <Plus />
+                Add milestone
+              </Button>
             </div>
-          )}
 
-          {loading ? (
-            <div className="mt-6 space-y-3">
-              {[1, 2].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
-            </div>
-          ) : engagements.length === 0 ? (
-            <div className="mt-8 rounded-xl border border-dashed border-border py-16 text-center">
-              <Handshake className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">
-                {isStartup ? "No engagements yet. Create one from an approved student." : "No engagements yet. A startup will invite you after approving your proposal."}
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+              <Button
+                variant="default"
+                onClick={create}
+                disabled={
+                  creating || !problemId || !studentId || title.trim().length < 3 || total <= 0
+                }
+              >
+                {creating ? <Loader2 className="animate-spin" /> : null}
+                Create engagement
+              </Button>
+              <Button variant="ghost" onClick={() => setShowForm(false)}>
+                Cancel
+              </Button>
+              <p className="text-2xs text-muted-foreground">
+                Needs a title, an approved student and at least one funded milestone.
               </p>
             </div>
-          ) : (
-            <div className="mt-6 space-y-3">
-              {engagements.map((e, i) => (
-                <motion.div
-                  key={e.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className="rounded-xl border border-border bg-card p-5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-medium">{e.title}</h3>
-                        <Badge variant={statusVariant[e.status]} className="text-[10px]">{e.status}</Badge>
-                      </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {isStartup ? e.student.name : e.startup.name} · {e.problem.title}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                        <span>{e.currency} {e.totalAmount.toLocaleString("en-IN")}</span>
-                        <span>{e.confirmedCount}/{e.milestoneCount} paid & confirmed</span>
-                        <span>Created {formatDate(e.createdAt)}</span>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="outline" asChild>
-                      <Link href={`/engagements/${e.id}`}>
-                        Open
-                        <ArrowRight className="ml-1 h-3 w-3" />
-                      </Link>
-                    </Button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
+          </div>
+        </Section>
+      )}
+
+      {loading ? (
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <SkeletonRows rows={4} />
         </div>
-      </div>
-      <Footer />
-    </main>
+      ) : engagements.length === 0 ? (
+        <div>
+          <PipelineLegend className="mb-6" />
+          <EmptyState
+            icon={Handshake}
+            title="No engagements yet"
+            description={
+            isStartup
+              ? "An engagement starts when you select an approved student from their proposal and agree a milestone schedule. Approve a proposal first, then set the scope and fee here."
+              : "An engagement starts when a startup selects you from an approved proposal and sends a milestone agreement. Until then, keep applying to challenges."
+          }
+          action={
+            isStartup
+              ? { label: "Review candidates", href: "/candidates" }
+              : { label: "Browse challenges", href: "/explore" }
+          }
+          secondary={
+            isStartup
+              ? { label: "Open dashboard", href: "/dashboard/startup" }
+              : { label: "My proposals", href: "/dashboard/student" }
+          }
+        />
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <TableWrap>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-4">Engagement</TableHead>
+                  <TableHead numeric className="hidden sm:table-cell">
+                    Amount
+                  </TableHead>
+                  <TableHead numeric className="hidden md:table-cell">
+                    Next milestone
+                  </TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell">Opened</TableHead>
+                  <TableHead className="pr-4 text-right">
+                    <span className="sr-only">Action</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {engagements.map((e) => {
+                  const open = Math.max(e.milestoneCount - e.confirmedCount, 0);
+                  const counterpart = isStartup
+                    ? `Student · ${e.student.name}`
+                    : `Startup · ${e.startup.name}`;
+                  return (
+                    <TableRow key={e.id}>
+                      <TableCell className="max-w-[22rem] pl-4">
+                        <Link
+                          href={`/engagements/${e.id}`}
+                          className="block truncate text-sm font-medium text-foreground hover:text-brand hover:underline"
+                        >
+                          {e.title}
+                        </Link>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {counterpart} · {e.problem.title}
+                        </p>
+                        <p className="mt-1 font-mono text-xs text-muted-foreground sm:hidden">
+                          <span className="text-subtle-foreground">{e.currency}</span>{" "}
+                          <span className="tnum text-foreground">
+                            {e.totalAmount.toLocaleString("en-IN")}
+                          </span>{" "}
+                          · {open === 0 ? "all settled" : `${open} open`}
+                        </p>
+                      </TableCell>
+                      <TableCell
+                        numeric
+                        className="hidden whitespace-nowrap font-mono text-sm sm:table-cell"
+                      >
+                        <span className="text-subtle-foreground">{e.currency}</span>{" "}
+                        <span className="tnum">{e.totalAmount.toLocaleString("en-IN")}</span>
+                      </TableCell>
+                      <TableCell numeric className="hidden md:table-cell">
+                        {open === 0 ? (
+                          <span className="text-xs text-muted-foreground">All settled</span>
+                        ) : (
+                          <>
+                            <span className="font-mono text-sm tnum">
+                              {Math.min(e.confirmedCount + 1, e.milestoneCount)}
+                              <span className="text-subtle-foreground"> / {e.milestoneCount}</span>
+                            </span>
+                            <p className="mt-0.5 text-2xs text-muted-foreground">{open} open</p>
+                          </>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={e.status} />
+                      </TableCell>
+                      <TableCell className="hidden whitespace-nowrap font-mono text-xs text-muted-foreground lg:table-cell">
+                        {formatDate(e.createdAt)}
+                      </TableCell>
+                      <TableCell className="pr-4 text-right">
+                        <Button size="sm" variant="outline" asChild>
+                          <Link href={`/engagements/${e.id}`} aria-label={`Open ${e.title}`}>
+                            Open
+                            <ArrowRight />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableWrap>
+        </div>
+      )}
+
+      {!loading && engagements.length > 0 && (
+        <p className="mt-4 text-xs text-muted-foreground">
+          {isStartup ? (
+            <>
+              Engagements start from an approved proposal.{" "}
+              <Link
+                href="/candidates"
+                className="inline-flex items-center gap-1 text-brand hover:underline"
+              >
+                <Users className="h-3 w-3" aria-hidden /> Review candidates
+              </Link>
+            </>
+          ) : (
+            <>
+              Payments settle outside Innoverse — confirm each milestone once the transfer lands.{" "}
+              <Link
+                href="/explore"
+                className="inline-flex items-center gap-1 text-brand hover:underline"
+              >
+                <Compass className="h-3 w-3" aria-hidden /> Find more challenges
+              </Link>
+            </>
+          )}
+        </p>
+      )}
+    </AppShell>
+  );
+}
+
+/** Static explanation of the milestone pipeline; shown even when the list is empty. */
+function PipelineLegend({ className }: { className?: string }) {
+  const steps = ["Pending", "Delivered", "Paid", "Confirmed"];
+  return (
+    <ol
+      className={cn(
+        "flex flex-wrap items-center gap-x-2 gap-y-2 rounded-lg border border-border bg-card px-4 py-3",
+        className
+      )}
+      aria-label="Engagement milestone pipeline"
+    >
+      {steps.map((step, i) => (
+        <li key={step} className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full border border-border font-mono text-[9px] text-subtle-foreground">
+              {i + 1}
+            </span>
+            <span className="text-xs text-muted-foreground">{step}</span>
+          </span>
+          {i < steps.length - 1 && (
+            <span aria-hidden className="text-subtle-foreground">
+              →
+            </span>
+          )}
+        </li>
+      ))}
+      <li className="ml-auto text-2xs text-subtle-foreground">
+        Student delivers · startup pays · student confirms
+      </li>
+    </ol>
   );
 }

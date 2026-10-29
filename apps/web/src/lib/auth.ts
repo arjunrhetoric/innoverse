@@ -6,6 +6,7 @@ import { encryptSecret } from "./crypto";
 import { clearGithubTokenCache } from "./github-token";
 import { verifyPassword } from "./password";
 import { checkRateLimit } from "./rate-limit";
+import { testBypassEnabled } from "./flags";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -37,7 +38,9 @@ export const authOptions: NextAuthOptions = {
         await connectDB();
         const user = (await User.findOne({ email }).select("+passwordHash")) as any;
         if (!user?.passwordHash) return null;
-        if (user.role !== "Institution") return null;
+        // Credentials are for institutions; seeded demo accounts may also use
+        // them in local development (hard-disabled in production).
+        if (user.role !== "Institution" && !testBypassEnabled()) return null;
 
         const valid = await verifyPassword(password, user.passwordHash);
         if (!valid) return null;

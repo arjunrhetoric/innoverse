@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { StatusDot } from "@/components/ui/status-dot";
 
 interface Stats {
   challenges: number;
@@ -13,8 +14,9 @@ interface Stats {
 const FALLBACK: Stats = { challenges: 0, students: 0, startups: 0, reports: 0, mergedPRs: 0 };
 
 /**
- * Live platform counts. These are real database numbers — not marketing
- * placeholders — so they can only ever be as impressive as the product is.
+ * Live platform counts from /api/stats. These are real database numbers — no
+ * placeholder marketing figures. The component renders an honest zero when the
+ * endpoint is empty or unavailable rather than inventing a number.
  */
 export function LiveMetrics() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -29,25 +31,30 @@ export function LiveMetrics() {
   const items = [
     { value: stats?.challenges, label: "Open challenges" },
     { value: stats?.students, label: "Students building" },
-    { value: stats?.startups, label: "Startups posting" },
+    { value: stats?.mergedPRs, label: "Pull requests merged" },
     { value: stats?.reports, label: "Verified reports" },
   ];
 
   return (
-    <div className="mx-auto grid max-w-6xl grid-cols-2 px-4 sm:px-6 lg:grid-cols-4">
-      {items.map((item, i) => (
-        <div
-          key={item.label}
-          className={`py-8 ${i !== 0 ? "border-l border-border pl-6 sm:pl-8" : ""} ${
-            i === 2 ? "max-lg:border-l-0 max-lg:pl-0" : ""
-          }`}
-        >
-          <p className="font-mono text-3xl font-medium tracking-tight text-foreground tabular-nums">
-            {item.value === undefined ? "—" : item.value}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">{item.label}</p>
-        </div>
-      ))}
+    <div>
+      <div className="mb-4 flex items-center gap-2 font-mono text-2xs uppercase tracking-[0.12em] text-muted-foreground">
+        <StatusDot status="success" pulse />
+        Live from the database
+      </div>
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
+        {items.map((item) => (
+          <div key={item.label} className="bg-card px-4 py-3.5">
+            <dd className="tnum text-2xl font-semibold tracking-tight text-foreground">
+              {item.value === undefined || item.value === null ? (
+                <span className="inline-block h-6 w-8 animate-pulse rounded bg-muted align-middle" />
+              ) : (
+                item.value.toLocaleString()
+              )}
+            </dd>
+            <dt className="mt-0.5 text-xs text-muted-foreground">{item.label}</dt>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

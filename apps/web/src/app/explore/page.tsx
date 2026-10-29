@@ -1,15 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { ArrowRight, Code2, Calendar, ShieldCheck, GitPullRequest } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronRight,
+  Compass,
+  GitPullRequest,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { formatDate, truncateText } from "@/lib/utils";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Section } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonRows } from "@/components/ui/skeleton";
+import { formatDate } from "@/lib/utils";
 
 interface Challenge {
   id: string;
@@ -35,6 +46,10 @@ export default function ExplorePage() {
   const [reports, setReports] = useState<ReportCard[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [query, setQuery] = useState("");
+  const [skill, setSkill] = useState<string | null>(null);
+  const [repoOnly, setRepoOnly] = useState(false);
+
   useEffect(() => {
     fetch("/api/explore")
       .then((res) => res.json())
@@ -46,120 +61,287 @@ export default function ExplorePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  /* The public feed only carries skills and repo linkage — filter on those. */
+  const skills = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const c of challenges) {
+      for (const s of c.skills) {
+        const key = s.trim().toLowerCase();
+        if (!key) continue;
+        const entry = counts.get(key) ?? { label: s.trim(), count: 0 };
+        entry.count += 1;
+        counts.set(key, entry);
+      }
+    }
+    return [...counts.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8)
+      .map((entry) => entry.label);
+  }, [challenges]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return challenges.filter((c) => {
+      if (skill && !c.skills.some((s) => s.toLowerCase() === skill.toLowerCase())) return false;
+      if (repoOnly && !c.hasRepo) return false;
+      if (!q) return true;
+      return (
+        c.title.toLowerCase().includes(q) ||
+        c.startup.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q) ||
+        c.skills.some((s) => s.toLowerCase().includes(q))
+      );
+    });
+  }, [challenges, query, skill, repoOnly]);
+
+  const hasFilters = Boolean(query.trim() || skill || repoOnly);
+
+  const clearFilters = () => {
+    setQuery("");
+    setSkill(null);
+    setRepoOnly(false);
+  };
+
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-6xl">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              Public
-            </p>
-            <h1 className="mt-2 text-3xl font-medium tracking-tight sm:text-4xl">
-              Explore real startup work
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              No account needed. Browse open challenges and published Proof-of-Work Reports.
-            </p>
-          </motion.div>
+      <div className="mx-auto w-full max-w-[1160px] px-4 pb-20 pt-10 sm:px-6 sm:pt-14">
+        <PageHeader
+          eyebrow={
+            <span className="font-mono text-2xs uppercase tracking-[0.18em] text-subtle-foreground">
+              Public · no account needed
+            </span>
+          }
+          title="Explore real startup work"
+          description="Open briefs from startups, plus published Proof-of-Work Reports you can audit line by line."
+          actions={
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/verify">
+                <ShieldCheck />
+                Verify a code
+              </Link>
+            </Button>
+          }
+        />
 
-          {reports.length > 0 && (
-            <section className="mt-12">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-sm font-medium">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  Published reports
-                </h2>
-                <Link href="/verify" className="text-xs text-muted-foreground hover:text-foreground">
-                  Verify by code →
-                </Link>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {reports.map((r) => (
+        {/* Search + filter chips */}
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <Field
+            id="explore-search"
+            label="Search challenges"
+            hint="Title, company or skill"
+            className="w-full lg:max-w-sm"
+          >
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-subtle-foreground"
+                aria-hidden
+              />
+              <Input
+                id="explore-search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search open briefs…"
+                className="pl-9"
+              />
+            </div>
+          </Field>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-2xs uppercase tracking-[0.08em] text-subtle-foreground">
+              Skill
+            </span>
+            {skills.map((s) => {
+              const active = skill === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setSkill(active ? null : s)}
+                  className={`cursor-pointer rounded-full border px-2.5 py-1 font-mono text-2xs transition-colors ${
+                    active
+                      ? "border-brand/30 bg-brand-subtle text-brand"
+                      : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+                  }`}
+                >
+                  {s}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              aria-pressed={repoOnly}
+              onClick={() => setRepoOnly((v) => !v)}
+              className={`inline-flex cursor-pointer items-center gap-1 rounded-full border px-2.5 py-1 text-2xs transition-colors ${
+                repoOnly
+                  ? "border-brand/30 bg-brand-subtle text-brand"
+                  : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+              }`}
+            >
+              <GitPullRequest className="h-3 w-3" aria-hidden />
+              Has repo
+            </button>
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Challenge rows */}
+        <section aria-labelledby="open-challenges" className="mb-12">
+          <div className="mb-2 flex items-baseline justify-between gap-3">
+            <h2 id="open-challenges" className="text-sm font-medium text-foreground">
+              Open challenges
+            </h2>
+            {!loading && (
+              <p className="tnum font-mono text-2xs text-muted-foreground">
+                {filtered.length} of {challenges.length}
+              </p>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
+              <SkeletonRows rows={5} />
+            </div>
+          ) : challenges.length === 0 ? (
+            <EmptyState
+              icon={Compass}
+              title="No open challenges yet"
+              description="Startups post briefs here as soon as they are ready for students. Check back, or publish the first one."
+              action={{ label: "Post a challenge", href: "/login" }}
+              secondary={{ label: "Browse talent", href: "/talent" }}
+            />
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title="No challenges match those filters"
+              description="Widen the search or clear the skill filter to see every open brief."
+              action={{ label: "Clear filters", onClick: clearFilters }}
+            />
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
+              <ul className="divide-y divide-border">
+                {filtered.map((c) => (
+                  <li key={c.id}>
+                    <Link
+                      href={`/explore/${c.id}`}
+                      className="group flex flex-col gap-3 px-4 py-3.5 transition-colors hover:bg-surface-2 sm:flex-row sm:items-center sm:gap-6"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-medium text-foreground">{c.title}</p>
+                          {c.hasRepo && (
+                            <Badge variant="outline" className="shrink-0 font-mono">
+                              <GitPullRequest className="h-3 w-3" aria-hidden />
+                              repo
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                          <span className="font-mono">{c.startup}</span>
+                          {c.skills.length > 0 && (
+                            <>
+                              <span aria-hidden className="text-subtle-foreground">
+                                ·
+                              </span>
+                              <span className="truncate font-mono text-2xs text-subtle-foreground">
+                                {c.skills.slice(0, 4).join(" · ")}
+                              </span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center justify-between gap-4 sm:justify-end">
+                        <span className="tnum font-mono text-xs text-muted-foreground">
+                          {formatDate(c.deadline)}
+                        </span>
+                        <StatusBadge status="open" />
+                        <ChevronRight
+                          className="h-4 w-4 text-subtle-foreground transition-transform group-hover:translate-x-0.5"
+                          aria-hidden
+                        />
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
+        {/* Published reports */}
+        <Section
+          title="Published reports"
+          description="Each report is generated from repository activity and signed by the startup that issued it."
+          actions={
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/verify">
+                Verify by code
+                <ArrowRight />
+              </Link>
+            </Button>
+          }
+        >
+          {loading ? (
+            <SkeletonRows rows={3} />
+          ) : reports.length === 0 ? (
+            <EmptyState
+              icon={ShieldCheck}
+              title="No reports published yet"
+              description="Reports appear here the moment a startup issues one for completed work. You can also verify a code you were given."
+              action={{ label: "Verify a credential", href: "/verify" }}
+              inset={false}
+            />
+          ) : (
+            <ul className="divide-y divide-border">
+              {reports.map((r) => (
+                <li key={r.token}>
                   <Link
-                    key={r.token}
                     href={`/r/${r.token}`}
-                    className="group rounded-lg border border-border bg-card p-5 transition-colors hover:border-foreground/25"
+                    className="group flex flex-col gap-2 px-5 py-3.5 transition-colors hover:bg-surface-2 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <p className="text-sm font-medium">{r.problemTitle}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">by {r.studentName}</p>
-                    <div className="mt-3 flex items-center gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{r.problemTitle}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {r.studentName} ·{" "}
+                        <span className="tnum font-mono">{formatDate(r.issuedAt)}</span>
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
                       {r.confidence && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          {r.confidence.score}/100 confidence
+                        <Badge variant="secondary" className="tnum">
+                          {r.confidence.score}/100
                         </Badge>
                       )}
                       {r.rubricOverall != null && (
-                        <Badge variant="outline" className="text-[10px]">
-                          rubric {r.rubricOverall.toFixed(1)}/5
+                        <Badge variant="outline" className="tnum">
+                          {r.rubricOverall.toFixed(1)}/5
                         </Badge>
                       )}
+                      <ChevronRight
+                        className="h-4 w-4 text-subtle-foreground transition-transform group-hover:translate-x-0.5"
+                        aria-hidden
+                      />
                     </div>
                   </Link>
-                ))}
-              </div>
-            </section>
+                </li>
+              ))}
+            </ul>
           )}
+        </Section>
 
-          <section className="mt-12">
-            <h2 className="mb-4 text-sm font-medium">Open challenges</h2>
-            {loading ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-40 rounded-lg" />
-                ))}
-              </div>
-            ) : challenges.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border py-16 text-center">
-                <p className="text-sm text-muted-foreground">No open challenges yet.</p>
-                <Button variant="outline" className="mt-4" asChild>
-                  <Link href="/login">Be the first startup to post one</Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {challenges.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/explore/${c.id}`}
-                    className="flex h-full flex-col rounded-lg border border-border bg-card p-5 transition-colors hover:border-foreground/25"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-medium leading-snug">{c.title}</h3>
-                      {c.hasRepo && (
-                        <Badge variant="outline" className="shrink-0 text-[10px]">
-                          <GitPullRequest className="mr-1 h-3 w-3" />
-                          GitHub
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{c.startup}</p>
-                    <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
-                      {truncateText(c.description, 140)}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {c.skills.slice(0, 3).map((s) => (
-                        <Badge key={s} variant="secondary" className="text-[10px]">
-                          <Code2 className="mr-1 h-2.5 w-2.5" />
-                          {s}
-                        </Badge>
-                      ))}
-                    </div>
-                    <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
-                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(c.deadline)}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs font-medium text-primary">
-                        View challenge
-                        <ArrowRight className="h-3 w-3" />
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
+        <div className="mt-10 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Every report links back to the commits, pull requests and reviews it was built from.
+          </p>
+          <Button variant="ghost" size="sm" className="ml-auto" asChild>
+            <Link href="/talent">See verified talent</Link>
+          </Button>
         </div>
       </div>
       <Footer />

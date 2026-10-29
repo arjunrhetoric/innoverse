@@ -79,9 +79,7 @@ function DiscoverPane() {
                 variant="outline"
                 className={cn(
                   "shrink-0 font-mono text-[11px]",
-                  c.active
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
-                    : "text-muted-foreground"
+                  c.active ? "border-success-border bg-success-subtle text-success" : "text-muted-foreground"
                 )}
               >
                 {c.active ? "Active" : "Draft"}
@@ -113,7 +111,7 @@ function ReviewPane() {
               {p.title}
             </p>
             <p className="mt-0.5 text-[13px] text-muted-foreground">
-              By <span className="text-brand-bright">{p.by}</span>
+              By <span className="text-brand">{p.by}</span>
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -122,14 +120,14 @@ function ReviewPane() {
                 <span className="inline-flex h-7 items-center gap-1 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground">
                   <CheckCircle2 className="h-3.5 w-3.5" /> Approve
                 </span>
-                <span className="inline-flex h-7 items-center gap-1 rounded-md bg-destructive px-3 text-[13px] font-medium text-destructive-foreground">
+                <span className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-3 text-[13px] font-medium text-muted-foreground">
                   <XCircle className="h-3.5 w-3.5" /> Reject
                 </span>
               </>
             ) : (
               <Badge
                 variant="outline"
-                className="border-emerald-500/30 bg-emerald-500/10 font-mono text-[11px] text-emerald-500"
+                className="border-success-border bg-success-subtle font-mono text-[11px] text-success"
               >
                 Approved
               </Badge>
@@ -160,7 +158,7 @@ function TrackPane() {
               className={cn(
                 "flex h-5 w-5 items-center justify-center rounded-full border",
                 m.done
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                  ? "border-success-border bg-success-subtle text-success"
                   : "border-border text-muted-foreground"
               )}
             >
@@ -183,7 +181,7 @@ function TrackPane() {
         <p className="truncate text-[13px] text-foreground">Add realtime dashboard</p>
         <Badge
           variant="outline"
-          className="ml-auto shrink-0 border-emerald-500/30 bg-emerald-500/10 font-mono text-[11px] text-emerald-500"
+          className="ml-auto shrink-0 border-success-border bg-success-subtle font-mono text-[11px] text-success"
         >
           Merged
         </Badge>
@@ -210,7 +208,7 @@ export function AppPreview() {
 
   return (
     <div
-      className="overflow-hidden rounded-xl border border-border bg-card text-left shadow-[0_24px_80px_-24px_rgba(0,0,0,0.6)]"
+      className="overflow-hidden rounded-xl border border-border bg-card text-left shadow-md"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
@@ -219,14 +217,14 @@ export function AppPreview() {
       {/* Window bar */}
       <div className="flex items-center gap-3 border-b border-border px-4 py-2.5 sm:px-5">
         <div className="flex items-center gap-1.5" aria-hidden>
-          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
-          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
-          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
+          <span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
+          <span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
+          <span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
         </div>
         <p className="hidden font-mono text-xs text-muted-foreground sm:block">
           innoverse / challenges
         </p>
-        <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px] text-emerald-500">
+        <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px] text-success">
           <StatusDot status="success" pulse />
           live
         </span>
@@ -251,8 +249,8 @@ export function AppPreview() {
             className={cn(
               "flex h-8 cursor-pointer items-center gap-2 rounded-md px-3 text-[13px] font-medium transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               tab === t
-                ? "bg-white/[0.07] text-foreground"
-                : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                ? "bg-accent text-foreground"
+                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
             )}
           >
             {t}

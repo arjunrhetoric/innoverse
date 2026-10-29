@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
-  ArrowLeft,
-  Handshake,
   Download,
   Loader2,
   AlertCircle,
@@ -14,17 +11,21 @@ import {
   Wallet,
   FileSignature,
   ExternalLink,
+  Check,
+  FileText,
 } from "lucide-react";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader, Meta } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Field } from "@/components/ui/field";
+import { StatusBadge } from "@/components/ui/badge";
+import { Section } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmAction } from "@/components/ui/confirm-dialog";
 import { useUser } from "@/hooks/useUser";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 interface Milestone {
   id: string;
@@ -58,15 +59,13 @@ interface Detail {
   milestones: Milestone[];
 }
 
-const variantFor: Record<string, "success" | "info" | "warning" | "destructive"> = {
-  Draft: "warning",
-  Active: "info",
-  Completed: "success",
-  Cancelled: "destructive",
-  Pending: "warning",
-  Delivered: "info",
-  Paid: "info",
-  Confirmed: "success",
+const STAGE_ORDER: Milestone["status"][] = ["Pending", "Delivered", "Paid", "Confirmed"];
+
+const STAGE_HINT: Record<Milestone["status"], string> = {
+  Pending: "Work not yet delivered",
+  Delivered: "Deliverable submitted",
+  Paid: "Transfer sent by startup",
+  Confirmed: "Receipt confirmed by student",
 };
 
 export default function EngagementDetailPage() {
@@ -84,6 +83,8 @@ export default function EngagementDetailPage() {
   const [delivering, setDelivering] = useState<string | null>(null);
   const [evidence, setEvidence] = useState("");
   const [signatureDataUrl, setSignatureDataUrl] = useState("");
+  const [confirmMilestone, setConfirmMilestone] = useState<string | null>(null);
+  const [confirmEngagement, setConfirmEngagement] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -129,8 +130,22 @@ export default function EngagementDetailPage() {
     }
   };
 
-  const confirmed = data?.milestones.filter((m) => m.status === "Confirmed").length ?? 0;
-  const progress = data?.milestones.length ? Math.round((confirmed / data.milestones.length) * 100) : 0;
+  const milestones = data?.milestones ?? [];
+  const counts: Record<Milestone["status"], number> = { Pending: 0, Delivered: 0, Paid: 0, Confirmed: 0 };
+  for (const m of milestones) counts[m.status] += 1;
+
+  const confirmed = counts.Confirmed;
+  const progress = milestones.length ? Math.round((confirmed / milestones.length) * 100) : 0;
+  const settledAmount = milestones
+    .filter((m) => m.status === "Confirmed")
+    .reduce((sum, m) => sum + m.amount, 0);
+
+  const openStages = milestones
+    .filter((m) => m.status !== "Confirmed")
+    .map((m) => STAGE_ORDER.indexOf(m.status));
+  const currentStage = milestones.length === 0 ? 0 : openStages.length ? Math.min(...openStages) : 3;
+
+  const money = (n: number) => `${data?.currency ?? ""} ${n.toLocaleString("en-IN")}`;
 
   const onSignatureFile = (file?: File) => {
     if (!file) {
@@ -146,328 +161,598 @@ export default function EngagementDetailPage() {
     reader.readAsDataURL(file);
   };
 
+  if (authLoading) {
+    return (
+      <AppShell>
+        <DetailSkeleton />
+      </AppShell>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-background">
-      <Navbar />
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-5">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/engagements">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Engagements
-              </Link>
-            </Button>
-          </div>
-
-          {loading ? (
-            <Skeleton className="h-96 w-full rounded-2xl" />
-          ) : error || !data ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center">
-              <p className="text-muted-foreground">{error || "Engagement not found"}</p>
-            </div>
-          ) : (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-              <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h1 className="text-xl font-medium tracking-tight sm:text-2xl">{data.title}</h1>
-                      <Badge variant={variantFor[data.status]} className="text-[10px]">{data.status}</Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {data.startup.name} · {data.student.name} · {data.problem.title}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Total</p>
-                    <p className="text-xl font-medium tracking-tight">
-                      {data.currency} {data.totalAmount.toLocaleString("en-IN")}
-                    </p>
-                  </div>
-                </div>
-
-                {data.description && (
-                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{data.description}</p>
-                )}
-
-                <div className="mt-5">
-                  <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{confirmed}/{data.milestones.length} confirmed</span>
-                    <span>{progress}%</span>
-                  </div>
-                  <Progress value={progress} />
-                </div>
-
-                {data.contractFile && (
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={`/api/engagements/${data.id}/contract`}>
-                        <Download className="mr-2 h-3.5 w-3.5" />
-                        Download agreement (PDF)
-                      </a>
-                    </Button>
-                    {data.studentAcceptedAt && (
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <FileSignature className="h-3.5 w-3.5" />
-                        Accepted {formatDate(data.studentAcceptedAt)}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {data.party === "startup" && data.status === "Active" && (
-                  <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-4">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy === "complete-engagement"}
-                      onClick={() => act("complete-engagement", `/api/engagements/${data.id}/complete`)}
-                    >
-                      {busy === "complete-engagement" ? (
-                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
-                      )}
-                      Mark engagement complete
-                    </Button>
-                    <p className="self-center text-[11px] text-muted-foreground">
-                      Confirms every remaining milestone and closes the engagement (use when payment
-                      happened offline).
-                    </p>
-                  </div>
-                )}
+    <AppShell>
+      {loading ? (
+        <DetailSkeleton />
+      ) : error && !data ? (
+        <div className="rounded-lg border border-border bg-card p-10 text-center">
+          <p className="text-sm text-muted-foreground">{error || "Engagement not found"}</p>
+          <Button variant="outline" size="sm" className="mt-4" asChild>
+            <Link href="/engagements">Back to engagements</Link>
+          </Button>
+        </div>
+      ) : !data ? (
+        <div className="rounded-lg border border-border bg-card p-10 text-center">
+          <p className="text-sm text-muted-foreground">Engagement not found</p>
+          <Button variant="outline" size="sm" className="mt-4" asChild>
+            <Link href="/engagements">Back to engagements</Link>
+          </Button>
+        </div>
+      ) : (
+        <>
+          <PageHeader
+            back={{ href: "/engagements", label: "Engagements" }}
+            eyebrow={
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge status={data.status} />
+                <span className="eyebrow truncate">{data.problem.title}</span>
               </div>
+            }
+            title={data.title}
+            description={data.description || undefined}
+            meta={
+              <>
+                <Meta
+                  label="Total"
+                  value={
+                    <>
+                      <span className="text-subtle-foreground">{data.currency}</span>{" "}
+                      <span className="tnum">{data.totalAmount.toLocaleString("en-IN")}</span>
+                    </>
+                  }
+                />
+                <Meta label="Milestones" value={`${milestones.length}`} />
+                <Meta label="Opened" value={formatDate(data.createdAt)} />
+              </>
+            }
+          />
 
-              {error && (
-                <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
-                  <p className="text-sm text-destructive">{error}</p>
-                </div>
-              )}
+          {error && (
+            <div
+              role="alert"
+              className="mb-5 flex items-start gap-2 rounded-md border border-danger-border bg-danger-subtle px-3 py-2.5"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+              <p className="text-sm text-danger">{error}</p>
+            </div>
+          )}
 
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="min-w-0 space-y-5">
               {data.party === "student" && data.status === "Draft" && (
-                <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6">
-                  <h2 className="flex items-center gap-2 text-sm font-medium">
-                    <Handshake className="h-4 w-4 text-primary" />
-                    Accept this engagement
-                  </h2>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    By accepting you agree to the milestone schedule and assign the deliverables&apos; IP
-                    to {data.startup.name} once all milestones are paid.
-                  </p>
-                  <label className="mt-3 flex items-start gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={acceptedTerms}
-                      onChange={(e) => setAcceptedTerms(e.target.checked)}
-                      className="mt-0.5"
-                    />
-                    <span>I accept the IP assignment and confidentiality terms in the agreement.</span>
-                  </label>
-                  <div className="mt-3">
-                    <Label htmlFor="signature" className="mb-1.5 block text-xs">
-                      Your signature (optional PNG/JPG)
-                    </Label>
-                    <input
+                <Section
+                  title="Accept this engagement"
+                  description={`Accepting agrees the milestone schedule and assigns the deliverables' IP to ${data.startup.name} once every milestone is paid.`}
+                >
+                  <div className="space-y-4 p-5">
+                    <label
+                      htmlFor="accept-terms"
+                      className="flex cursor-pointer items-start gap-2.5 text-sm text-foreground"
+                    >
+                      <input
+                        id="accept-terms"
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-brand"
+                      />
+                      <span>
+                        I accept the IP assignment and confidentiality terms in the agreement.
+                      </span>
+                    </label>
+
+                    <Field
                       id="signature"
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      onChange={(e) => onSignatureFile(e.target.files?.[0])}
-                      className="block w-full text-xs text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:text-foreground"
-                    />
-                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      label="Your signature"
+                      hint="Optional PNG or JPG, under 2MB"
+                    >
+                      <input
+                        id="signature"
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={(e) => onSignatureFile(e.target.files?.[0])}
+                        className="block w-full cursor-pointer rounded-md border border-input bg-background text-xs text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-l-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-xs file:text-foreground"
+                      />
+                    </Field>
+                    <p className="text-xs text-muted-foreground">
                       {signatureDataUrl
                         ? "Signature attached — it will appear on the agreement."
                         : "If omitted, your typed name is used as the signature."}
                     </p>
+
+                    <Button
+                      variant="brand"
+                      disabled={!acceptedTerms || busy === "accept"}
+                      onClick={() =>
+                        act("accept", `/api/engagements/${data.id}/accept`, {
+                          ipAssignmentAccepted: true,
+                          signatureDataUrl,
+                        })
+                      }
+                    >
+                      {busy === "accept" ? <Loader2 className="animate-spin" /> : <FileSignature />}
+                      Accept &amp; generate agreement
+                    </Button>
                   </div>
-                  <Button
-                    className="mt-4"
-                    variant="gradient"
-                    disabled={!acceptedTerms || busy === "accept"}
-                    onClick={() =>
-                      act("accept", `/api/engagements/${data.id}/accept`, {
-                        ipAssignmentAccepted: true,
-                        signatureDataUrl,
-                      })
-                    }
-                  >
-                    {busy === "accept" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Accept & generate agreement
-                  </Button>
-                </div>
+                </Section>
               )}
 
-              <div>
-                <h2 className="mb-3 text-sm font-medium">Milestones</h2>
-                <div className="space-y-2">
-                  {data.milestones.map((m) => (
-                    <div key={m.id} className="rounded-xl border border-border bg-card p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-medium">{m.title}</h3>
-                            <Badge variant={variantFor[m.status]} className="text-[10px]">{m.status}</Badge>
+              <Section
+                title="Milestone pipeline"
+                actions={
+                  <p className="text-xs text-muted-foreground">
+                    Current stage{" "}
+                    <span className="font-medium text-brand">
+                      {milestones.length === 0 ? "—" : STAGE_ORDER[currentStage]}
+                    </span>
+                  </p>
+                }
+              >
+                {/* Stepper: Pending → Delivered → Paid → Confirmed */}
+                <div className="border-b border-border p-4">
+                  <ol
+                    aria-label="Milestone pipeline stages"
+                    className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4"
+                  >
+                    {STAGE_ORDER.map((stage, i) => {
+                      const isCurrent = milestones.length > 0 && i === currentStage;
+                      const isDone = i < currentStage;
+                      return (
+                        <li
+                          key={stage}
+                          aria-current={isCurrent ? "step" : undefined}
+                          className={cn(
+                            "px-3 py-3",
+                            isCurrent ? "bg-brand-subtle" : "bg-card"
+                          )}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={cn(
+                                "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-2xs font-medium",
+                                isCurrent
+                                  ? "border-brand bg-brand text-brand-foreground"
+                                  : isDone
+                                    ? "border-success-border bg-success-subtle text-success"
+                                    : "border-border bg-surface-2 text-subtle-foreground"
+                              )}
+                            >
+                              {isDone ? <Check className="h-2.5 w-2.5" /> : <span className="tnum">{i + 1}</span>}
+                            </span>
+                            <span
+                              className={cn(
+                                "truncate text-xs font-medium",
+                                isCurrent
+                                  ? "text-brand"
+                                  : isDone
+                                    ? "text-foreground"
+                                    : "text-muted-foreground"
+                              )}
+                            >
+                              {stage}
+                            </span>
                           </div>
-                          <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                            <span>{data.currency} {m.amount.toLocaleString("en-IN")}</span>
-                            {m.dueDate && <span>Due {formatDate(m.dueDate)}</span>}
-                            {m.deliveredAt && <span>Delivered {formatDate(m.deliveredAt)}</span>}
-                            {m.paidAt && <span>Marked paid {formatDate(m.paidAt)}</span>}
-                            {m.confirmedAt && <span>Confirmed {formatDate(m.confirmedAt)}</span>}
-                            {m.paidReference && <span className="font-mono">ref {m.paidReference}</span>}
-                            {m.evidenceUrl && (
-                              <a
-                                href={m.evidenceUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-primary hover:underline"
-                              >
-                                Evidence
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
+                          <p
+                            className={cn(
+                              "mt-1.5 font-mono text-lg leading-none tnum",
+                              isCurrent ? "text-brand" : "text-foreground"
                             )}
-                          </div>
-                        </div>
-
-                        {data.party === "startup" && data.status === "Active" && m.status === "Delivered" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => { setPaying(paying === m.id ? null : m.id); setReference(""); }}
                           >
-                            <Wallet className="mr-1 h-3.5 w-3.5" />
-                            Mark paid
-                          </Button>
-                        )}
-                        {data.party === "student" && data.status === "Active" && m.status === "Pending" && (
-                          <Button
-                            size="sm"
-                            variant="gradient"
-                            onClick={() => {
-                              setDelivering(delivering === m.id ? null : m.id);
-                              setEvidence("");
-                            }}
-                          >
-                            <FileSignature className="mr-1 h-3.5 w-3.5" />
-                            Mark delivered
-                          </Button>
-                        )}
-                        {data.party === "student" && data.status === "Active" && m.status === "Paid" && (
-                          <Button
-                            size="sm"
-                            variant="gradient"
-                            disabled={busy === m.id}
-                            onClick={() =>
-                              act(
-                                m.id,
-                                `/api/engagements/${data.id}/milestones/${m.id}/confirm`
-                              )
-                            }
-                          >
-                            {busy === m.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
-                            Confirm received
-                          </Button>
-                        )}
-                        {data.party === "startup" && data.status === "Active" && m.status !== "Confirmed" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={busy === m.id}
-                            onClick={() =>
-                              act(
-                                m.id,
-                                `/api/engagements/${data.id}/milestones/${m.id}/complete`
-                              )
-                            }
-                          >
-                            {busy === m.id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
-                            Mark complete
-                          </Button>
-                        )}
-                      </div>
-
-                      {delivering === m.id && (
-                        <div className="mt-3 border-t border-border/60 pt-3">
-                          <Label className="mb-1.5 block text-[11px]">Evidence URL</Label>
-                          <div className="flex gap-2">
-                            <Input
-                              value={evidence}
-                              onChange={(e) => setEvidence(e.target.value)}
-                              placeholder="https://github.com/owner/repo/pull/12"
-                              className="h-9 text-xs"
-                            />
-                            <Button
-                              size="sm"
-                              variant="gradient"
-                              disabled={busy === m.id || !evidence.trim()}
-                              onClick={() =>
-                                act(
-                                  m.id,
-                                  `/api/engagements/${data.id}/milestones/${m.id}/deliver`,
-                                  { evidenceUrl: evidence.trim() }
-                                )
-                              }
-                            >
-                              {busy === m.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Deliver"}
-                            </Button>
-                          </div>
-                          <p className="mt-1.5 text-[11px] text-muted-foreground">
-                            Paste the pull request or commit that proves the deliverable. If the
-                            startup merges that PR, this milestone is marked delivered automatically.
+                            {counts[stage]}
+                            <span className="text-2xs text-subtle-foreground"> / {milestones.length}</span>
                           </p>
-                        </div>
-                      )}
-
-                      {paying === m.id && (
-                        <div className="mt-3 border-t border-border/60 pt-3">
-                          <Label className="mb-1.5 block text-[11px]">Payment reference (optional)</Label>
-                          <div className="flex gap-2">
-                            <Input
-                              value={reference}
-                              onChange={(e) => setReference(e.target.value)}
-                              placeholder="UTR / transaction id"
-                              className="h-9 font-mono text-xs"
-                            />
-                            <Button
-                              size="sm"
-                              variant="gradient"
-                              disabled={busy === m.id}
-                              onClick={() =>
-                                act(
-                                  m.id,
-                                  `/api/engagements/${data.id}/milestones/${m.id}/pay`,
-                                  { reference }
-                                )
-                              }
-                            >
-                              {busy === m.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm payment"}
-                            </Button>
-                          </div>
-                          <p className="mt-1.5 text-[11px] text-muted-foreground">
-                            Innoverse records payment status; funds are transferred outside the platform.
+                          <p className="mt-1 truncate text-2xs text-muted-foreground">
+                            {isCurrent ? "Current stage" : STAGE_HINT[stage]}
                           </p>
-                        </div>
-                      )}
+                        </li>
+                      );
+                    })}
+                  </ol>
+
+                  <div className="mt-4 space-y-1.5">
+                    <div className="flex items-baseline justify-between gap-3 text-xs">
+                      <span className="text-muted-foreground">
+                        <span className="tnum text-foreground">
+                          {confirmed}/{milestones.length}
+                        </span>{" "}
+                        milestones confirmed
+                      </span>
+                      <span className="font-mono tnum text-muted-foreground">
+                        {money(settledAmount)} settled of {money(data.totalAmount)}
+                      </span>
                     </div>
-                  ))}
+                    <Progress value={progress} tone={progress === 100 ? "success" : "brand"} />
+                  </div>
                 </div>
-              </div>
+
+                {milestones.length === 0 ? (
+                  <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                    No milestones have been added to this engagement.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {milestones.map((m, i) => (
+                      <li key={m.id} className="px-4 py-4">
+                        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                          <div className="flex min-w-0 items-start gap-2.5">
+                            <span className="mt-0.5 w-4 shrink-0 text-right font-mono text-xs text-subtle-foreground tnum">
+                              {i + 1}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-sm font-medium text-foreground">{m.title}</h3>
+                                <StatusBadge status={m.status} />
+                              </div>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                <span className="font-mono text-sm text-foreground tnum">
+                                  {money(m.amount)}
+                                </span>
+                                <span>
+                                  Due{" "}
+                                  <span className="font-mono text-muted-foreground">
+                                    {m.dueDate ? formatDate(m.dueDate) : "—"}
+                                  </span>
+                                </span>
+                                {m.evidenceUrl && (
+                                  <a
+                                    href={m.evidenceUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-brand hover:underline"
+                                  >
+                                    Evidence
+                                    <ExternalLink className="h-3 w-3" aria-hidden />
+                                  </a>
+                                )}
+                              </div>
+                              {(m.deliveredAt || m.paidAt || m.confirmedAt || m.paidReference) && (
+                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-subtle-foreground">
+                                  {m.deliveredAt && (
+                                    <span>Delivered {formatDate(m.deliveredAt)}</span>
+                                  )}
+                                  {m.paidAt && <span>Marked paid {formatDate(m.paidAt)}</span>}
+                                  {m.confirmedAt && (
+                                    <span>Confirmed {formatDate(m.confirmedAt)}</span>
+                                  )}
+                                  {m.paidReference && (
+                                    <span className="font-mono">ref {m.paidReference}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-2">
+                            {data.party === "startup" &&
+                              data.status === "Active" &&
+                              m.status === "Delivered" && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => {
+                                    setPaying(paying === m.id ? null : m.id);
+                                    setReference("");
+                                  }}
+                                >
+                                  <Wallet />
+                                  Mark paid
+                                </Button>
+                              )}
+                            {data.party === "student" &&
+                              data.status === "Active" &&
+                              m.status === "Pending" && (
+                                <Button
+                                  size="sm"
+                                  variant="brand"
+                                  onClick={() => {
+                                    setDelivering(delivering === m.id ? null : m.id);
+                                    setEvidence("");
+                                  }}
+                                >
+                                  <FileSignature />
+                                  Mark delivered
+                                </Button>
+                              )}
+                            {data.party === "student" &&
+                              data.status === "Active" &&
+                              m.status === "Paid" && (
+                                <Button
+                                  size="sm"
+                                  variant="brand"
+                                  disabled={busy === m.id}
+                                  onClick={() =>
+                                    act(m.id, `/api/engagements/${data.id}/milestones/${m.id}/confirm`)
+                                  }
+                                >
+                                  {busy === m.id ? (
+                                    <Loader2 className="animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 />
+                                  )}
+                                  Confirm received
+                                </Button>
+                              )}
+                            {data.party === "startup" &&
+                              data.status === "Active" &&
+                              m.status !== "Confirmed" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={busy === m.id}
+                                  onClick={() => setConfirmMilestone(m.id)}
+                                >
+                                  {busy === m.id ? (
+                                    <Loader2 className="animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 />
+                                  )}
+                                  Mark complete
+                                </Button>
+                              )}
+                          </div>
+                        </div>
+
+                        {delivering === m.id && (
+                          <div className="mt-3 border-t border-border pt-3 sm:ml-7">
+                            <Field
+                              id={`evidence-${m.id}`}
+                              label="Evidence URL"
+                              hint="Pull request or commit"
+                            >
+                              <div className="flex flex-col gap-2 sm:flex-row">
+                                <Input
+                                  id={`evidence-${m.id}`}
+                                  value={evidence}
+                                  onChange={(e) => setEvidence(e.target.value)}
+                                  placeholder="https://github.com/owner/repo/pull/12"
+                                  className="font-mono text-xs"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="brand"
+                                  className="sm:w-auto"
+                                  disabled={busy === m.id || !evidence.trim()}
+                                  onClick={() =>
+                                    act(m.id, `/api/engagements/${data.id}/milestones/${m.id}/deliver`, {
+                                      evidenceUrl: evidence.trim(),
+                                    })
+                                  }
+                                >
+                                  {busy === m.id ? (
+                                    <Loader2 className="animate-spin" />
+                                  ) : (
+                                    "Deliver"
+                                  )}
+                                </Button>
+                              </div>
+                            </Field>
+                            <p className="mt-1.5 text-2xs text-muted-foreground">
+                              Paste the pull request or commit that proves the deliverable. If the
+                              startup merges that PR, this milestone is marked delivered automatically.
+                            </p>
+                          </div>
+                        )}
+
+                        {paying === m.id && (
+                          <div className="mt-3 border-t border-border pt-3 sm:ml-7">
+                            <Field
+                              id={`reference-${m.id}`}
+                              label="Payment reference"
+                              hint="Optional"
+                            >
+                              <div className="flex flex-col gap-2 sm:flex-row">
+                                <Input
+                                  id={`reference-${m.id}`}
+                                  value={reference}
+                                  onChange={(e) => setReference(e.target.value)}
+                                  placeholder="UTR / transaction id"
+                                  className="font-mono text-xs"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  className="sm:w-auto"
+                                  disabled={busy === m.id}
+                                  onClick={() =>
+                                    act(m.id, `/api/engagements/${data.id}/milestones/${m.id}/pay`, {
+                                      reference,
+                                    })
+                                  }
+                                >
+                                  {busy === m.id ? (
+                                    <Loader2 className="animate-spin" />
+                                  ) : (
+                                    "Confirm payment"
+                                  )}
+                                </Button>
+                              </div>
+                            </Field>
+                            <p className="mt-1.5 text-2xs text-muted-foreground">
+                              Innoverse records payment status; funds are transferred outside the
+                              platform.
+                            </p>
+                          </div>
+                        )}
+
+                        <ConfirmAction
+                          open={confirmMilestone === m.id}
+                          onOpenChange={(o) => setConfirmMilestone(o ? m.id : null)}
+                          title="Mark this milestone complete?"
+                          description={
+                            <>
+                              This settles <span className="font-medium text-foreground">{m.title}</span>{" "}
+                              ({money(m.amount)}) and cannot be undone. Use it only when payment was
+                              settled outside Innoverse.
+                            </>
+                          }
+                          confirmLabel="Mark complete"
+                          tone="warning"
+                          pending={busy === m.id}
+                          onConfirm={() => {
+                            setConfirmMilestone(null);
+                            act(m.id, `/api/engagements/${data.id}/milestones/${m.id}/complete`);
+                          }}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Section>
 
               {data.status === "Completed" && (
-                <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  <p className="text-sm text-emerald-500">
+                <div className="flex items-start gap-2 rounded-lg border border-success-border bg-success-subtle px-4 py-3">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                  <p className="text-sm text-success">
                     All milestones paid and confirmed. The engagement is complete.
                   </p>
                 </div>
               )}
-            </motion.div>
-          )}
+            </div>
+
+            {/* Right rail: contract summary */}
+            <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+              <Section title="Contract">
+                <dl className="divide-y divide-border">
+                  <div className="px-5 py-4">
+                    <dt className="text-2xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                      Total fee
+                    </dt>
+                    <dd className="mt-1 font-mono text-xl font-semibold tracking-tight text-foreground tnum">
+                      {money(data.totalAmount)}
+                    </dd>
+                    <dd className="mt-0.5 text-2xs text-subtle-foreground">
+                      <span className="tnum">{money(settledAmount)}</span> settled across{" "}
+                      <span className="tnum">{milestones.length}</span> milestones
+                    </dd>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 px-5 py-3">
+                    <div>
+                      <dt className="text-2xs uppercase tracking-[0.08em] text-subtle-foreground">
+                        Startup
+                      </dt>
+                      <dd className="mt-0.5 truncate text-sm text-foreground">{data.startup.name}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-2xs uppercase tracking-[0.08em] text-subtle-foreground">
+                        Student
+                      </dt>
+                      <dd className="mt-0.5 truncate text-sm text-foreground">{data.student.name}</dd>
+                    </div>
+                  </div>
+                  <div className="space-y-2 px-5 py-3">
+                    <div className="flex items-baseline justify-between text-xs">
+                      <dt className="text-muted-foreground">Confirmed</dt>
+                      <dd className="font-mono text-foreground tnum">
+                        {confirmed} / {milestones.length}
+                      </dd>
+                    </div>
+                    <Progress value={progress} tone={progress === 100 ? "success" : "brand"} />
+                  </div>
+                  <div className="px-5 py-3">
+                    <dt className="sr-only">Agreement</dt>
+                    <dd>
+                      {data.contractFile ? (
+                        <Button variant="outline" size="sm" className="w-full" asChild>
+                          <a href={`/api/engagements/${data.id}/contract`}>
+                            <Download />
+                            Download agreement
+                          </a>
+                        </Button>
+                      ) : (
+                        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                          <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                          The agreement is generated when the student accepts.
+                        </p>
+                      )}
+                      {data.studentAcceptedAt && (
+                        <p className="mt-2 text-2xs text-muted-foreground">
+                          Accepted{" "}
+                          <span className="font-mono">{formatDate(data.studentAcceptedAt)}</span>
+                          {data.studentAcceptedName ? ` by ${data.studentAcceptedName}` : ""}
+                        </p>
+                      )}
+                      {!data.studentAcceptedAt && data.status === "Draft" && (
+                        <p className="mt-2 text-2xs text-muted-foreground">
+                          Awaiting the student&apos;s acceptance.
+                        </p>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+              </Section>
+
+              {data.party === "startup" && data.status === "Active" && (
+                <Section
+                  title="Close engagement"
+                  description="Confirms every remaining milestone and closes the engagement. Irreversible."
+                >
+                  <div className="p-5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={busy === "complete-engagement"}
+                      onClick={() => setConfirmEngagement(true)}
+                    >
+                      {busy === "complete-engagement" ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <CheckCircle2 />
+                      )}
+                      Mark engagement complete
+                    </Button>
+                  </div>
+                </Section>
+              )}
+
+              <p className="px-1 text-2xs leading-relaxed text-muted-foreground">
+                Innoverse records milestone and payment status. Money moves outside the platform;
+                repository access is governed by the separate collaboration agreement.
+              </p>
+            </aside>
+          </div>
+
+          <ConfirmAction
+            open={confirmEngagement}
+            onOpenChange={setConfirmEngagement}
+            title="Close this engagement?"
+            description="Every remaining milestone will be marked complete and the engagement closed. This cannot be undone — use it only when payment happened offline."
+            confirmLabel="Mark complete"
+            tone="warning"
+            pending={busy === "complete-engagement"}
+            onConfirm={() => {
+              setConfirmEngagement(false);
+              act("complete-engagement", `/api/engagements/${data.id}/complete`);
+            }}
+          />
+        </>
+      )}
+    </AppShell>
+  );
+}
+
+function DetailSkeleton() {
+  return (
+    <div>
+      <Skeleton className="h-3 w-24" />
+      <Skeleton className="mt-4 h-7 w-72" />
+      <Skeleton className="mt-2 h-4 w-full max-w-xl" />
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-4">
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-96 rounded-lg" />
         </div>
+        <Skeleton className="h-72 rounded-lg" />
       </div>
-      <Footer />
-    </main>
+    </div>
   );
 }

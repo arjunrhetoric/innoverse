@@ -1,26 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
-  ShieldCheck,
   Ban,
-  Download,
-  Loader2,
-  GitPullRequest,
-  GitCommitHorizontal,
   CalendarDays,
+  Download,
+  FileWarning,
+  Fingerprint,
+  GitCommitHorizontal,
+  GitPullRequest,
   MessageSquare,
   Milestone as MilestoneIcon,
+  Printer,
+  ShieldCheck,
   TrendingUp,
 } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, StatusBadge } from "@/components/ui/badge";
+import { Progress, ProgressRow } from "@/components/ui/progress";
+import { CopyButton } from "@/components/ui/copy-button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatDate } from "@/lib/utils";
 
 interface Report {
   publicToken: string;
@@ -63,6 +68,13 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  /* Read the shareable URL on the client only; the server snapshot is empty. */
+  const reportUrl = useSyncExternalStore(
+    () => () => {},
+    () => `${window.location.origin}/r/${token}`,
+    () => ""
+  );
+
   useEffect(() => {
     fetch(`/api/reports/${encodeURIComponent(token)}`)
       .then(async (res) => {
@@ -74,192 +86,327 @@ export default function ReportPage() {
       .finally(() => setLoading(false));
   }, [token]);
 
+  const startupName = report?.startup?.companyName || report?.startup?.name || "Startup";
+  const confidenceTone =
+    report?.confidence?.level === "high"
+      ? "success"
+      : report?.confidence?.level === "medium"
+        ? "warning"
+        : "danger";
+
   return (
     <main className="min-h-screen bg-background">
-      <Navbar />
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-4xl">
-          {loading ? (
-            <Skeleton className="h-96 w-full rounded-2xl" />
-          ) : error || !report ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center">
-              <p className="text-muted-foreground">{error || "Report not found"}</p>
-              <Button variant="outline" className="mt-4" asChild>
-                <Link href="/">Go home</Link>
+      <div className="print-hide">
+        <Navbar />
+      </div>
+
+      <div className="mx-auto w-full max-w-[1160px] px-4 pb-20 pt-10 sm:px-6 sm:pt-14">
+        <div className="mx-auto max-w-3xl">
+          {/* Toolbar — screen only */}
+          <div className="print-hide mb-5 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/talent">Talent directory</Link>
+              </Button>
+              {!loading && report && (
+                <Badge variant="outline" className="font-mono">
+                  /r/{token.slice(0, 8)}…
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {reportUrl && (
+                <CopyButton value={reportUrl} label="Copy report link" showValue={false} />
+              )}
+              <Button variant="outline" size="sm" onClick={() => window.print()}>
+                <Printer />
+                Print
               </Button>
             </div>
+          </div>
+
+          {loading ? (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-card p-6 sm:p-8">
+                <Skeleton className="h-3 w-40" />
+                <Skeleton className="mt-4 h-8 w-64" />
+                <Skeleton className="mt-2 h-3 w-80" />
+                <div className="mt-6 grid grid-cols-2 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-10" />
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-6">
+                <Skeleton className="h-4 w-32" />
+                <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-12" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : error || !report ? (
+            <div role="alert">
+              <EmptyState
+                icon={FileWarning}
+                title="Report not found"
+                description={error || "This link may have expired, or the report was never published."}
+                action={{ label: "Browse verified talent", href: "/talent" }}
+                secondary={{ label: "Verify a code", href: "/verify" }}
+              />
+            </div>
           ) : (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+            <article className="overflow-hidden rounded-xl border border-border bg-card print-plain">
               {report.revoked && (
-                <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
-                  <Ban className="h-4 w-4 shrink-0 text-red-500" />
-                  <p className="text-sm text-red-500">
+                <div className="flex items-start gap-2 border-b border-danger-border bg-danger-subtle px-5 py-3">
+                  <Ban className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden />
+                  <p className="text-xs leading-relaxed text-danger">
                     This report was revoked
-                    {report.revokedAt ? ` on ${new Date(report.revokedAt).toLocaleDateString()}` : ""}
+                    {report.revokedAt ? ` on ${formatDate(report.revokedAt)}` : ""}
                     {report.revocationReason ? ` — ${report.revocationReason}` : "."}
                   </p>
                 </div>
               )}
 
-              <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Innoverse · Proof-of-Work Report
-                </p>
-                <h1 className="mt-2 text-2xl font-medium tracking-tight sm:text-3xl">
+              {/* Document header */}
+              <header className="border-b border-border px-5 py-6 sm:px-8 sm:py-8">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-2xs uppercase tracking-[0.18em] text-subtle-foreground">
+                    Innoverse · Proof-of-Work Report
+                  </span>
+                  <StatusBadge status={report.revoked ? "revoked" : "verified"} />
+                </div>
+
+                <h1 className="mt-3 font-serif text-3xl leading-tight text-foreground sm:text-4xl">
                   {report.student?.name ?? "Student"}
                 </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {report.problem?.title ?? "Project"} · {report.startup?.companyName || report.startup?.name || "Startup"}
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  {report.problem?.title ?? "Project"}
                 </p>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <Badge variant={report.revoked ? "destructive" : "success"} className="text-[10px]">
-                    {report.revoked ? "Revoked" : "Verified"}
-                  </Badge>
-                  {report.confidence && (
-                    <Badge
-                      variant={report.confidence.level === "high" ? "success" : report.confidence.level === "medium" ? "info" : "destructive"}
-                      className="text-[10px]"
-                    >
-                      {report.confidence.score}/100 confidence · {report.confidence.level}
-                    </Badge>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    Issued {new Date(report.issuedAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
+
+                <dl className="mt-6 grid grid-cols-1 gap-x-8 gap-y-3 border-t border-border pt-5 sm:grid-cols-2">
+                  <Fact label="Issued by" value={startupName} />
+                  <Fact
+                    label="Recipient"
+                    value={
+                      report.student?.githubUsername
+                        ? `${report.student.name} · @${report.student.githubUsername}`
+                        : report.student?.name ?? "Student"
+                    }
+                  />
+                  <Fact label="Challenge" value={report.problem?.title ?? "Project"} />
+                  <Fact label="Issued on" value={formatDate(report.issuedAt)} mono />
+                </dl>
+              </header>
+
+              {report.summary && (
+                <section className="border-b border-border px-5 py-6 sm:px-8">
+                  <h2 className="text-2xs font-medium uppercase tracking-[0.08em] text-subtle-foreground">
+                    Reviewer summary
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-foreground/90">{report.summary}</p>
+                </section>
+              )}
 
               {/* Evidence */}
               {report.evidence && (
-                <div className="rounded-2xl border border-border bg-card p-6">
-                  <h2 className="mb-4 flex items-center gap-2 text-sm font-medium">
-                    <TrendingUp className="h-4 w-4 text-primary" />
+                <section className="border-b border-border px-5 py-6 sm:px-8">
+                  <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <TrendingUp className="h-4 w-4 text-brand" aria-hidden />
                     Evidence snapshot
                   </h2>
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    <Stat icon={GitPullRequest} label="Merged PRs" value={String(report.evidence.mergedPRs)} />
-                    <Stat icon={GitCommitHorizontal} label="Commits by student" value={String(report.evidence.commitsByStudent)} />
-                    <Stat icon={CalendarDays} label="Active days" value={String(report.evidence.activeDays)} />
-                    <Stat icon={MessageSquare} label="Review comments" value={String(report.evidence.reviewsGiven)} />
-                    <Stat icon={MilestoneIcon} label="Milestones" value={`${report.evidence.milestonesCompleted}/${report.evidence.milestonesTotal}`} />
-                    <Stat label="PRs opened" value={String(report.evidence.prsOpened)} />
-                    <Stat label="Lines added" value={String(report.evidence.linesAdded)} />
-                    <Stat label="Lines removed" value={String(report.evidence.linesDeleted)} />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Counted from the repository at the moment the report was issued.
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
+                    <EvidenceCell
+                      icon={GitPullRequest}
+                      label="Merged PRs"
+                      value={report.evidence.mergedPRs}
+                    />
+                    <EvidenceCell
+                      icon={GitCommitHorizontal}
+                      label="Commits by student"
+                      value={report.evidence.commitsByStudent}
+                    />
+                    <EvidenceCell
+                      icon={CalendarDays}
+                      label="Active days"
+                      value={report.evidence.activeDays}
+                    />
+                    <EvidenceCell
+                      icon={MessageSquare}
+                      label="Reviews given"
+                      value={report.evidence.reviewsGiven}
+                    />
+                    <EvidenceCell
+                      icon={MilestoneIcon}
+                      label="Milestones"
+                      value={`${report.evidence.milestonesCompleted}/${report.evidence.milestonesTotal}`}
+                    />
+                    <EvidenceCell label="PRs opened" value={report.evidence.prsOpened} />
+                    <EvidenceCell label="Lines added" value={report.evidence.linesAdded} />
+                    <EvidenceCell label="Lines removed" value={report.evidence.linesDeleted} />
                   </div>
-                </div>
+                </section>
               )}
 
               {/* Rubric + confidence */}
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid divide-y divide-border border-b border-border md:grid-cols-2 md:divide-x md:divide-y-0">
                 {report.rubric && (
-                  <div className="rounded-2xl border border-border bg-card p-6">
-                    <h2 className="mb-4 text-sm font-medium">Reviewer rubric</h2>
-                    <div className="space-y-4">
+                  <section className="px-5 py-6 sm:px-8">
+                    <h2 className="text-sm font-medium text-foreground">Reviewer rubric</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Scored by {startupName} on a five-point scale.
+                    </p>
+                    <div className="mt-4 space-y-3">
                       {report.rubric.rows.map((row) => (
-                        <div key={row.key}>
-                          <div className="mb-1 flex items-center justify-between text-xs">
-                            <span>{row.label}</span>
-                            <span className="text-muted-foreground">{row.score.toFixed(1)} / 5</span>
-                          </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-primary"
-                              style={{ width: `${(row.score / 5) * 100}%` }}
-                            />
-                          </div>
-                        </div>
+                        <ProgressRow
+                          key={row.key}
+                          label={row.label}
+                          value={row.score}
+                          max={5}
+                          suffix={`${row.score.toFixed(1)} / 5`}
+                        />
                       ))}
                     </div>
-                    <p className="mt-4 text-xs text-muted-foreground">
-                      Overall <span className="font-medium text-foreground">{report.rubric.overall.toFixed(2)} / 5</span>
+                    <p className="mt-4 flex items-baseline justify-between border-t border-border pt-3 text-xs">
+                      <span className="text-muted-foreground">Overall</span>
+                      <span className="tnum font-mono text-sm text-foreground">
+                        {report.rubric.overall.toFixed(2)} / 5
+                      </span>
                     </p>
-                  </div>
+                  </section>
                 )}
 
                 {report.confidence && (
-                  <div className="rounded-2xl border border-border bg-card p-6">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h2 className="text-sm font-medium">Contribution confidence</h2>
-                      <span className="text-2xl font-medium tracking-tight">{report.confidence.score}</span>
+                  <section className="px-5 py-6 sm:px-8">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <h2 className="text-sm font-medium text-foreground">Contribution confidence</h2>
+                      <span className="tnum text-2xl font-semibold tracking-tight text-foreground">
+                        {report.confidence.score}
+                        <span className="text-sm font-normal text-subtle-foreground">/100</span>
+                      </span>
                     </div>
-                    <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={`h-full rounded-full ${
-                          report.confidence.level === "high"
-                            ? "bg-emerald-500"
-                            : report.confidence.level === "medium"
-                            ? "bg-amber-500"
-                            : "bg-red-500"
-                        }`}
-                        style={{ width: `${report.confidence.score}%` }}
-                      />
-                    </div>
-                    <ul className="space-y-1.5 text-xs text-muted-foreground">
+                    <Progress value={report.confidence.score} tone={confidenceTone} className="mt-3" />
+                    <p className="mt-2 text-2xs uppercase tracking-[0.08em] text-subtle-foreground">
+                      {report.confidence.level} confidence
+                    </p>
+                    <ul className="mt-4 space-y-1.5">
                       {report.confidence.reasons.map((reason) => (
-                        <li key={reason} className="flex gap-1.5">
-                          <span className="text-primary">•</span>
+                        <li key={reason} className="flex gap-2 text-xs leading-relaxed text-muted-foreground">
+                          <span aria-hidden className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand" />
                           <span>{reason}</span>
                         </li>
                       ))}
                     </ul>
+                  </section>
+                )}
+              </div>
+
+              {/* Honest fallback for reports issued before evidence capture existed */}
+              {!report.evidence && !report.rubric && !report.confidence && (
+                <section className="border-b border-border px-5 py-6 sm:px-8">
+                  <h2 className="text-sm font-medium text-foreground">Evidence not captured</h2>
+                  <p className="mt-1 max-w-prose text-xs leading-relaxed text-muted-foreground">
+                    This report was issued before Innoverse started recording repository
+                    evidence and reviewer scoring. The certificate record itself is still
+                    verifiable — its code, issue date and fingerprint are shown below.
+                  </p>
+                </section>
+              )}
+
+              {/* Verification footer */}
+              <footer className="bg-surface px-5 py-5 sm:px-8">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h2 className="flex items-center gap-1.5 text-2xs font-medium uppercase tracking-[0.08em] text-subtle-foreground">
+                      <ShieldCheck className="h-3 w-3" aria-hidden />
+                      Verification
+                    </h2>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Code</span>
+                      <CopyButton value={report.verificationCode} />
+                    </div>
+                    {report.sha256 && (
+                      <div className="mt-2 flex items-start gap-1.5">
+                        <Fingerprint
+                          className="mt-1 h-3 w-3 shrink-0 text-subtle-foreground"
+                          aria-hidden
+                        />
+                        <p className="break-all font-mono text-2xs leading-relaxed text-subtle-foreground">
+                          {report.sha256}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {report.summary && (
-                <div className="rounded-2xl border border-border bg-card p-6">
-                  <h2 className="mb-2 text-sm font-medium">Reviewer summary</h2>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{report.summary}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {report.certificateFile && (
+                      <Button variant="outline" size="sm" asChild>
+                        <a
+                          href={`/api/certificates/verify/${report.verificationCode}/file`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Download />
+                          Download PDF
+                        </a>
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={`/verify/${report.verificationCode}`}>
+                        <ShieldCheck />
+                        Verify this credential
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
-              )}
 
-              <div className="flex flex-wrap items-center gap-3">
-                {report.certificateFile && (
-                  <Button variant="outline" asChild>
-                    <a href={`/api/certificates/verify/${report.verificationCode}/file`} target="_blank" rel="noopener noreferrer">
-                      <Download className="mr-2 h-4 w-4" />
-                      Download certificate (PDF)
-                    </a>
-                  </Button>
-                )}
-                <Button variant="ghost" asChild>
-                  <Link href={`/verify/${report.verificationCode}`}>
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                    Verify this credential
-                  </Link>
-                </Button>
-              </div>
-
-              {report.sha256 && (
-                <p className="font-mono text-[10px] text-muted-foreground/70 break-all">
-                  SHA-256 {report.sha256}
+                <p className="mt-4 border-t border-border pt-3 font-mono text-2xs text-subtle-foreground">
+                  Issued {formatDate(report.issuedAt)} · Innoverse
                 </p>
-              )}
-            </motion.div>
+              </footer>
+            </article>
           )}
         </div>
       </div>
-      <Footer />
+
+      <div className="print-hide">
+        <Footer />
+      </div>
     </main>
   );
 }
 
-function Stat({
+function Fact({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-2xs uppercase tracking-[0.08em] text-subtle-foreground">{label}</dt>
+      <dd className={`mt-0.5 break-words text-sm text-foreground ${mono ? "tnum font-mono" : ""}`}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function EvidenceCell({
   icon: Icon,
   label,
   value,
 }: {
   icon?: React.ComponentType<{ className?: string }>;
   label: string;
-  value: string;
+  value: number | string;
 }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-background p-3">
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        {Icon && <Icon className="h-3 w-3" />}
-        {label}
+    <div className="bg-card px-3 py-3">
+      <div className="flex items-center gap-1.5">
+        {Icon && <Icon className="h-3 w-3 text-subtle-foreground" aria-hidden />}
+        <p className="text-2xs uppercase tracking-[0.06em] text-muted-foreground">{label}</p>
       </div>
-      <p className="mt-1 text-lg font-medium tracking-tight">{value}</p>
+      <p className="tnum mt-1 text-md font-medium text-foreground">{value}</p>
     </div>
   );
 }

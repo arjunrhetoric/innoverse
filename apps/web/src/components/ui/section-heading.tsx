@@ -6,32 +6,31 @@ export function SectionHeading({
   description,
   align = "center",
   className,
+  actions,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description?: string;
   align?: "center" | "left";
   className?: string;
+  actions?: React.ReactNode;
 }) {
   return (
     <div
       className={cn(
-        align === "center" ? "text-center mx-auto items-center" : "text-left items-start",
-        "flex max-w-2xl flex-col",
+        "flex flex-col gap-3",
+        align === "center" ? "mx-auto items-center text-center" : "items-start text-left",
         className
       )}
     >
-      <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        {eyebrow}
-      </p>
-      <h2 className="type-display mt-3 text-[28px] font-medium text-foreground sm:text-4xl">
+      {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+      <h2 className="max-w-2xl text-3xl font-semibold tracking-[-0.02em] text-foreground sm:text-4xl">
         {title}
       </h2>
       {description && (
-        <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-          {description}
-        </p>
+        <p className="max-w-xl text-base leading-relaxed text-muted-foreground">{description}</p>
       )}
+      {actions && <div className="mt-2 flex items-center gap-2">{actions}</div>}
     </div>
   );
 }

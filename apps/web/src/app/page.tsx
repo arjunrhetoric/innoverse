@@ -2,308 +2,189 @@
 
 import Link from "next/link";
 import {
-  GitBranch,
-  ShieldCheck,
-  Award,
-  Users,
-  Code2,
-  Activity,
   ArrowRight,
-  CheckCircle2,
   GraduationCap,
   Building2,
+  School,
+  ShieldCheck,
+  GitBranch,
+  FileCheck2,
 } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
-import { Reveal } from "@/components/ui/reveal";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { StatusDot } from "@/components/ui/status-dot";
-import { CopyButton } from "@/components/ui/copy-button";
-import { Progress } from "@/components/ui/progress";
+import { Reveal } from "@/components/ui/reveal";
 import { Hero } from "@/components/landing/hero";
-import { AppPreview } from "@/components/landing/app-preview";
 import { Workflow } from "@/components/landing/workflow";
 import { LiveMetrics } from "@/components/landing/live-metrics";
-
-// ─── Data ────────────────────────────────────────────────────────────────────
+import { ReportPreview } from "@/components/landing/report-preview";
 
 const reportPillars = [
   {
-    title: "Evidence snapshot",
-    description:
-      "Merged pull requests, commits authored by the student, active days, lines changed, review comments and milestones — captured at sign-off and frozen.",
+    icon: GitBranch,
+    title: "Evidence, frozen at sign-off",
+    body: "Merged pull requests, authored commits, active days, review threads and milestone decisions — captured from GitHub and timestamped.",
   },
   {
-    title: "Reviewer rubric",
-    description:
-      "The startup scores code quality, delivery, communication and testing on a weighted rubric. The overall score is shown, not hidden.",
+    icon: FileCheck2,
+    title: "A rubric the founder actually filled in",
+    body: "Code quality, delivery, communication and testing are scored on a weighted rubric. The per-item scores are published, not hidden in a composite.",
   },
   {
-    title: "Contribution confidence",
-    description:
-      "An explainable 0–100 score built from attribution signals, with every contributing reason printed on the report.",
+    icon: ShieldCheck,
+    title: "Confidence with its reasons attached",
+    body: "A 0–100 attribution score, computed from authorship signals, is printed alongside every reason that moved it.",
   },
 ];
 
-// ─── Landing Page ────────────────────────────────────────────────────────────
+const audiences = [
+  {
+    icon: GraduationCap,
+    role: "For students",
+    body: "Build real products with your GitHub account as the record. Leave with a verified report and certificate, not a list of claims.",
+    href: "/explore",
+    cta: "Find a challenge",
+  },
+  {
+    icon: Building2,
+    role: "For startups",
+    body: "Post scoped work, review proposals with evidence attached, and see exactly what each candidate shipped before you hire.",
+    href: "/login",
+    cta: "Post a challenge",
+  },
+  {
+    icon: School,
+    role: "For institutions",
+    body: "Run cohorts with join codes, track participation and merged work, and export accreditation-ready reports.",
+    href: "/register/institution",
+    cta: "Register a cohort",
+  },
+];
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-background">
+    <main id="main" className="min-h-screen bg-background">
       <Navbar />
       <Hero />
 
-      {/* ─── Product showcase ─────────────────────────────────────── */}
-      <section id="showcase" className="scroll-mt-16 border-b border-border">
-        <div className="mx-auto max-w-6xl px-4 pb-20 pt-16 sm:px-6 sm:pt-20">
-          <SectionHeading
-            eyebrow="Product tour"
-            title="One workspace, three views"
-            description="Discover challenges, review proposals, and track delivery — the same interface both sides share."
-          />
-          <Reveal delay={120} className="mx-auto mt-10 max-w-5xl">
-            <AppPreview />
-          </Reveal>
-          <Reveal delay={180}>
-            <p className="mt-5 text-center font-mono text-xs text-muted-foreground">
-              Real interface · sample data · <StatusDot status="active" className="mx-1 inline-flex" /> synced live
-            </p>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ─── Metrics (live from the database) ──────────────────────── */}
-      <section className="border-b border-border">
-        <LiveMetrics />
-      </section>
-
-      {/* ─── Platform bento ────────────────────────────────────────── */}
-      <section id="platform" className="scroll-mt-16 border-b border-border">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
-          <SectionHeading
-            eyebrow="Platform"
-            title="Everything runs through one workspace"
-            description="Challenges, proposals, code review, and certification share the same data — no screenshots, no status meetings, no lost context."
-          />
-
-          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Reveal className="md:col-span-2">
-              <div className="flex h-full flex-col rounded-lg border border-border bg-card p-6 transition-colors duration-100 hover:border-foreground/20">
-                <div className="flex items-center gap-2.5">
-                  <GitBranch className="h-4 w-4 text-foreground" />
-                  <h3 className="text-[15px] font-medium tracking-tight text-foreground">
-                    GitHub-native workflow
-                  </h3>
-                </div>
-                <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  Repos are created automatically. Every pull request, review,
-                  and merge is tracked against the challenge.
-                </p>
-                <div className="mt-5 flex-1 rounded-md border border-border bg-background p-3">
-                  <div className="flex items-center gap-2.5">
-                    <StatusDot status="success" />
-                    <p className="truncate text-sm font-medium text-foreground">
-                      Add realtime dashboard
-                    </p>
-                    <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
-                      #48
-                    </span>
-                  </div>
-                  <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> ci passing
-                    </span>
-                    <span>2 reviews</span>
-                    <span>+412 −87</span>
-                  </div>
-                </div>
-              </div>
-            </Reveal>
-
-            <Reveal delay={60}>
-              <div className="flex h-full flex-col rounded-lg border border-border bg-card p-6 transition-colors duration-100 hover:border-foreground/20">
-                <div className="flex items-center gap-2.5">
-                  <ShieldCheck className="h-4 w-4 text-foreground" />
-                  <h3 className="text-[15px] font-medium tracking-tight text-foreground">
-                    Verified startups
-                  </h3>
-                </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  Business-email verification keeps the marketplace legitimate.
-                  Students only see real companies.
-                </p>
-                <p className="mt-auto pt-4 font-mono text-xs text-muted-foreground">
-                  @_ verified · techstart.ai
-                </p>
-              </div>
-            </Reveal>
-
-            <Reveal>
-              <div className="flex h-full flex-col rounded-lg border border-border bg-card p-6 transition-colors duration-100 hover:border-foreground/20">
-                <div className="flex items-center gap-2.5">
-                  <Award className="h-4 w-4 text-foreground" />
-                  <h3 className="text-[15px] font-medium tracking-tight text-foreground">
-                    Certificates that verify
-                  </h3>
-                </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  Completion mints a certificate anyone can verify in seconds.
-                </p>
-                <div className="mt-auto flex items-center justify-between pt-4">
-                  <span className="font-mono text-xs text-muted-foreground">INV-2026-8X2K</span>
-                  <CopyButton value="INV-2026-8X2K" />
-                </div>
-              </div>
-            </Reveal>
-
-            <Reveal delay={60}>
-              <div className="flex h-full flex-col rounded-lg border border-border bg-card p-6 transition-colors duration-100 hover:border-foreground/20">
-                <div className="flex items-center gap-2.5">
-                  <Users className="h-4 w-4 text-foreground" />
-                  <h3 className="text-[15px] font-medium tracking-tight text-foreground">
-                    Skill matching
-                  </h3>
-                </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  Challenges surface to students with the right stack, ranked by fit.
-                </p>
-                <div className="mt-auto space-y-1.5 pt-4 font-mono text-xs">
-                  {[["react", "94%"], ["node", "88%"], ["postgres", "71%"]].map(([s, pct]) => (
-                    <div key={s} className="flex items-center justify-between text-muted-foreground">
-                      <span>{s}</span>
-                      <span className="text-foreground tabular-nums">{pct}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Reveal>
-
-            <Reveal delay={120}>
-              <div className="flex h-full flex-col rounded-lg border border-border bg-card p-6 transition-colors duration-100 hover:border-foreground/20">
-                <div className="flex items-center gap-2.5">
-                  <Activity className="h-4 w-4 text-foreground" />
-                  <h3 className="text-[15px] font-medium tracking-tight text-foreground">
-                    Live project tracking
-                  </h3>
-                </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  Milestones and progress stay visible to both sides, in real time.
-                </p>
-                <div className="mt-auto pt-4">
-                  <div className="flex items-center justify-between font-mono text-xs text-muted-foreground">
-                    <span>milestones 3/4</span>
-                    <span className="text-foreground tabular-nums">75%</span>
-                  </div>
-                  <Progress value={75} className="mt-2 h-1.5" />
-                </div>
-              </div>
-            </Reveal>
-          </div>
-
-          <Reveal>
-            <div className="mt-4 flex flex-col gap-4 rounded-lg border border-border bg-card p-6 transition-colors duration-100 hover:border-foreground/20 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-2.5">
-                <Code2 className="h-4 w-4 shrink-0 text-foreground" />
-                <h3 className="text-[15px] font-medium tracking-tight text-foreground">
-                  Inline code review
-                </h3>
-              </div>
-              <div className="grid flex-1 gap-px overflow-hidden rounded-md border border-border bg-border font-mono text-xs sm:grid-cols-2">
-                <p className="bg-red-500/[0.07] px-3 py-2 text-red-400">
-                  − const data = await fetchAll()
-                </p>
-                <p className="bg-emerald-500/[0.07] px-3 py-2 text-emerald-400">
-                  + const data = await fetchPage(cursor)
-                </p>
-              </div>
-            </div>
-          </Reveal>
+      {/* Live platform numbers, straight from the database */}
+      <section className="border-b border-border bg-surface/40">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+          <LiveMetrics />
         </div>
       </section>
 
       <Workflow />
 
-      {/* ─── Community ─────────────────────────────────────────────── */}
-      <section id="community" className="scroll-mt-16 border-b border-border">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
-          <SectionHeading
-            eyebrow="Proof of work"
-            title="Evidence, not adjectives"
-            description="Every completed project produces a shareable report a hirer can audit in under a minute."
-          />
-          <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {reportPillars.map((pillar, i) => (
-              <Reveal key={pillar.title} delay={(i % 3) * 60}>
-                <div className="flex h-full flex-col rounded-lg border border-border bg-card p-6 transition-colors duration-100 hover:border-foreground/20">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                    0{i + 1}
-                  </p>
-                  <h3 className="mt-3 text-[15px] font-medium text-foreground">{pillar.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    {pillar.description}
-                  </p>
-                </div>
-              </Reveal>
-            ))}
-            <Reveal delay={120}>
-              <Link
-                href="/verify"
-                className="group flex h-full min-h-44 flex-col justify-between rounded-lg border border-dashed border-border p-6 transition-colors duration-100 hover:border-foreground/25 hover:bg-white/[0.02]"
-              >
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  Verify a credential
-                </p>
-                <span className="flex items-center gap-1.5 text-[15px] font-medium text-foreground">
-                  Open the public report
-                  <ArrowRight className="h-4 w-4 transition-transform duration-100 group-hover:translate-x-0.5" />
-                </span>
-              </Link>
+      {/* The report — the product's actual output */}
+      <section id="report" className="scroll-mt-20 border-b border-border">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+          <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-16">
+            <div>
+              <SectionHeading
+                align="left"
+                eyebrow="Proof of work"
+                title="The claim and the evidence, on the same page"
+                description="Every finished challenge produces a report a hiring manager can audit in under a minute. It is public, printable, and independently verifiable."
+              />
+              <ul className="mt-8 space-y-5">
+                {reportPillars.map((p) => (
+                  <li key={p.title} className="flex gap-3">
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-card">
+                      <p.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground">{p.title}</h3>
+                      <p className="mt-0.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+                        {p.body}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-8 flex flex-wrap gap-2">
+                <Button variant="outline" asChild>
+                  <Link href="/verify">
+                    <ShieldCheck className="h-4 w-4" />
+                    Verify a credential
+                  </Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link href="/talent">
+                    Browse verified talent
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <Reveal>
+              <ReportPreview />
             </Reveal>
           </div>
         </div>
       </section>
 
-      {/* ─── Final CTA ─────────────────────────────────────────────── */}
-      <section id="contact" className="scroll-mt-16">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
-          <Reveal>
-            <div className="relative overflow-hidden rounded-xl border border-border bg-card px-6 py-14 text-center sm:py-16">
-              <div className="bg-toplight pointer-events-none absolute inset-0" aria-hidden />
-              <div className="relative">
-                <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Get started
-                </p>
-                <h2 className="type-display mx-auto mt-3 max-w-xl text-3xl font-medium text-foreground sm:text-[40px]">
-                  Your next commit could be for a real startup.
-                </h2>
-                <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                  <Button
-                    size="lg"
-                    variant="default"
-                    className="shadow-cta h-11 rounded-full px-6 transition-all duration-100 hover:brightness-110 active:scale-[0.99]"
-                    asChild
+      {/* Audiences */}
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+          <SectionHeading
+            eyebrow="Three sides, one record"
+            title="One workspace, shared by everyone in the loop"
+            description="The student, the startup and the institution all read the same underlying evidence."
+          />
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {audiences.map((a, i) => (
+              <Reveal key={a.role} delay={i * 60}>
+                <div className="flex h-full flex-col rounded-lg border border-border bg-card p-5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface-2">
+                    <a.icon className="h-4 w-4 text-foreground" />
+                  </span>
+                  <h3 className="mt-4 text-md font-semibold text-foreground">{a.role}</h3>
+                  <p className="mt-1.5 flex-1 text-sm leading-relaxed text-muted-foreground">
+                    {a.body}
+                  </p>
+                  <Link
+                    href={a.href}
+                    className="group mt-5 inline-flex items-center gap-1 text-sm font-medium text-foreground"
                   >
-                    <Link href="/login">
-                      <GraduationCap className="mr-2 h-5 w-5" />
-                      Join as student
-                    </Link>
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="h-11 rounded-full border-border bg-white/[0.02] px-6 transition-colors duration-100 hover:bg-white/[0.05] active:scale-[0.99]"
-                    asChild
-                  >
-                    <Link href="/login">
-                      <Building2 className="mr-2 h-5 w-5" />
-                      Join as startup
-                    </Link>
-                  </Button>
+                    {a.cta}
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </Link>
                 </div>
-              </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Closing CTA */}
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-semibold tracking-[-0.02em] text-foreground sm:text-4xl">
+              Your next commit could be for a real startup.
+            </h2>
+            <p className="mx-auto mt-3 max-w-lg text-md leading-relaxed text-muted-foreground">
+              Sign in with GitHub, find a challenge that matches your stack, and
+              start shipping work that ends in a credential.
+            </p>
+            <div className="mt-7 flex flex-col justify-center gap-2 sm:flex-row">
+              <Button size="lg" asChild>
+                <Link href="/login">
+                  <GraduationCap className="h-4 w-4" />
+                  Join as a student
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" asChild>
+                <Link href="/login">
+                  <Building2 className="h-4 w-4" />
+                  Join as a startup
+                </Link>
+              </Button>
             </div>
-          </Reveal>
+          </div>
         </div>
       </section>
 

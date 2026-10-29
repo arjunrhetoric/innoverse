@@ -1,23 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Award, Star, Loader2, Fingerprint, AlertCircle, CheckCircle2, Building2, Ban } from "lucide-react";
+import {
+  Award,
+  Star,
+  Loader2,
+  Fingerprint,
+  AlertCircle,
+  CheckCircle2,
+  Building2,
+  Ban,
+  ArrowRight,
+  ArrowUpRight,
+  ShieldCheck,
+  ShieldOff,
+} from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Field } from "@/components/ui/field";
+import { Badge, StatusBadge } from "@/components/ui/badge";
+import { Section } from "@/components/ui/card";
+import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CopyButton } from "@/components/ui/copy-button";
+import { ConfirmAction } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { certificates as certApi } from "@/lib/api";
 import { projectChannel } from "@/lib/channels";
 import { useSSE } from "@/hooks/useSSE";
 import { useUser } from "@/hooks/useUser";
-import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+
+const RUBRIC_CRITERIA = [
+  { key: "codeQuality", label: "Code quality" },
+  { key: "delivery", label: "Delivery & reliability" },
+  { key: "communication", label: "Communication" },
+  { key: "testing", label: "Testing & robustness" },
+];
 
 export function CertificateSection({ projectId, progress }: { projectId: string; progress: number }) {
   const { user } = useUser();
+  const { toast } = useToast();
   const [proposals, setProposals] = useState<any[]>([]);
   const [issued, setIssued] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,12 +65,15 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
   const [revoking, setRevoking] = useState<string | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
   const [revokeBusy, setRevokeBusy] = useState(false);
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
       const [data, brandingRes] = await Promise.all([
         certApi.getForProblem(projectId),
-        fetch("/api/settings/branding", { credentials: "include" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch("/api/settings/branding", { credentials: "include" })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
       setProposals(data.approvedProposals || []);
       setIssued(data.certificates || []);
@@ -72,7 +100,9 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
   });
 
   const issuedFor = new Set(
-    issued.map((c: any) => (typeof c.studentId === "object" ? String(c.studentId._id) : String(c.studentId)))
+    issued.map((c: any) =>
+      typeof c.studentId === "object" ? String(c.studentId._id) : String(c.studentId)
+    )
   );
   const pending = proposals.filter((p: any) => {
     const sid = typeof p.studentId === "object" ? String(p.studentId._id) : String(p.studentId);
@@ -111,6 +141,7 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
       setReview("");
       setSummary("");
       setRating(5);
+      toast({ title: "Certificate issued", variant: "success" });
       await fetchData();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to issue certificate");
@@ -128,9 +159,11 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
     setError("");
     try {
       await certApi.revoke(id, revokeReason.trim());
+      setConfirmRevoke(null);
       setRevoking(null);
       setRevokeReason("");
       setDone("Certificate revoked. Its verification page now reports REVOKED.");
+      toast({ title: "Certificate revoked", description: "Verification now returns revoked.", variant: "warning" });
       await fetchData();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to revoke certificate");
@@ -140,262 +173,416 @@ export function CertificateSection({ projectId, progress }: { projectId: string;
   };
 
   if (loading) {
-    return <Skeleton className="h-40 w-full rounded-xl" />;
+    return (
+      <div className="space-y-4">
+        <div className="space-y-3 rounded-lg border border-border bg-card p-5">
+          <Skeleton className="h-3 w-40" />
+          <Skeleton className="h-3 w-72" />
+        </div>
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <SkeletonRows rows={3} />
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
       {brandingComplete === false && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-amber-500 shrink-0" />
-            <p className="text-xs text-muted-foreground">
+        <div className="flex flex-col gap-3 rounded-lg border border-warning-border bg-warning-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2.5">
+            <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <p className="text-sm leading-relaxed text-foreground">
               {brandingMissing.length > 0
                 ? `Still missing: ${brandingMissing.join(", ")}.`
-                : "Add your company logo, signatory, and signature before issuing certificates."}
+                : "Add your company logo, signatory and signature before issuing certificates."}
             </p>
           </div>
-          <Button size="sm" variant="outline" asChild>
-            <Link href={`/settings/branding?returnTo=${encodeURIComponent(`/project/${projectId}`)}`}>Complete Branding Kit</Link>
+          <Button size="sm" variant="outline" asChild className="shrink-0">
+            <Link href={`/settings/branding?returnTo=${encodeURIComponent(`/project/${projectId}`)}`}>
+              Complete branding kit
+            </Link>
           </Button>
         </div>
       )}
 
       {progress < 100 && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-          <p className="text-xs text-muted-foreground">
-            Project progress is {progress}%. Certificates are usually issued on completion — you can still issue one now.
+        <div className="flex items-start gap-2.5 rounded-lg border border-info-border bg-info-subtle px-4 py-3">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+          <p className="text-sm leading-relaxed text-foreground">
+            Project progress is <span className="tnum font-mono">{progress}%</span>. Certificates
+            are usually issued on completion — you can still issue one now.
           </p>
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-          <p className="text-sm text-destructive">{error}</p>
+        <div
+          role="alert"
+          className="flex items-start gap-2.5 rounded-lg border border-danger-border bg-danger-subtle px-4 py-3"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+          <p className="text-sm leading-relaxed text-danger">{error}</p>
         </div>
       )}
+
       {done && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex items-center gap-2 flex-wrap">
-          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-          <p className="text-sm text-emerald-500">{done}</p>
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-success-border bg-success-subtle px-4 py-3">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+          <p className="text-sm text-foreground">{done}</p>
           {lastReport && (
-            <Link href={`/r/${lastReport}`} className="text-sm font-medium text-primary underline underline-offset-4">
-              Open report →
+            <Link
+              href={`/r/${lastReport}`}
+              className="ml-auto inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline"
+            >
+              Open report
+              <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
           )}
         </div>
       )}
 
       {proposals.length === 0 ? (
-        <div className="text-center py-16 rounded-xl border border-dashed border-border">
-          <Award className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-          <h3 className="font-semibold text-lg mb-1">No approved contributors</h3>
-          <p className="text-sm text-muted-foreground">Certificates can be issued once you approve a proposal.</p>
-        </div>
+        <EmptyState
+          icon={Award}
+          title="No approved contributors yet"
+          description="A certificate can be issued once you approve a student's proposal. Approvals appear here with the evidence already attached."
+        />
       ) : (
-        <div className="space-y-3">
-          {proposals.map((proposal: any, i: number) => {
-            const student = typeof proposal.studentId === "object" ? proposal.studentId : null;
-            const sid = student?._id ? String(student._id) : String(proposal.studentId);
-            const cert = issued.find((c: any) => {
-              const csid = typeof c.studentId === "object" ? String(c.studentId._id) : String(c.studentId);
-              return csid === sid;
-            });
-            const isOpen = expanded === sid;
+        <Section
+          title="Approved contributors"
+          description="Issuing mints a credential and freezes the evidence into a public Proof-of-Work Report."
+          actions={
+            <span className="tnum font-mono text-2xs text-subtle-foreground">
+              {proposals.length} contributor{proposals.length === 1 ? "" : "s"} · {issued.length} issued
+            </span>
+          }
+        >
+          <ul className="divide-y divide-border">
+            {proposals.map((proposal: any) => {
+              const student = typeof proposal.studentId === "object" ? proposal.studentId : null;
+              const sid = student?._id ? String(student._id) : String(proposal.studentId);
+              const cert = issued.find((c: any) => {
+                const csid =
+                  typeof c.studentId === "object" ? String(c.studentId._id) : String(c.studentId);
+                return csid === sid;
+              });
+              const isOpen = expanded === sid;
 
-            return (
-              <motion.div
-                key={proposal._id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="rounded-xl border border-border bg-card p-5"
-              >
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <div>
-                    <h4 className="font-medium text-sm">{student?.name || student?.githubUsername || "Student"}</h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">{student?.email || ""}</p>
-                  </div>
-                  {cert ? (
-                    <div className="flex items-center gap-2">
-                      <Badge variant="success" className="text-[10px]">Issued</Badge>
-                      <span className="text-[11px] text-muted-foreground font-mono flex items-center gap-1">
-                        <Fingerprint className="h-3 w-3" />
-                        {String(cert.verificationCode).slice(0, 8)}…
-                      </span>
-                    </div>
-                  ) : (
-                    <Button size="sm" variant="gradient" onClick={() => { setExpanded(isOpen ? null : sid); setError(""); }}>
-                      <Award className="mr-1 h-3.5 w-3.5" />
-                      {isOpen ? "Cancel" : "Issue Certificate"}
-                    </Button>
-                  )}
-                </div>
-
-                {isOpen && !cert && (
-                  <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
-                    <div>
-                      <Label className="text-xs mb-1.5 block">Rating</Label>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <button key={n} type="button" onClick={() => setRating(n)} aria-label={`${n} stars`}>
-                            <Star className={cn("h-5 w-5", n <= rating ? "text-amber-400 fill-amber-400" : "text-muted-foreground/30")} />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs mb-1.5 block">Review</Label>
-                      <Textarea
-                        value={review}
-                        onChange={(e) => setReview(e.target.value)}
-                        placeholder="What did this contributor deliver?"
-                        className="min-h-10"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs mb-1.5 block">Reviewer rubric</Label>
-                      <div className="space-y-2">
-                        {[
-                          { key: "codeQuality", label: "Code quality" },
-                          { key: "delivery", label: "Delivery & reliability" },
-                          { key: "communication", label: "Communication" },
-                          { key: "testing", label: "Testing & robustness" },
-                        ].map((criterion) => (
-                          <div key={criterion.key} className="flex items-center justify-between gap-2">
-                            <span className="text-xs text-muted-foreground">{criterion.label}</span>
-                            <div className="flex gap-0.5">
-                              {[1, 2, 3, 4, 5].map((n) => (
-                                <button
-                                  key={n}
-                                  type="button"
-                                  aria-label={`${criterion.label} ${n}`}
-                                  onClick={() =>
-                                    setRubric((prev) => ({ ...prev, [criterion.key]: n }))
-                                  }
-                                  className={cn(
-                                    "h-6 w-6 rounded border text-[11px] transition-colors",
-                                    rubric[criterion.key] >= n
-                                      ? "border-primary bg-primary/15 text-foreground"
-                                      : "border-border text-muted-foreground hover:border-primary/50"
-                                  )}
-                                >
-                                  {n}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs mb-1.5 block">Reviewer summary (appears on the report)</Label>
-                      <Textarea
-                        value={summary}
-                        onChange={(e) => setSummary(e.target.value)}
-                        placeholder="What did this contributor deliver? Strengths, growth areas, evidence."
-                        className="min-h-14"
-                      />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      The report snapshots merged PRs, commits, attribution, milestones and your rubric, then publishes it at a shareable link with a QR code.
-                    </p>
-                    <Button size="sm" variant="gradient" onClick={() => handleIssue(proposal)} disabled={issuing}>
-                      {issuing ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Award className="mr-1 h-3.5 w-3.5" />}
-                      Issue
-                    </Button>
-                  </div>
-                )}
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
-
-      {issued.length > 0 && (
-        <div className="mt-6">
-          <h4 className="text-sm font-medium mb-2">Issued ({issued.length})</h4>
-          <div className="space-y-2">
-            {issued.map((c: any) => {
-              const s = typeof c.studentId === "object" ? c.studentId : null;
               return (
-                <div key={c._id} className="rounded-lg border border-border/60 bg-card p-3 text-xs">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-medium">{s?.name || "Student"}</span>
-                    <div className="flex items-center gap-2">
-                      {c.revoked ? (
-                        <Badge variant="destructive" className="text-[10px]">Revoked</Badge>
-                      ) : (
-                        <Badge variant="success" className="text-[10px]">Valid</Badge>
-                      )}
-                      {c.publicToken && (
-                        <Link
-                          href={`/r/${c.publicToken}`}
-                          className="text-[11px] font-medium text-primary underline underline-offset-2"
+                <li key={proposal._id} className="px-5 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">
+                        {student?.name || student?.githubUsername || "Student"}
+                      </p>
+                      <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                        {student?.email || student?.githubUsername || "—"}
+                      </p>
+                    </div>
+
+                    {cert ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge status={cert.revoked ? "Revoked" : "Issued"} />
+                        <span className="inline-flex items-center gap-1 font-mono text-2xs text-subtle-foreground">
+                          <Fingerprint className="h-3 w-3" aria-hidden />
+                          <span className="sr-only">Verification code </span>
+                          {String(cert.verificationCode).slice(0, 8)}…
+                        </span>
+                        {cert.publicToken && (
+                          <Button size="sm" variant="outline" asChild>
+                            <Link href={`/r/${cert.publicToken}`}>
+                              Open report
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant={isOpen ? "outline" : "default"}
+                        onClick={() => {
+                          setExpanded(isOpen ? null : sid);
+                          setError("");
+                        }}
+                        aria-expanded={isOpen}
+                      >
+                        <Award className="h-3.5 w-3.5" />
+                        {isOpen ? "Cancel" : "Issue certificate"}
+                      </Button>
+                    )}
+                  </div>
+
+                  {isOpen && !cert && (
+                    <div className="mt-4 space-y-4 border-t border-border pt-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <fieldset>
+                          <legend className="text-[13px] font-medium text-foreground">
+                            Overall rating
+                          </legend>
+                          <div className="mt-1.5 flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((n) => (
+                              <button
+                                key={n}
+                                type="button"
+                                onClick={() => setRating(n)}
+                                aria-label={`${n} star${n === 1 ? "" : "s"}`}
+                                aria-pressed={rating === n}
+                                className="cursor-pointer rounded p-0.5 transition-colors hover:bg-accent"
+                              >
+                                <Star
+                                  className={cn(
+                                    "h-4 w-4",
+                                    n <= rating
+                                      ? "fill-warning text-warning"
+                                      : "fill-transparent text-border-strong"
+                                  )}
+                                />
+                              </button>
+                            ))}
+                            <span className="tnum ml-1 font-mono text-xs text-muted-foreground">
+                              {rating}/5
+                            </span>
+                          </div>
+                        </fieldset>
+
+                        <Field
+                          id="cert-review"
+                          label="Review"
+                          required
+                          hint="Shown on the certificate"
                         >
-                          Report
-                        </Link>
-                      )}
-                      <span className="text-muted-foreground">
-                        {c.issuedAt ? formatDate(c.issuedAt) : ""}
-                      </span>
-                      {!c.revoked && (
+                          <Textarea
+                            id="cert-review"
+                            value={review}
+                            onChange={(e) => setReview(e.target.value)}
+                            placeholder="What did this contributor deliver?"
+                            className="min-h-[60px]"
+                          />
+                        </Field>
+                      </div>
+
+                      <fieldset>
+                        <legend className="text-[13px] font-medium text-foreground">
+                          Reviewer rubric
+                        </legend>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Scored on a five-point scale and published on the report.
+                        </p>
+                        <div className="mt-2 divide-y divide-border rounded-md border border-border">
+                          {RUBRIC_CRITERIA.map((criterion) => (
+                            <div
+                              key={criterion.key}
+                              className="flex items-center justify-between gap-3 px-3 py-2"
+                            >
+                              <span className="text-xs text-muted-foreground">{criterion.label}</span>
+                              <div
+                                className="flex gap-0.5"
+                                role="group"
+                                aria-label={criterion.label}
+                              >
+                                {[1, 2, 3, 4, 5].map((n) => (
+                                  <button
+                                    key={n}
+                                    type="button"
+                                    aria-label={`${criterion.label}: ${n}`}
+                                    aria-pressed={rubric[criterion.key] === n}
+                                    onClick={() =>
+                                      setRubric((prev) => ({ ...prev, [criterion.key]: n }))
+                                    }
+                                    className={cn(
+                                      "h-6 w-6 cursor-pointer rounded border font-mono text-2xs transition-colors",
+                                      rubric[criterion.key] >= n
+                                        ? "border-foreground/25 bg-foreground/[0.08] text-foreground"
+                                        : "border-border text-subtle-foreground hover:border-border-strong hover:text-foreground"
+                                    )}
+                                  >
+                                    {n}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </fieldset>
+
+                      <Field
+                        id="cert-summary"
+                        label="Reviewer summary"
+                        hint="Appears on the report"
+                      >
+                        <Textarea
+                          id="cert-summary"
+                          value={summary}
+                          onChange={(e) => setSummary(e.target.value)}
+                          placeholder="Strengths, growth areas, and the evidence behind them."
+                          className="min-h-[72px]"
+                        />
+                      </Field>
+
+                      <p className="text-2xs leading-relaxed text-subtle-foreground">
+                        Issuing snapshots merged pull requests, commits, attribution and milestones,
+                        then publishes the report at a shareable link with a QR code.
+                      </p>
+
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" onClick={() => handleIssue(proposal)} disabled={issuing}>
+                          {issuing ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Award className="h-3.5 w-3.5" />
+                          )}
+                          {issuing ? "Issuing…" : "Issue certificate"}
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-7 text-[11px] text-destructive hover:text-destructive"
+                          onClick={() => setExpanded(null)}
+                          disabled={issuing}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Section>
+      )}
+
+      {issued.length > 0 && (
+        <Section
+          title="Issued credentials"
+          description="Revoking is permanent and recorded in your audit log."
+          actions={
+            <span className="tnum font-mono text-2xs text-subtle-foreground">
+              {issued.length} total
+            </span>
+          }
+        >
+          <ul className="divide-y divide-border">
+            {issued.map((c: any) => {
+              const s = typeof c.studentId === "object" ? c.studentId : null;
+              const isRevoking = revoking === c._id;
+
+              return (
+                <li key={c._id} className="px-5 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">{s?.name || "Student"}</p>
+                        <StatusBadge status={c.revoked ? "Revoked" : "Valid"} />
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="font-mono text-2xs text-subtle-foreground">
+                          {formatDate(c.issuedAt)}
+                        </span>
+                        <CopyButton
+                          value={String(c.verificationCode)}
+                          label="Copy verification code"
+                          showValue={false}
+                          size="icon"
+                        />
+                        <span className="max-w-40 truncate font-mono text-2xs text-subtle-foreground">
+                          {String(c.verificationCode)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      {c.publicToken && (
+                        <Button size="sm" variant="outline" asChild>
+                          <Link href={`/r/${c.publicToken}`}>
+                            Open report
+                            <ArrowUpRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/verify/${c.verificationCode}`}>
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          Verify
+                        </Link>
+                      </Button>
+                      {!c.revoked && (
+                        <Button
+                          size="sm"
+                          variant="destructive-outline"
                           onClick={() => {
-                            setRevoking(revoking === c._id ? null : c._id);
+                            setRevoking(isRevoking ? null : c._id);
                             setRevokeReason("");
                             setError("");
                           }}
+                          aria-expanded={isRevoking}
                         >
-                          <Ban className="mr-1 h-3 w-3" />
+                          <Ban className="h-3.5 w-3.5" />
                           Revoke
                         </Button>
                       )}
                     </div>
                   </div>
 
-                  {revoking === c._id && (
-                    <div className="mt-3 border-t border-border/60 pt-3">
-                      <Label className="mb-1.5 block text-[11px]">Reason for revocation</Label>
-                      <Textarea
-                        value={revokeReason}
-                        onChange={(e) => setRevokeReason(e.target.value)}
-                        placeholder="e.g. Issued against the wrong student"
-                        className="min-h-10 text-xs"
-                      />
-                      <div className="mt-2 flex gap-2">
+                  {isRevoking && !c.revoked && (
+                    <div className="mt-3 space-y-2 rounded-md border border-danger-border bg-danger-subtle/50 p-3">
+                      <Field
+                        id={`revoke-${c._id}`}
+                        label="Reason for revocation"
+                        hint="Recorded in the audit log"
+                        required
+                      >
+                        <Textarea
+                          id={`revoke-${c._id}`}
+                          value={revokeReason}
+                          onChange={(e) => setRevokeReason(e.target.value)}
+                          placeholder="e.g. Issued against the wrong student"
+                          className="min-h-[56px] bg-background"
+                        />
+                      </Field>
+                      <div className="flex flex-wrap items-center gap-2">
                         <Button
                           size="sm"
                           variant="destructive"
                           disabled={revokeBusy || revokeReason.trim().length < 5}
-                          onClick={() => handleRevoke(c._id)}
+                          onClick={() => setConfirmRevoke(c._id)}
                         >
-                          {revokeBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm revocation"}
+                          <ShieldOff className="h-3.5 w-3.5" />
+                          Continue
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => setRevoking(null)}>
                           Cancel
                         </Button>
+                        <span className="text-2xs text-subtle-foreground">
+                          Revocation cannot be undone.
+                        </span>
                       </div>
-                      <p className="mt-2 text-[11px] text-muted-foreground">
-                        Revocation is permanent and is recorded in your audit log.
-                      </p>
                     </div>
                   )}
-                </div>
+                </li>
               );
             })}
-          </div>
-        </div>
+          </ul>
+        </Section>
       )}
 
       {pending.length === 0 && proposals.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center">All approved contributors have been certified.</p>
+        <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+          <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
+          Every approved contributor has been certified.
+        </p>
       )}
+
+      <ConfirmAction
+        open={Boolean(confirmRevoke)}
+        onOpenChange={(open) => !open && setConfirmRevoke(null)}
+        title="Revoke this certificate?"
+        description="The public verification page will report the credential as revoked, with the reason you gave. This cannot be undone; you would need to issue a new certificate."
+        confirmLabel="Revoke permanently"
+        pending={revokeBusy}
+        onConfirm={() => confirmRevoke && handleRevoke(confirmRevoke)}
+      />
     </div>
   );
 }

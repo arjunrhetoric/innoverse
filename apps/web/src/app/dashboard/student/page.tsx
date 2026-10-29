@@ -7,26 +7,29 @@ import {
   Search,
   Rocket,
   FileText,
-  Clock,
-  CheckCircle2,
-  XCircle,
   Calendar,
   ChevronRight,
   AlertCircle,
+  FileSignature,
+  GitFork,
+  Activity,
+  Compass,
+  ArrowRight,
+  PenLine,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Stat } from "@/components/ui/stat";
+import { Skeleton, SkeletonRows, SkeletonStats } from "@/components/ui/skeleton";
+import { StatBand } from "@/components/ui/stat";
 import { StatusDot } from "@/components/ui/status-dot";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { useUser } from "@/hooks/useUser";
-import { QuickLinks } from "@/components/dashboard/quick-links";
 import { dashboard } from "@/lib/api";
-import { formatDate, getStatusColor, truncateText } from "@/lib/utils";
+import { cn, formatDate, truncateText } from "@/lib/utils";
 import type { Problem, Proposal } from "@/lib/types";
 
 export default function StudentDashboard() {
@@ -35,6 +38,7 @@ export default function StudentDashboard() {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [search, setSearch] = useState("");
+  const [tab, setTab] = useState("challenges");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -69,15 +73,29 @@ export default function StudentDashboard() {
   }, [isAuthenticated, user]);
 
   const filteredProblems = useMemo(() => {
-    if (!search.trim()) return problems;
     const q = search.toLowerCase();
-    return problems.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        p.skillsRequired.some((s) => s.toLowerCase().includes(q))
-    );
+    return problems
+      .filter(
+        (p) =>
+          !search.trim() ||
+          p.title.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
+          p.skillsRequired.some((s) => s.toLowerCase().includes(q))
+      )
+      .sort((a, b) => {
+        // Open challenges first, then most recently posted.
+        const now = Date.now();
+        const aOpen = new Date(a.finalDeadline).getTime() >= now;
+        const bOpen = new Date(b.finalDeadline).getTime() >= now;
+        if (aOpen !== bOpen) return aOpen ? -1 : 1;
+        return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+      });
   }, [problems, search]);
+
+  const awaitingSignatureCount = useMemo(
+    () => proposals.filter((p) => p.status === "Approved" && !p.termsAcceptedAt).length,
+    [proposals]
+  );
 
   const stats = useMemo(
     () => ({
@@ -95,48 +113,76 @@ export default function StudentDashboard() {
 
   return (
     <AppShell>
-      <QuickLinks />
-      {/* Header */}
-      <div className="mb-6">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Discover
-        </p>
-        <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="type-display text-2xl font-medium text-foreground sm:text-[28px]">
-              Welcome back, {user?.name || "Student"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Explore innovation challenges and build your developer portfolio.
-            </p>
-          </div>
-        </div>
-      </div>
 
-      {/* Stats band */}
-      <div className="mb-6 grid grid-cols-2 gap-6 border-y border-border py-5 sm:grid-cols-4">
-        <Stat label="Challenges" value={stats.total} />
-        <Stat label="Proposals" value={stats.proposals} />
-        <Stat label="Approved" value={stats.approved} />
-        <Stat label="Pending" value={stats.pending} />
-      </div>
+      <PageHeader
+        eyebrow={
+          <span className="font-mono text-2xs uppercase tracking-[0.18em] text-subtle-foreground">
+            Student workspace
+          </span>
+        }
+        title={user?.name || "Student"}
+        description="Challenges you can apply to, and the current state of every proposal you have submitted."
+        actions={
+          <Button variant="default" size="sm" asChild>
+            <Link href="/explore">
+              <Compass className="h-4 w-4" />
+              Explore challenges
+            </Link>
+          </Button>
+        }
+      />
+
+      <StatBand
+        className="mb-6"
+        items={[
+          { label: "Challenges", value: stats.total, hint: "Open to apply" },
+          { label: "Proposals", value: stats.proposals, hint: "Submitted" },
+          { label: "Approved", value: stats.approved, hint: "Accepted by startups" },
+          { label: "Pending", value: stats.pending, hint: "Awaiting review" },
+        ]}
+      />
 
       {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 mb-6 flex items-center gap-2">
-          <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
-          <p className="text-sm text-destructive">{error}</p>
+        <div
+          role="alert"
+          className="mb-6 flex items-center gap-2 rounded-lg border border-danger-border bg-danger-subtle px-3 py-2.5"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
+          <p className="text-sm text-danger">{error}</p>
         </div>
       )}
 
-      {/* Tabs */}
-      <Tabs defaultValue="challenges" className="w-full">
+      {awaitingSignatureCount > 0 && (
+        <div className="mb-6 flex flex-col gap-3 rounded-lg border border-warning-border bg-warning-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2.5">
+            <PenLine className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {awaitingSignatureCount === 1
+                  ? "An agreement is waiting for your signature"
+                  : `${awaitingSignatureCount} agreements are waiting for your signature`}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Repository access is granted once both parties sign.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" className="shrink-0" onClick={() => setTab("proposals")}>
+            Review proposals
+          </Button>
+        </div>
+      )}
+
+      {proposals.length === 0 && !search && <FirstRunChecklist />}
+
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <TabsList>
             <TabsTrigger value="challenges">Challenges</TabsTrigger>
-            <TabsTrigger value="proposals">My Proposals</TabsTrigger>
+            <TabsTrigger value="proposals">My proposals</TabsTrigger>
           </TabsList>
           <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
             <Input
               placeholder="Filter by title or skill…"
               value={search}
@@ -152,11 +198,20 @@ export default function StudentDashboard() {
           {filteredProblems.length === 0 ? (
             <EmptyState
               icon={Rocket}
-              title="No challenges found"
-              description={search ? "Try adjusting your search query." : "Check back later for new challenges."}
+              title={search ? "No challenge matches that filter" : "No challenges are open to you yet"}
+              description={
+                search
+                  ? "Nothing here matches this search. Clear the filter to see every challenge you can apply to."
+                  : "Challenges from startups appear here as soon as they are published. Browse the full catalogue in the meantime."
+              }
+              action={
+                search
+                  ? { label: "Clear filter", onClick: () => setSearch("") }
+                  : { label: "Browse all challenges", href: "/explore" }
+              }
             />
           ) : (
-            <div className="overflow-hidden rounded-lg border border-border">
+            <ul className="overflow-hidden rounded-lg border border-border bg-card">
               {filteredProblems.map((problem, i) => (
                 <ChallengeRow
                   key={problem._id}
@@ -164,7 +219,7 @@ export default function StudentDashboard() {
                   last={i === filteredProblems.length - 1}
                 />
               ))}
-            </div>
+            </ul>
           )}
         </TabsContent>
 
@@ -174,10 +229,11 @@ export default function StudentDashboard() {
             <EmptyState
               icon={FileText}
               title="No proposals yet"
-              description="Start by applying to a challenge you're interested in."
+              description="A proposal is how you apply to a challenge: a written approach plus a short presentation. Pick a challenge to send your first one."
+              action={{ label: "Find a challenge", href: "/explore" }}
             />
           ) : (
-            <div className="overflow-hidden rounded-lg border border-border">
+            <ul className="overflow-hidden rounded-lg border border-border bg-card">
               {proposals.map((proposal, i) => (
                 <ProposalRow
                   key={proposal._id}
@@ -185,7 +241,7 @@ export default function StudentDashboard() {
                   last={i === proposals.length - 1}
                 />
               ))}
-            </div>
+            </ul>
           )}
         </TabsContent>
       </Tabs>
@@ -193,74 +249,75 @@ export default function StudentDashboard() {
   );
 }
 
-
-
 // ─── Sub-Components ──────────────────────────────────────────────────────────
 
 function ChallengeRow({ problem, last }: { problem: Problem; last?: boolean }) {
   const isExpired = new Date(problem.finalDeadline) < new Date();
 
-  const inner = (
-    <>
-      <StatusDot status={isExpired ? "default" : "active"} className="mt-1.5" />
+  return (
+    <li
+      className={cn(
+        "group flex items-start gap-3 px-4 py-4 transition-colors",
+        !last && "border-b border-border",
+        !isExpired && "hover:bg-surface/60"
+      )}
+    >
+      <StatusDot status={isExpired ? "default" : "active"} className="mt-1.5 shrink-0" />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <h3 className="truncate text-[15px] font-medium tracking-tight text-foreground">
-            {problem.title}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <h3 className="line-clamp-2 break-words text-md font-medium tracking-tight text-foreground">
+            {isExpired ? (
+              problem.title
+            ) : (
+              <Link
+                href={`/proposals/submit/${problem._id}`}
+                className="rounded-sm transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {problem.title}
+              </Link>
+            )}
           </h3>
-          {isExpired ? (
-            <Badge variant="outline" className="shrink-0 font-mono text-[11px] text-muted-foreground">
-              Expired
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="shrink-0 border-emerald-500/30 bg-emerald-500/10 font-mono text-[11px] text-emerald-500">
-              Active
-            </Badge>
-          )}
+          <StatusBadge status={isExpired ? "Expired" : "Active"} withDot={false} />
           {problem.contributionType === "issue" && (
-            <Badge variant="secondary" className="shrink-0 font-mono text-[11px]">
+            <Badge variant="default" className="font-mono">
               Open source{problem.githubIssueNumber ? ` · #${problem.githubIssueNumber}` : ""}
             </Badge>
           )}
         </div>
-        <p className="mt-0.5 truncate text-sm text-muted-foreground">
-          {truncateText(problem.description, 110)}
+        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          {truncateText(problem.description, 160)}
         </p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
           {problem.githubOwner && problem.githubRepoName && (
-            <span className="font-mono text-xs text-muted-foreground">
+            <span className="font-mono text-xs text-subtle-foreground">
               {problem.githubOwner}/{problem.githubRepoName}
             </span>
           )}
-          <span className="font-mono text-xs text-muted-foreground">
-            {(problem.skillsRequired || []).slice(0, 3).join(" · ")}
-            {(problem.skillsRequired?.length || 0) > 3 &&
-              ` +${problem.skillsRequired.length - 3}`}
-          </span>
-          <span className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
+          {problem.skillsRequired?.length > 0 && (
+            <span className="text-xs text-subtle-foreground">
+              {(problem.skillsRequired || []).slice(0, 3).join(" · ")}
+              {problem.skillsRequired.length > 3 && ` +${problem.skillsRequired.length - 3}`}
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1 text-xs text-subtle-foreground">
             <Calendar className="h-3 w-3" />
-            {formatDate(problem.finalDeadline)}
+            Deadline <span className="tnum font-mono">{formatDate(problem.finalDeadline)}</span>
           </span>
         </div>
       </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform duration-100 group-hover:translate-x-0.5" />
-    </>
-  );
-
-  const rowClass =
-    "group flex items-start gap-3 px-4 py-3.5 transition-colors duration-100 hover:bg-white/[0.03]";
-
-  if (isExpired) {
-    return <div className={`${rowClass} ${last ? "" : "border-b border-border"}`}>{inner}</div>;
-  }
-  return (
-    <Link
-      href={`/proposals/submit/${problem._id}`}
-      className={`${rowClass} ${last ? "" : "border-b border-border"}`}
-      aria-label={`Apply to ${problem.title}`}
-    >
-      {inner}
-    </Link>
+      <div className="ml-auto flex shrink-0 items-center gap-2 self-center">
+        {isExpired ? (
+          <span className="text-xs text-subtle-foreground">Closed</span>
+        ) : (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/proposals/submit/${problem._id}`} aria-label={`Apply to ${problem.title}`}>
+              Apply
+              <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </Button>
+        )}
+      </div>
+    </li>
   );
 }
 
@@ -268,72 +325,153 @@ function ProposalRow({ proposal, last }: { proposal: Proposal; last?: boolean })
   const problem = typeof proposal.problemId === "object" ? proposal.problemId : null;
   const problemId = problem?._id || (typeof proposal.problemId === "string" ? proposal.problemId : null);
 
+  const awaitingSignature = proposal.status === "Approved" && !proposal.termsAcceptedAt;
+  const awaitingInvite =
+    proposal.status === "Approved" && Boolean(proposal.termsAcceptedAt) && !proposal.accessGrantedAt;
+
   return (
-    <div
-      className={`flex items-center justify-between gap-4 px-4 py-3.5 transition-colors duration-100 hover:bg-white/[0.03] ${
-        last ? "" : "border-b border-border"
-      }`}
+    <li
+      className={cn(
+        "flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between",
+        !last && "border-b border-border"
+      )}
     >
       <div className="min-w-0 flex-1">
-        <h4 className="truncate text-[15px] font-medium tracking-tight text-foreground">
-          {problem?.title || "Challenge"}
-        </h4>
-        <p className="mt-0.5 truncate text-sm text-muted-foreground">
-          {truncateText(proposal.description, 80)}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <h4 className="line-clamp-2 break-words text-md font-medium tracking-tight text-foreground">
+            {problem?.title || "Challenge"}
+          </h4>
+          <StatusBadge status={proposal.status} />
+          {awaitingInvite && (
+            <Badge variant="info">
+              <span className="h-1.5 w-1.5 rounded-full bg-info" aria-hidden />
+              Invite pending
+            </Badge>
+          )}
+        </div>
+        <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">
+          {truncateText(proposal.description, 140)}
+        </p>
+        <p className="mt-1.5 text-xs text-subtle-foreground">
+          Submitted <span className="tnum font-mono">{formatDate(proposal.submittedAt)}</span>
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <Badge className={getStatusColor(proposal.status)} variant="outline">
-          {proposal.status === "Approved" && <CheckCircle2 className="mr-1 h-3 w-3" />}
-          {proposal.status === "Rejected" && <XCircle className="mr-1 h-3 w-3" />}
-          {proposal.status === "Pending" && <Clock className="mr-1 h-3 w-3" />}
-          {proposal.status}
-        </Badge>
-        {proposal.status === "Approved" && !proposal.termsAcceptedAt && (
-          <Button size="sm" variant="gradient" asChild>
-            <Link href={`/proposals/${proposal._id}/agreement`}>Sign agreement</Link>
+
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {awaitingSignature && (
+          <Button size="sm" variant="default" asChild>
+            <Link href={`/proposals/${proposal._id}/agreement`}>
+              <FileSignature className="h-3.5 w-3.5" />
+              Sign agreement
+            </Link>
           </Button>
         )}
-        {proposal.status === "Approved" && proposal.termsAcceptedAt && problemId && (
+
+        {awaitingInvite && (
           <Button size="sm" variant="outline" asChild>
-            <Link href={`/project/${problemId}`}>Track</Link>
+            <Link href={`/proposals/${proposal._id}/agreement`}>Open agreement</Link>
           </Button>
         )}
-        {proposal.status === "Approved" && proposal.termsAcceptedAt && !proposal.accessGrantedAt && (
-          <Link
-            href={`/proposals/${proposal._id}/agreement`}
-            className="text-[11px] text-amber-500 underline underline-offset-2"
-          >
-            Invite pending — open
-          </Link>
+
+        {proposal.status === "Approved" && proposal.termsAcceptedAt && proposal.accessGrantedAt && problemId && (
+          <Button size="sm" variant="outline" asChild>
+            <Link href={`/project/${problemId}`}>
+              <Activity className="h-3.5 w-3.5" />
+              Track
+            </Link>
+          </Button>
         )}
+
         {proposal.status === "Approved" && proposal.accessGrantedAt && proposal.repoUrl && (
-          <Button size="sm" variant="ghost" asChild>
+          <Button size="sm" variant="outline" asChild>
             <a href={proposal.repoUrl} target="_blank" rel="noopener noreferrer">
+              <GitFork className="h-3.5 w-3.5" />
               Repo
             </a>
           </Button>
         )}
+
+        {proposal.status === "Pending" && (
+          <span className="text-xs text-muted-foreground">Waiting on the startup</span>
+        )}
       </div>
-    </div>
+    </li>
+  );
+}
+
+function FirstRunChecklist() {
+  const steps = [
+    {
+      title: "Find a challenge",
+      description: "Browse open challenges and read the deadline and required skills.",
+      href: "/explore",
+      cta: "Browse challenges",
+    },
+    {
+      title: "Submit a proposal",
+      description: "Write your approach and attach a short presentation (PPT or PPTX).",
+      href: "/explore",
+      cta: "Pick a challenge",
+    },
+    {
+      title: "Sign the agreement",
+      description:
+        "When a startup approves you, sign the collaboration agreement to get read access to the repository.",
+      href: "/dashboard/student",
+      cta: null,
+    },
+  ] as const;
+
+  return (
+    <section className="mb-6 overflow-hidden rounded-lg border border-border bg-card">
+      <header className="flex flex-col gap-1 border-b border-border px-5 py-4">
+        <h2 className="text-md font-semibold tracking-tight text-foreground">Your first proposal</h2>
+        <p className="text-sm text-muted-foreground">
+          Three steps from browsing to read access on a real repository.
+        </p>
+      </header>
+      <ol className="divide-y divide-border">
+        {steps.map((step, i) => (
+          <li key={step.title} className="flex items-start gap-3 px-5 py-3.5">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border bg-surface-2 text-2xs font-medium text-muted-foreground">
+              {i + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">{step.title}</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                {step.description}
+              </p>
+            </div>
+            {step.cta && (
+              <Button size="sm" variant="outline" asChild className="shrink-0">
+                <Link href={step.href}>
+                  {step.cta}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
 function DashboardSkeleton() {
   return (
     <AppShell>
-      <Skeleton className="mb-2 h-4 w-28" />
-      <Skeleton className="mb-8 h-8 w-72" />
-      <div className="mb-6 grid grid-cols-2 gap-6 border-y border-border py-5 sm:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-12" />
-        ))}
+      <div className="mb-6 space-y-2">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-3.5 w-full max-w-md" />
       </div>
-      <Skeleton className="mb-4 h-10 w-full max-w-md" />
-      <div className="overflow-hidden rounded-lg border border-border">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <Skeleton key={i} className="h-[76px] rounded-none border-b border-border last:border-0" />
-        ))}
+      <SkeletonStats />
+      <div className="mb-4 mt-6 flex items-center justify-between gap-3">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-9 w-full max-w-xs" />
+      </div>
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <SkeletonRows rows={5} />
       </div>
     </AppShell>
   );

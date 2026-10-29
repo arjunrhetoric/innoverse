@@ -3,18 +3,38 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Landmark, Plus, Users, FileCheck2, Loader2, AlertCircle, ArrowRight } from "lucide-react";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
+import { Landmark, Plus, Users, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader, Meta } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { Field, FormError } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
+import { Section } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CopyButton } from "@/components/ui/copy-button";
+import {
+  Table,
+  TableWrap,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogBody,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useUser } from "@/hooks/useUser";
-import { QuickLinks } from "@/components/dashboard/quick-links";
+import { formatDate } from "@/lib/utils";
 
 interface Cohort {
   id: string;
@@ -89,133 +109,210 @@ export default function InstitutionDashboard() {
     members: cohorts.reduce((sum, c) => sum + c.memberCount, 0),
   };
 
+  if (authLoading || loading) {
+    return (
+      <AppShell>
+        <InstitutionSkeleton />
+      </AppShell>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-background">
-      <Navbar />
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-5xl">
-          <QuickLinks />
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="flex items-center gap-2 text-2xl font-medium tracking-tight sm:text-3xl">
-                <Landmark className="h-6 w-6 text-primary" />
-                Cohorts
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                Run industry-sponsored capstones and track verified student outcomes for accreditation.
-              </p>
-            </div>
-            <Button variant="gradient" onClick={() => setShowForm((v) => !v)}>
-              <Plus className="mr-2 h-4 w-4" />
-              New cohort
-            </Button>
-          </motion.div>
+    <AppShell>
 
-          {error && (
-            <div className="mt-6 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-              <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          )}
+      <PageHeader
+        eyebrow={
+          <span className="inline-flex items-center gap-1.5 text-2xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            <Landmark className="h-3.5 w-3.5 text-subtle-foreground" />
+            Institution
+          </span>
+        }
+        title={user?.name || "Institution"}
+        description="Cohorts group the students in one program so you can follow their verified reports, share a single join code and export evidence for accreditation."
+        meta={
+          <>
+            <Meta label="Cohorts" value={stats.cohorts} />
+            <Meta label="Students" value={stats.members} />
+          </>
+        }
+        actions={
+          <Button variant="brand" onClick={() => setShowForm(true)}>
+            <Plus className="h-4 w-4" />
+            New cohort
+          </Button>
+        }
+      />
 
-          {showForm && (
-            <div className="mt-6 space-y-4 rounded-xl border border-border bg-card p-6">
-              <div>
-                <Label htmlFor="cohortName" className="mb-1.5 block text-sm">Cohort name</Label>
-                <Input
-                  id="cohortName"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="CSE 2026 · Capstone Batch A"
-                  className="h-11"
-                />
-              </div>
-              <div>
-                <Label htmlFor="cohortDesc" className="mb-1.5 block text-sm">Description (optional)</Label>
-                <Textarea
-                  id="cohortDesc"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What this cohort is working on this term"
-                  className="min-h-16"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="gradient" onClick={createCohort} disabled={creating || name.trim().length < 3}>
-                  {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Create cohort
-                </Button>
-                <Button variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
-              </div>
-            </div>
-          )}
+      {error && !showForm && (
+        <div
+          role="alert"
+          className="mb-6 flex items-start gap-2 rounded-md border border-danger-border bg-danger-subtle px-3 py-2.5"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+          <p className="text-xs leading-relaxed text-danger">{error}</p>
+        </div>
+      )}
 
-          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground">Cohorts</p>
-              <p className="mt-1 text-2xl font-medium tracking-tight">{stats.cohorts}</p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground">Students</p>
-              <p className="mt-1 text-2xl font-medium tracking-tight">{stats.members}</p>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground">Evidence source</p>
-              <p className="mt-1 text-sm font-medium">GitHub + startup sign-off</p>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="mt-6 space-y-3">
-              {[1, 2].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
-            </div>
-          ) : cohorts.length === 0 ? (
-            <div className="mt-6 rounded-xl border border-dashed border-border py-16 text-center">
-              <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">
-                Create your first cohort and share its join code with students.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-6 space-y-3">
-              {cohorts.map((cohort, i) => (
-                <motion.div
-                  key={cohort.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className="rounded-xl border border-border bg-card p-5"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-medium">{cohort.name}</h3>
+      {cohorts.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No cohorts yet"
+          description="A cohort is one group of students — a capstone batch or a term. Creating one gives you a join code to share, a roster with verified reports and a CSV export for accreditation."
+          action={{ label: "Create cohort", onClick: () => setShowForm(true) }}
+        />
+      ) : (
+        <Section
+          title="Cohorts"
+          description="Newest first. Share a join code to enrol students."
+          actions={
+            <Badge variant="default">
+              {stats.cohorts} cohort{stats.cohorts === 1 ? "" : "s"}
+            </Badge>
+          }
+          contentClassName="p-0"
+        >
+          <TableWrap sticky>
+            <Table stickyHead>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-5">Cohort</TableHead>
+                  <TableHead numeric>Members</TableHead>
+                  <TableHead>Join code</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="pr-5 text-right">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cohorts.map((cohort) => (
+                  <TableRow key={cohort.id}>
+                    <TableCell className="pl-5">
+                      <Link
+                        href={`/dashboard/institution/cohorts/${cohort.id}`}
+                        className="text-sm font-medium text-foreground hover:text-brand"
+                      >
+                        {cohort.name}
+                      </Link>
                       {cohort.description && (
-                        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                        <p className="mt-0.5 line-clamp-1 max-w-md text-xs text-muted-foreground">
                           {cohort.description}
                         </p>
                       )}
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                        <Badge variant="secondary" className="font-mono text-[10px]">
-                          {cohort.memberCount} member{cohort.memberCount === 1 ? "" : "s"}
-                        </Badge>
-                        <span className="font-mono">join code: {cohort.joinCode}</span>
+                    </TableCell>
+                    <TableCell numeric className="text-muted-foreground">
+                      {cohort.memberCount}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs text-foreground">{cohort.joinCode}</span>
+                        <CopyButton value={cohort.joinCode} size="icon" label="Copy join code" />
                       </div>
-                    </div>
-                    <Button size="sm" variant="outline" asChild>
-                      <Link href={`/dashboard/institution/cohorts/${cohort.id}`}>
-                        <FileCheck2 className="mr-1 h-3.5 w-3.5" />
-                        Open
-                        <ArrowRight className="ml-1 h-3 w-3" />
-                      </Link>
-                    </Button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                      {formatDate(cohort.createdAt)}
+                    </TableCell>
+                    <TableCell className="pr-5 text-right">
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/dashboard/institution/cohorts/${cohort.id}`}>
+                          Open cohort
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableWrap>
+        </Section>
+      )}
+
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle>New cohort</DialogTitle>
+            <DialogDescription>
+              Name the group and describe what it is working on. You get a join code as soon as it
+              is created.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="space-y-4">
+            <FormError>{error}</FormError>
+            <Field id="cohortName" label="Cohort name" hint="Visible to students" required>
+              <Input
+                id="cohortName"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="CSE 2026 · Capstone Batch A"
+                autoComplete="off"
+              />
+            </Field>
+            <Field id="cohortDesc" label="Description" hint="Optional">
+              <Textarea
+                id="cohortDesc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What this cohort is working on this term"
+                className="min-h-24"
+              />
+            </Field>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowForm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={createCohort}
+              disabled={creating || name.trim().length < 3}
+            >
+              {creating && <Loader2 className="h-4 w-4 animate-spin" />}
+              {creating ? "Creating…" : "Create cohort"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AppShell>
+  );
+}
+
+/** Mirrors the loaded layout: header, meta line, then the cohort table. */
+function InstitutionSkeleton() {
+  return (
+    <div>
+      <div className="mb-6">
+        <Skeleton className="h-2.5 w-24" />
+        <Skeleton className="mt-3 h-7 w-64" />
+        <Skeleton className="mt-2.5 h-3.5 w-full max-w-xl" />
+        <Skeleton className="mt-2 h-3.5 w-2/3 max-w-md" />
+        <div className="mt-4 flex gap-4">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-3 w-24" />
         </div>
+        <div className="mt-6 h-px bg-border" />
       </div>
-      <Footer />
-    </main>
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <Skeleton className="h-3.5 w-20" />
+          <Skeleton className="h-4 w-16 rounded-full" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-4 border-b border-border px-5 py-3.5 last:border-b-0"
+          >
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-3.5 w-48" />
+              <Skeleton className="h-3 w-64 max-w-[60%]" />
+            </div>
+            <Skeleton className="h-3 w-10" />
+            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-8 w-28 rounded-md" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

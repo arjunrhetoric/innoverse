@@ -3,12 +3,20 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Users, ShieldCheck, ExternalLink, GitPullRequest, Star } from "lucide-react";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
-import { Badge } from "@/components/ui/badge";
+import {
+  ExternalLink,
+  GitPullRequest,
+  ShieldCheck,
+  Users,
+  CalendarDays,
+  GitCommitHorizontal,
+} from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader, Meta } from "@/components/ui/page-header";
+import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
 import { formatDate } from "@/lib/utils";
@@ -29,6 +37,17 @@ interface Candidate {
     projectsCompleted: number;
   };
   project: string;
+}
+
+function initials(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?"
+  );
 }
 
 export default function CandidatesPage() {
@@ -60,108 +79,186 @@ export default function CandidatesPage() {
       .finally(() => setLoading(false));
   }, [isAuthenticated, user]);
 
+  const busy = authLoading || loading;
+
   return (
-    <main className="min-h-screen bg-background">
-      <Navbar />
-      <div className="px-4 pb-16 pt-24">
+    <AppShell>
+      <div className="px-4 pb-16 pt-24 sm:px-6">
         <div className="mx-auto max-w-5xl">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <h1 className="flex items-center gap-2 text-2xl font-medium tracking-tight sm:text-3xl">
-              <Users className="h-6 w-6 text-primary" />
-              Certified candidates
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Ranked by verified contribution confidence and rubric score — evidence you can open and audit, not a résumé.
-            </p>
-          </motion.div>
+          <PageHeader
+            eyebrow={
+              <span className="inline-flex items-center gap-1.5 text-2xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                <Users className="h-3.5 w-3.5" />
+                Talent
+              </span>
+            }
+            title="Certified candidates"
+            description="Ranked by verified contribution confidence and rubric score — evidence you can open and audit, not a résumé."
+            meta={
+              !busy &&
+              candidates.length > 0 ? (
+                <>
+                  <Meta label="Candidates" value={candidates.length} />
+                  <Meta
+                    label="Revoked"
+                    value={candidates.filter((c) => c.revoked).length}
+                  />
+                </>
+              ) : undefined
+            }
+          />
 
-          {error && <p className="mt-6 text-sm text-destructive">{error}</p>}
+          {error && (
+            <div
+              role="alert"
+              className="mb-6 flex items-start gap-2 rounded-lg border border-danger-border bg-danger-subtle p-4"
+            >
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+              <p className="text-sm text-danger">{error}</p>
+            </div>
+          )}
 
-          {authLoading || loading ? (
-            <div className="mt-8 space-y-3">
+          {busy ? (
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-24 rounded-lg" />
+                <div
+                  key={i}
+                  className="flex gap-4 border-b border-border px-4 py-4 last:border-0"
+                >
+                  <Skeleton className="h-12 w-16" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                    <Skeleton className="h-3 w-2/5" />
+                  </div>
+                  <Skeleton className="h-8 w-20" />
+                </div>
               ))}
             </div>
           ) : candidates.length === 0 ? (
-            <div className="mt-10 rounded-lg border border-dashed border-border py-16 text-center">
-              <ShieldCheck className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">
-                Candidates appear here once you issue a Proof-of-Work Report.
-              </p>
-            </div>
+            <EmptyState
+              icon={ShieldCheck}
+              title="No certified candidates yet"
+              description="Candidates appear here once a Proof-of-Work Report is issued for a completed engagement."
+              action={{ label: "Open engagements", href: "/engagements" }}
+              secondary={{ label: "How reports work", href: "/verify" }}
+            />
           ) : (
-            <div className="mt-8 space-y-3">
+            <ol className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
               {candidates.map((c, i) => (
-                <motion.div
+                <li
                   key={c.certificateId}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className="rounded-lg border border-border bg-card p-5"
+                  className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-start"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-medium">{c.student.name}</h3>
-                        {c.revoked ? (
-                          <Badge variant="destructive" className="text-[10px]">Revoked</Badge>
-                        ) : (
-                          <Badge variant="success" className="text-[10px]">Verified</Badge>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {c.project}
-                        {c.student.githubUsername ? ` · @${c.student.githubUsername}` : ""}
-                        {` · ${formatDate(c.issuedAt)}`}
+                  <div className="flex min-w-0 flex-1 items-start gap-4">
+                    {/* Score block comes first — evidence before identity. */}
+                    <div className="w-[92px] shrink-0 border-r border-border pr-3">
+                      <p className="tnum text-2xl font-semibold leading-none tracking-tight text-foreground">
+                        {c.confidence ? c.confidence.score : "—"}
+                        <span className="text-xs font-normal text-subtle-foreground">
+                          /100
+                        </span>
                       </p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        {c.confidence && (
-                          <span className="inline-flex items-center gap-1">
-                            <ShieldCheck className="h-3 w-3 text-primary" />
-                            {c.confidence.score}/100 confidence
-                          </span>
-                        )}
-                        {c.rubricOverall != null && (
-                          <span className="inline-flex items-center gap-1">
-                            <Star className="h-3 w-3 text-amber-500" />
-                            {c.rubricOverall.toFixed(1)}/5 rubric
-                          </span>
-                        )}
-                        {c.evidence && (
-                          <span className="inline-flex items-center gap-1">
-                            <GitPullRequest className="h-3 w-3" />
-                            {c.evidence.mergedPRs} merged PRs · {c.evidence.commitsByStudent} commits
-                          </span>
-                        )}
-                      </div>
+                      <p className="mt-1 text-2xs uppercase tracking-[0.08em] text-muted-foreground">
+                        Confidence
+                        {c.confidence ? ` · ${c.confidence.level}` : ""}
+                      </p>
+                      <p className="mt-2 font-mono text-xs text-foreground">
+                        <span className="tnum">
+                          {c.rubricOverall != null ? c.rubricOverall.toFixed(1) : "—"}
+                        </span>
+                        <span className="text-subtle-foreground">/5</span>
+                      </p>
+                      <p className="text-2xs uppercase tracking-[0.08em] text-muted-foreground">
+                        Rubric
+                      </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {c.publicToken && (
-                        <Button size="sm" variant="outline" asChild>
-                          <Link href={`/r/${c.publicToken}`}>
-                            Report
-                            <ExternalLink className="ml-1 h-3 w-3" />
-                          </Link>
-                        </Button>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-2xs text-subtle-foreground">
+                          #{i + 1}
+                        </span>
+                        <h3 className="truncate text-md font-medium text-foreground">
+                          {c.student.name}
+                        </h3>
+                        <StatusBadge status={c.revoked ? "Revoked" : "Verified"} />
+                        <Avatar size="sm" className="ring-1 ring-border">
+                          <AvatarFallback>{initials(c.student.name)}</AvatarFallback>
+                        </Avatar>
+                      </div>
+
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {c.project}
+                        {c.student.githubUsername ? (
+                          <>
+                            {" · "}
+                            <span className="font-mono">@{c.student.githubUsername}</span>
+                          </>
+                        ) : null}
+                      </p>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                        {c.evidence ? (
+                          <>
+                            <span className="inline-flex items-center gap-1">
+                              <GitPullRequest className="h-3.5 w-3.5 text-subtle-foreground" />
+                              <span className="tnum font-mono text-foreground">
+                                {c.evidence.mergedPRs}
+                              </span>
+                              merged PRs
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <GitCommitHorizontal className="h-3.5 w-3.5 text-subtle-foreground" />
+                              <span className="tnum font-mono text-foreground">
+                                {c.evidence.commitsByStudent}
+                              </span>
+                              commits
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <CalendarDays className="h-3.5 w-3.5 text-subtle-foreground" />
+                              <span className="tnum font-mono text-foreground">
+                                {c.evidence.activeDays}
+                              </span>
+                              active days
+                            </span>
+                          </>
+                        ) : (
+                          <span>Evidence snapshot not captured</span>
+                        )}
+                        <span className="inline-flex items-center gap-1">
+                          <span className="text-subtle-foreground">Issued</span>
+                          <span className="font-mono">{formatDate(c.issuedAt)}</span>
+                        </span>
+                      </div>
+
+                      {c.student.email && !c.revoked && (
+                        <p className="mt-1.5 truncate text-xs text-subtle-foreground">
+                          Contact <span className="font-mono">{c.student.email}</span>
+                        </p>
                       )}
-                      <Button size="sm" variant="ghost" asChild>
-                        <Link href={`/verify/${c.verificationCode}`}>Verify</Link>
-                      </Button>
                     </div>
                   </div>
-                  {c.student.email && (
-                    <p className="mt-3 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-                      Contact: {c.student.email}
-                    </p>
-                  )}
-                </motion.div>
+
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                    {c.publicToken && (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/r/${c.publicToken}`}>
+                          Report
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link href={`/verify/${c.verificationCode}`}>Verify</Link>
+                    </Button>
+                  </div>
+                </li>
               ))}
-            </div>
+            </ol>
           )}
         </div>
       </div>
-      <Footer />
-    </main>
+    </AppShell>
   );
 }

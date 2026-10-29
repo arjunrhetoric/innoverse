@@ -2,13 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Search, MapPin, GitPullRequest, ShieldCheck, Star, Users } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronRight,
+  FileText,
+  GitPullRequest,
+  MapPin,
+  Search,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonRows } from "@/components/ui/skeleton";
 
 interface Talent {
   id: string;
@@ -40,9 +51,20 @@ export default function TalentPage() {
   }, []);
 
   const skills = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const t of talent) for (const s of t.skills) counts.set(s, (counts.get(s) ?? 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([s]) => s);
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const t of talent) {
+      for (const s of t.skills) {
+        const key = s.trim().toLowerCase();
+        if (!key) continue;
+        const entry = counts.get(key) ?? { label: s.trim(), count: 0 };
+        entry.count += 1;
+        counts.set(key, entry);
+      }
+    }
+    return [...counts.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+      .map((entry) => entry.label);
   }, [talent]);
 
   const filtered = useMemo(() => {
@@ -59,131 +81,223 @@ export default function TalentPage() {
     });
   }, [talent, query, skill]);
 
+  const hasFilters = Boolean(query.trim() || skill);
+  const clearFilters = () => {
+    setQuery("");
+    setSkill(null);
+  };
+
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-6xl">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+      <div className="mx-auto w-full max-w-[1160px] px-4 pb-20 pt-10 sm:px-6 sm:pt-14">
+        <PageHeader
+          eyebrow={
+            <span className="font-mono text-2xs uppercase tracking-[0.18em] text-subtle-foreground">
               For hiring teams
-            </p>
-            <h1 className="mt-2 text-3xl font-medium tracking-tight sm:text-4xl">
-              Talent with receipts
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Every profile below is built from verified GitHub contributions and startup-signed
-              Proof-of-Work Reports. Open a report and audit the evidence yourself.
-            </p>
-          </motion.div>
+            </span>
+          }
+          title="Talent with receipts"
+          description="Every profile is built from verified GitHub contributions and startup-signed Proof-of-Work Reports. Open a report and audit the evidence yourself."
+          actions={
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/verify">
+                <ShieldCheck />
+                Verify a code
+              </Link>
+            </Button>
+          }
+        />
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1 sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        {/* Search */}
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <Field
+            id="talent-search"
+            label="Search talent"
+            hint="Name, skill or GitHub handle"
+            className="w-full lg:max-w-sm"
+          >
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-subtle-foreground"
+                aria-hidden
+              />
               <Input
+                id="talent-search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name, skill, or GitHub handle"
-                className="h-10 pl-9"
+                placeholder="Search talent…"
+                className="pl-9"
               />
             </div>
-            {skills.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {skills.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setSkill(skill === s ? null : s)}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
-                      skill === s
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border text-muted-foreground hover:border-foreground/25"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+          </Field>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-2xs uppercase tracking-[0.08em] text-subtle-foreground">
+              Skill
+            </span>
+            {skills.map((s) => {
+              const active = skill === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setSkill(active ? null : s)}
+                  className={`cursor-pointer rounded-full border px-2.5 py-1 font-mono text-2xs transition-colors ${
+                    active
+                      ? "border-brand/30 bg-brand-subtle text-brand"
+                      : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+                  }`}
+                >
+                  {s}
+                </button>
+              );
+            })}
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear
+              </Button>
             )}
           </div>
+        </div>
 
-          {loading ? (
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-44 rounded-lg" />
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="mt-10 rounded-lg border border-dashed border-border py-16 text-center">
-              <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">
-                {talent.length === 0
-                  ? "No students have published a profile yet."
-                  : "No profiles match that search."}
-              </p>
-            </div>
-          ) : (
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((t, i) => (
-                <motion.div
-                  key={t.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                >
-                  <Link
-                    href={`/talent/${t.id}`}
-                    className="group flex h-full flex-col rounded-lg border border-border bg-card p-5 transition-colors hover:border-foreground/25"
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="text-sm font-medium text-foreground">Public profiles</h2>
+          {!loading && (
+            <p className="tnum font-mono text-2xs text-muted-foreground">
+              {filtered.length} of {talent.length}
+            </p>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <SkeletonRows rows={6} />
+          </div>
+        ) : talent.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No public profiles yet"
+            description="Students appear here once they publish a profile and a startup has issued their first report."
+            action={{ label: "Explore challenges", href: "/explore" }}
+          />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title="No profiles match that search"
+            description="Try a different name or GitHub handle, or clear the skill filter."
+            action={{ label: "Clear filters", onClick: clearFilters }}
+          />
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <ul className="divide-y divide-border">
+              {filtered.map((t) => {
+                const latest = t.reports.find((r) => r.token);
+                return (
+                  <li
+                    key={t.id}
+                    className="relative flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-surface-2 sm:flex-row sm:items-center sm:gap-6"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="truncate text-sm font-medium">{t.name}</h3>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {t.headline || (t.githubUsername ? `@${t.githubUsername}` : "Student developer")}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/talent/${t.id}`}
+                          className="text-sm font-medium text-foreground underline-offset-4 after:absolute after:inset-0 after:content-[''] hover:underline"
+                        >
+                          {t.name}
+                        </Link>
+                        {t.githubUsername && (
+                          <span className="font-mono text-2xs text-subtle-foreground">
+                            @{t.githubUsername}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {t.headline || "Student developer"}
+                        {t.location && (
+                          <>
+                            <span aria-hidden className="mx-1.5 text-subtle-foreground">·</span>
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin className="h-3 w-3" aria-hidden />
+                              {t.location}
+                            </span>
+                          </>
+                        )}
+                      </p>
+                      {t.skills.length > 0 && (
+                        <p className="mt-1.5 truncate font-mono text-2xs text-subtle-foreground">
+                          {t.skills.slice(0, 6).join(" · ")}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid shrink-0 grid-cols-4 gap-4 sm:gap-6">
+                      <div>
+                        <p className="text-2xs uppercase tracking-[0.08em] text-subtle-foreground">
+                          Confidence
+                        </p>
+                        <p className="tnum text-sm font-medium text-foreground">
+                          {t.avgConfidence != null ? `${t.avgConfidence}/100` : <span className="text-2xs font-normal text-subtle-foreground">Not scored</span>}
                         </p>
                       </div>
-                      {t.avgConfidence != null && (
-                        <Badge variant="secondary" className="shrink-0 text-[10px]">
-                          {t.avgConfidence}/100
-                        </Badge>
-                      )}
+                      <div>
+                        <p className="text-2xs uppercase tracking-[0.08em] text-subtle-foreground">
+                          Rubric
+                        </p>
+                        <p className="tnum text-sm font-medium text-foreground">
+                          {t.avgRubric != null ? `${t.avgRubric.toFixed(1)}/5` : <span className="text-2xs font-normal text-subtle-foreground">Not scored</span>}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-2xs uppercase tracking-[0.08em] text-subtle-foreground">
+                          Reports
+                        </p>
+                        <p className="tnum text-sm font-medium text-foreground">
+                          {t.reportCount}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-2xs uppercase tracking-[0.08em] text-subtle-foreground">
+                          Merged PRs
+                        </p>
+                        <p className="flex items-center gap-1 text-sm font-medium text-foreground">
+                          <GitPullRequest className="h-3 w-3 text-subtle-foreground" aria-hidden />
+                          <span className="tnum">{t.mergedPRs}</span>
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {t.skills.slice(0, 4).map((s) => (
-                        <Badge key={s} variant="outline" className="text-[10px]">
-                          {s}
-                        </Badge>
-                      ))}
+                    <div className="flex shrink-0 items-center gap-2 sm:justify-end">
+                      {latest?.token && (
+                        <Link
+                          href={`/r/${latest.token}`}
+                          className="relative z-10 inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-2xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                        >
+                          <FileText className="h-3 w-3" aria-hidden />
+                          Latest report
+                        </Link>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-subtle-foreground" aria-hidden />
                     </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
-                    <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3 text-primary" />
-                        {t.reportCount} report{t.reportCount === 1 ? "" : "s"}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <GitPullRequest className="h-3 w-3" />
-                        {t.mergedPRs} merged
-                      </span>
-                      {t.avgRubric != null && (
-                        <span className="inline-flex items-center gap-1">
-                          <Star className="h-3 w-3 text-amber-500" />
-                          {t.avgRubric.toFixed(1)}/5
-                        </span>
-                      )}
-                      {t.location && (
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {t.location}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-          )}
+        <div className="mt-10 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Confidence and rubric scores come from the startup review, not from self-reported skills.
+          </p>
+          <Button variant="ghost" size="sm" className="ml-auto" asChild>
+            <Link href="/explore">
+              See open challenges
+              <ArrowRight />
+            </Link>
+          </Button>
         </div>
       </div>
       <Footer />

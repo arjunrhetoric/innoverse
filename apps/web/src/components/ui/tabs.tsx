@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const Tabs = TabsPrimitive.Root;
 
+/** Underline tab bar — the default in-app pattern (Linear/GitHub style). */
 const TabsList = React.forwardRef<
   React.ComponentRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
@@ -13,7 +14,7 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center gap-1 rounded-lg bg-muted p-1 text-muted-foreground",
+      "flex h-9 w-full items-stretch gap-4 overflow-x-auto border-b border-border scrollbar-none",
       className
     )}
     {...props}
@@ -28,7 +29,10 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium ring-offset-background transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm cursor-pointer",
+      "relative -mb-px inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-0.5 text-sm font-medium text-muted-foreground transition-colors duration-[var(--dur-1)]",
+      "hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground",
+      "disabled:pointer-events-none disabled:opacity-50",
+      "[&_svg]:size-4 [&_svg]:shrink-0",
       className
     )}
     {...props}
@@ -42,13 +46,43 @@ const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn(
-      "mt-3 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-      className
-    )}
+    className={cn("mt-4 focus-visible:outline-none", className)}
     {...props}
   />
 ));
 TabsContent.displayName = TabsPrimitive.Content.displayName;
 
-export { Tabs, TabsList, TabsTrigger, TabsContent };
+/** Segmented control — compact switches inside toolbars and forms. */
+const SegmentedList = React.forwardRef<
+  React.ComponentRef<typeof TabsPrimitive.List>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.List
+    ref={ref}
+    className={cn(
+      "inline-flex h-8 items-center gap-0.5 rounded-md border border-border bg-surface-2 p-0.5",
+      className
+    )}
+    {...props}
+  />
+));
+SegmentedList.displayName = "SegmentedList";
+
+const SegmentedTrigger = React.forwardRef<
+  React.ComponentRef<typeof TabsPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      "inline-flex h-7 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[5px] px-2.5 text-xs font-medium text-muted-foreground transition-colors duration-[var(--dur-1)]",
+      "hover:text-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-2xs",
+      "data-[state=active]:ring-1 data-[state=active]:ring-border",
+      className
+    )}
+    {...props}
+  />
+));
+SegmentedTrigger.displayName = "SegmentedTrigger";
+
+export { Tabs, TabsList, TabsTrigger, TabsContent, SegmentedList, SegmentedTrigger };

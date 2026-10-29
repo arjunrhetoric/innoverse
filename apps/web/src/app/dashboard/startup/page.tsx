@@ -14,18 +14,20 @@ import {
   AlertCircle,
   ExternalLink,
   Rocket,
+  Inbox,
 } from "lucide-react";
 import { GithubIcon as Github } from "@/components/ui/icons";
 import { AppShell } from "@/components/layout/app-shell";
-import { Stat } from "@/components/ui/stat";
-import { StatusDot } from "@/components/ui/status-dot";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatBand } from "@/components/ui/stat";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, SkeletonRows, SkeletonStats } from "@/components/ui/skeleton";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -35,10 +37,29 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useUser } from "@/hooks/useUser";
-import { QuickLinks } from "@/components/dashboard/quick-links";
 import { dashboard, projects, proposals as proposalsApi } from "@/lib/api";
-import { formatDate, truncateText, getStatusColor } from "@/lib/utils";
+import { formatDate, truncateText } from "@/lib/utils";
 import type { Problem, Proposal } from "@/lib/types";
+
+type ReviewAction = "Approved" | "Rejected" | "";
+
+/** Agreement lifecycle for an approved proposal, derived from its own fields. */
+function agreementState(proposal: Proposal): { label: string; hint: string } | null {
+  if (proposal.status !== "Approved") return null;
+  if (!proposal.termsAcceptedAt) {
+    return {
+      label: "Pending signature",
+      hint: "Repository access is not granted until the student signs.",
+    };
+  }
+  if (!proposal.accessGrantedAt) {
+    return {
+      label: "Invited",
+      hint: "Signed — waiting for the student to accept the GitHub invitation.",
+    };
+  }
+  return { label: "Signed", hint: "Agreement signed and read access granted." };
+}
 
 export default function StartupDashboard() {
   const { user, isLoading: authLoading, isAuthenticated } = useUser();
@@ -47,21 +68,23 @@ export default function StartupDashboard() {
   const [allProposals, setAllProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState("challenges");
 
   // Review Dialog State
   const [reviewDialog, setReviewDialog] = useState<{
     open: boolean;
     proposal: Proposal | null;
-    action: "Approved" | "Rejected" | "";
+    action: ReviewAction;
   }>({ open: false, proposal: null, action: "" });
   const [feedback, setFeedback] = useState("");
   const [reviewing, setReviewing] = useState(false);
 
   // Delete Confirmation
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; problemId: string }>({
-    open: false,
-    problemId: "",
-  });
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    problemId: string;
+    title: string;
+  }>({ open: false, problemId: "", title: "" });
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -100,9 +123,17 @@ export default function StartupDashboard() {
       activeChalllenges: challenges.filter((c) => !c.completed).length,
       totalProposals: allProposals.length,
       pending: allProposals.filter((p) => p.status === "Pending").length,
+      signed: allProposals.filter(
+        (p) => p.status === "Approved" && p.termsAcceptedAt && p.accessGrantedAt
+      ).length,
     }),
     [challenges, allProposals]
   );
+
+  const proposalsFor = (challengeId: string) =>
+    allProposals.filter(
+      (p) => typeof p.problemId === "object" && p.problemId?._id === challengeId
+    );
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -129,7 +160,7 @@ export default function StartupDashboard() {
     setDeleting(true);
     try {
       await projects.delete(deleteDialog.problemId);
-      setDeleteDialog({ open: false, problemId: "" });
+      setDeleteDialog({ open: false, problemId: "", title: "" });
       await fetchData();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to delete challenge");
@@ -138,117 +169,182 @@ export default function StartupDashboard() {
     }
   };
 
+  const openReview = (proposal: Proposal, action: ReviewAction) => {
+    setFeedback("");
+    setReviewDialog({ open: true, proposal, action });
+  };
+
   if (authLoading || loading) {
     return <DashboardSkeleton />;
   }
 
+  const reviewProposal = reviewDialog.proposal;
+  const reviewProblem =
+    reviewProposal && typeof reviewProposal.problemId === "object"
+      ? reviewProposal.problemId
+      : null;
+  const reviewStudent =
+    reviewProposal && typeof reviewProposal.studentId === "object"
+      ? reviewProposal.studentId
+      : null;
+
   return (
     <AppShell>
-          <QuickLinks />
-          {/* Header */}
-          <div className="mb-6">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Workspace
-            </p>
-            <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h1 className="type-display text-2xl font-medium text-foreground sm:text-[28px]">
-                  Welcome, {user?.name || "Founder"}
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Manage your innovation challenges and review student proposals.
-                </p>
-              </div>
-              <Button variant="default" asChild>
-                <Link href="/dashboard/startup/new-challenge">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Post Challenge
-                </Link>
-              </Button>
-            </div>
-          </div>
 
-          {/* Stats band */}
-          <div className="mb-6 grid grid-cols-3 gap-6 border-y border-border py-5">
-            <Stat label="Active" value={stats.activeChalllenges} />
-            <Stat label="Proposals" value={stats.totalProposals} />
-            <Stat label="Pending" value={stats.pending} />
-          </div>
+      <PageHeader
+        eyebrow={
+          <span className="font-mono text-2xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Workspace
+          </span>
+        }
+        title="Challenges and proposals"
+        description="Post challenges, track agreement state after approval, and clear the proposal queue."
+        actions={
+          <Button variant="default" asChild>
+            <Link href="/dashboard/startup/new-challenge">
+              <Plus className="h-4 w-4" />
+              Post challenge
+            </Link>
+          </Button>
+        }
+      />
 
-          {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 mb-6 flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          )}
+      <StatBand
+        className="mb-6"
+        items={[
+          {
+            label: "Active challenges",
+            value: stats.activeChalllenges,
+            hint: `${challenges.length} total`,
+          },
+          { label: "Proposals", value: stats.totalProposals, hint: "All time" },
+          {
+            label: "Awaiting review",
+            value: stats.pending,
+            hint: stats.pending ? "Needs a decision" : "Queue clear",
+          },
+          {
+            label: "Agreements signed",
+            value: stats.signed,
+            hint: stats.signed === 1 ? "Read access held" : "Read access granted",
+          },
+        ]}
+      />
 
-          {/* Tabs */}
-          <Tabs defaultValue="challenges">
-            <TabsList className="mb-4">
-              <TabsTrigger value="challenges">My Challenges</TabsTrigger>
-              <TabsTrigger value="proposals">
-                Student Proposals
-                {stats.pending > 0 && (
-                  <span className="ml-1.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 font-mono text-[11px] leading-none text-amber-500">
-                    {stats.pending}
-                  </span>
-                )}
-              </TabsTrigger>
-            </TabsList>
+      {error && (
+        <div
+          role="alert"
+          className="mb-6 flex items-start gap-2 rounded-lg border border-danger-border bg-danger-subtle p-4"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+          <p className="text-sm text-danger">{error}</p>
+        </div>
+      )}
 
-            {/* Challenges Tab */}
-            <TabsContent value="challenges">
-              {challenges.length === 0 ? (
-                <EmptyState
-                  icon={Rocket}
-                  title="No challenges yet"
-                  description="Post your first innovation challenge to start receiving proposals."
-                />
-              ) : (
-                <div className="overflow-hidden rounded-lg border border-border">
-                  {challenges.map((challenge, i) => (
-                    <div
-                      key={challenge._id}
-                      className={`flex items-start gap-3 px-4 py-3.5 transition-colors duration-100 hover:bg-white/[0.03] ${
-                        i === challenges.length - 1 ? "" : "border-b border-border"
-                      }`}
-                    >
-                      <StatusDot
-                        status={challenge.completed ? "success" : "active"}
-                        className="mt-1.5"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <h3 className="truncate text-[15px] font-medium tracking-tight text-foreground">
-                            {challenge.title}
-                          </h3>
-                          {challenge.completed && (
-                            <Badge
-                              variant="outline"
-                              className="shrink-0 border-emerald-500/30 bg-emerald-500/10 font-mono text-[11px] text-emerald-500"
-                            >
-                              Completed
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                          {truncateText(challenge.description, 110)}
-                        </p>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {(challenge.skillsRequired || []).slice(0, 3).join(" · ")}
-                            {(challenge.skillsRequired?.length || 0) > 3 &&
-                              ` +${challenge.skillsRequired.length - 3}`}
-                          </span>
-                          <span className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
-                            <Calendar className="h-3 w-3" />
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="challenges">
+            Challenges
+            <span className="tnum font-mono text-xs text-subtle-foreground">
+              {challenges.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="proposals">
+            Proposal queue
+            {stats.pending > 0 && (
+              <Badge variant="warning" className="tnum font-mono">
+                {stats.pending}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ─── Challenges ─────────────────────────────────────────────── */}
+        <TabsContent value="challenges">
+          {challenges.length === 0 ? (
+            <EmptyState
+              icon={Rocket}
+              title="No challenges yet"
+              description="Post your first innovation challenge to start receiving student proposals."
+              action={{
+                label: "Post a challenge",
+                href: "/dashboard/startup/new-challenge",
+              }}
+            />
+          ) : (
+            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+              {challenges.map((challenge) => {
+                const related = proposalsFor(challenge._id);
+                const approved = related.filter((p) => p.status === "Approved");
+                const signed = approved.filter(
+                  (p) => p.termsAcceptedAt && p.accessGrantedAt
+                );
+                const pending = related.filter((p) => p.status === "Pending").length;
+                const agreement = approved.length
+                  ? signed.length === approved.length
+                    ? "Signed"
+                    : "Pending signature"
+                  : "No approvals";
+
+                return (
+                  <li
+                    key={challenge._id}
+                    className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate text-md font-medium tracking-tight text-foreground">
+                          {challenge.title}
+                        </h3>
+                        <StatusBadge
+                          status={challenge.completed ? "Completed" : "Active"}
+                        />
+                        {pending > 0 && (
+                          <Badge variant="warning" className="tnum font-mono">
+                            {pending} new
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+                        {truncateText(challenge.description, 130)}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3.5 w-3.5 text-subtle-foreground" />
+                          <span className="tnum font-mono">{related.length}</span>
+                          {related.length === 1 ? " proposal" : " proposals"}
+                          <span className="text-subtle-foreground">·</span>
+                          <span className="tnum font-mono">{approved.length}</span>{" "}
+                          approved
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5 text-subtle-foreground" />
+                          <span className="font-mono">
                             {formatDate(challenge.finalDeadline)}
                           </span>
-                        </div>
+                        </span>
+                        {challenge.skillsRequired?.length > 0 && (
+                          <span className="truncate font-mono text-subtle-foreground">
+                            {challenge.skillsRequired.slice(0, 3).join(" · ")}
+                            {challenge.skillsRequired.length > 3 &&
+                              ` +${challenge.skillsRequired.length - 3}`}
+                          </span>
+                        )}
                       </div>
-                      <div className="flex shrink-0 items-center gap-0.5">
-                        {challenge.githubRepoUrl && (
-                          <Button size="sm" variant="ghost" className="h-8 w-8 px-0" asChild>
+                    </div>
+
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                      <StatusBadge status={agreement} />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setTab("proposals")}
+                      >
+                        Review proposals
+                      </Button>
+                      {challenge.githubRepoUrl && (
+                        <Tooltip content="Open GitHub repository">
+                          <Button size="icon-sm" variant="ghost" asChild>
                             <a
                               href={challenge.githubRepoUrl}
                               target="_blank"
@@ -258,252 +354,350 @@ export default function StartupDashboard() {
                               <Github className="h-4 w-4" />
                             </a>
                           </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 px-0 text-muted-foreground hover:text-destructive"
-                          aria-label={`Delete ${challenge.title}`}
-                          onClick={() =>
-                            setDeleteDialog({ open: true, problemId: challenge._id })
-                          }
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Proposals Tab */}
-            <TabsContent value="proposals">
-              {allProposals.length === 0 ? (
-                <EmptyState
-                  icon={FileText}
-                  title="No proposals received"
-                  description="Student proposals will appear here once they apply to your challenges."
-                />
-              ) : (
-                <div className="overflow-hidden rounded-lg border border-border">
-                  {allProposals.map((proposal, i) => {
-                    const problem =
-                      typeof proposal.problemId === "object"
-                        ? proposal.problemId
-                        : null;
-                    const student =
-                      typeof proposal.studentId === "object"
-                        ? proposal.studentId
-                        : null;
-
-                    return (
-                      <div
-                        key={proposal._id}
-                        className={`transition-colors duration-100 hover:bg-white/[0.02] ${
-                          i === allProposals.length - 1 ? "" : "border-b border-border"
-                        }`}
+                        </Tooltip>
+                      )}
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-danger"
+                        aria-label={`Delete ${challenge.title}`}
+                        onClick={() =>
+                          setDeleteDialog({
+                            open: true,
+                            problemId: challenge._id,
+                            title: challenge.title,
+                          })
+                        }
                       >
-                        <div className="flex flex-col justify-between gap-3 px-4 py-3.5 sm:flex-row sm:items-center">
-          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="truncate text-[15px] font-medium tracking-tight text-foreground">
-                                {problem?.title || "Challenge"}
-                              </h4>
-                              <Badge
-                                className={getStatusColor(proposal.status)}
-                                variant="outline"
-                              >
-                                {proposal.status}
-                              </Badge>
-                            </div>
-                            <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                              By{" "}
-                              {student ? (
-                                <Link
-                                  href={`/profile/student/${student._id}`}
-                                  className="text-brand-bright hover:underline"
-                                >
-                                  {student.name || student.githubUsername}
-                                </Link>
-                              ) : (
-                                "Student"
-                              )}
-                              {" · "}
-                              {truncateText(proposal.description, 80)}
-                            </p>
-                            {proposal.status === "Approved" && !proposal.termsAcceptedAt && (
-                              <p className="mt-1 text-[11px] text-amber-500">
-                                Awaiting student signature — repository access not granted yet.
-                              </p>
-                            )}
-                            {proposal.status === "Approved" && proposal.termsAcceptedAt && proposal.accessGrantedAt && (
-                              <p className="mt-1 text-[11px] text-emerald-500">
-                                Agreement signed — read access granted.
-                              </p>
-                            )}
-                            {proposal.status === "Approved" && proposal.termsAcceptedAt && !proposal.accessGrantedAt && (
-                              <p className="mt-1 text-[11px] text-amber-500">
-                                Agreement signed — waiting for the student to accept the GitHub invitation.
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            {proposal.pptUrl && (
-                              <Button variant="outline" size="sm" asChild>
-                                <a
-                                  href={`/api/proposals/${proposal._id}/file`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <ExternalLink className="mr-1 h-3 w-3" />
-                                  Deck
-                                </a>
-                              </Button>
-                            )}
-                            {proposal.status === "Approved" && proposal.agreementFile && (
-                              <Button variant="ghost" size="sm" asChild>
-                                <a href={`/api/proposals/${proposal._id}/agreement/file`}>
-                                  Agreement
-                                </a>
-                              </Button>
-                            )}
-                            {proposal.status === "Pending" && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() =>
-                                    setReviewDialog({
-                                      open: true,
-                                      proposal,
-                                      action: "Approved",
-                                    })
-                                  }
-                                >
-                                  <CheckCircle2 className="mr-1 h-3 w-3" />
-                                  Approve
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() =>
-                                    setReviewDialog({
-                                      open: true,
-                                      proposal,
-                                      action: "Rejected",
-                                    })
-                                  }
-                                >
-                                  <XCircle className="mr-1 h-3 w-3" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                            {proposal.status === "Approved" && problem?._id && (
-                              <Button size="sm" variant="outline" asChild>
-                                <Link href={`/project/${problem._id}`}>
-                                  <Rocket className="mr-1.5 h-3 w-3" />
-                                  Project
-                                </Link>
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TabsContent>
 
-      {/* ─── Review Dialog ────────────────────────────────────────────── */}
+        {/* ─── Proposal queue ─────────────────────────────────────────── */}
+        <TabsContent value="proposals">
+          {allProposals.length === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              title="No proposals received"
+              description="Proposals appear here as soon as a student applies to one of your challenges."
+              action={{
+                label: "Post a challenge",
+                href: "/dashboard/startup/new-challenge",
+              }}
+              secondary={{
+                label: "View challenges",
+                onClick: () => setTab("challenges"),
+              }}
+            />
+          ) : (
+            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+              {allProposals.map((proposal) => {
+                const problem =
+                  typeof proposal.problemId === "object" ? proposal.problemId : null;
+                const student =
+                  typeof proposal.studentId === "object" ? proposal.studentId : null;
+                const agreement = agreementState(proposal);
+
+                return (
+                  <li
+                    key={proposal._id}
+                    className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {student ? (
+                            <Link
+                              href={`/profile/student/${student._id}`}
+                              className="hover:text-brand hover:underline"
+                            >
+                              {student.name || student.githubUsername}
+                            </Link>
+                          ) : (
+                            "Student"
+                          )}
+                        </span>
+                        <StatusBadge status={proposal.status} />
+                        {agreement && (
+                          <Tooltip content={agreement.hint}>
+                            <span className="inline-flex">
+                              <StatusBadge status={agreement.label} />
+                            </span>
+                          </Tooltip>
+                        )}
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        <Link
+                          href={
+                            problem?._id
+                              ? `/project/${problem._id}`
+                              : "/dashboard/startup"
+                          }
+                          className="font-medium text-foreground hover:underline"
+                        >
+                          {problem?.title || "Challenge"}
+                        </Link>
+                        <span className="mx-1.5 text-subtle-foreground">·</span>
+                        <span className="font-mono">
+                          submitted {formatDate(proposal.submittedAt)}
+                        </span>
+                      </p>
+                      <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                        {truncateText(proposal.description, 110)}
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                      {proposal.pptUrl && (
+                        <Button variant="outline" size="sm" asChild>
+                          <a
+                            href={`/api/proposals/${proposal._id}/file`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Deck
+                          </a>
+                        </Button>
+                      )}
+                      {proposal.status === "Approved" && proposal.agreementFile && (
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={`/api/proposals/${proposal._id}/agreement/file`}>
+                            Agreement
+                          </a>
+                        </Button>
+                      )}
+                      {proposal.status === "Pending" ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => openReview(proposal, "Approved")}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive-outline"
+                            onClick={() => openReview(proposal, "Rejected")}
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Reject
+                          </Button>
+                        </>
+                      ) : (
+                        proposal.status === "Approved" &&
+                        problem?._id && (
+                          <Button size="sm" variant="outline" asChild>
+                            <Link href={`/project/${problem._id}`}>
+                              <Rocket className="h-3.5 w-3.5" />
+                              Project
+                            </Link>
+                          </Button>
+                        )
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openReview(proposal, "")}
+                      >
+                        Review
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* ─── Review dialog: details, then decision + feedback ─────────── */}
       <Dialog
         open={reviewDialog.open}
-        onOpenChange={(o) =>
-          setReviewDialog((p) => ({ ...p, open: o }))
-        }
+        onOpenChange={(o) => {
+          if (!o) setFeedback("");
+          setReviewDialog((p) => ({ ...p, open: o }));
+        }}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
               {reviewDialog.action === "Approved"
-                ? "Approve Proposal"
-                : "Reject Proposal"}
+                ? "Approve proposal"
+                : reviewDialog.action === "Rejected"
+                  ? "Reject proposal"
+                  : "Proposal"}
             </DialogTitle>
             <DialogDescription>
-              Provide feedback for the student before{" "}
-              {reviewDialog.action === "Approved" ? "approving" : "rejecting"}.
+              {reviewDialog.action
+                ? `Provide feedback for the student before ${
+                    reviewDialog.action === "Approved" ? "approving" : "rejecting"
+                  }.`
+                : "Read the proposal, then approve or reject it. The student sees your feedback."}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="feedback">Feedback (optional)</Label>
-            <Textarea
-              id="feedback"
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              placeholder="Write your feedback here..."
-              className="mt-1.5 min-h-[80px]"
-            />
-          </div>
+
+          {reviewProposal && (
+            <div className="space-y-4 py-4">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                <div className="col-span-2 min-w-0">
+                  <dt className="text-subtle-foreground">Candidate</dt>
+                  <dd className="mt-0.5 truncate text-sm text-foreground">
+                    {reviewStudent
+                      ? reviewStudent.name || reviewStudent.githubUsername
+                      : "Student"}
+                  </dd>
+                </div>
+                <div className="col-span-2 min-w-0">
+                  <dt className="text-subtle-foreground">Challenge</dt>
+                  <dd className="mt-0.5 truncate text-sm text-foreground">
+                    {reviewProblem?.title || "Challenge"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-subtle-foreground">Submitted</dt>
+                  <dd className="mt-0.5 font-mono text-xs text-muted-foreground">
+                    {formatDate(reviewProposal.submittedAt)}
+                  </dd>
+                </div>
+                <div className="flex items-end justify-end">
+                  <StatusBadge status={reviewProposal.status} />
+                </div>
+              </dl>
+
+              <p className="whitespace-pre-line rounded-md border border-border bg-surface px-3 py-2 text-sm leading-relaxed text-muted-foreground">
+                {reviewProposal.description || "No description provided."}
+              </p>
+
+              {reviewProposal.pptUrl && (
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href={`/api/proposals/${reviewProposal._id}/file`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open pitch deck
+                  </a>
+                </Button>
+              )}
+
+              {reviewDialog.action && (
+                <Field
+                  id="feedback"
+                  label="Feedback (optional)"
+                  hint="Shared with the student"
+                >
+                  <Textarea
+                    id="feedback"
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    placeholder="What should the student know about this decision?"
+                    className="min-h-[80px]"
+                  />
+                </Field>
+              )}
+            </div>
+          )}
+
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() =>
-                setReviewDialog({ open: false, proposal: null, action: "" })
-              }
-            >
-              Cancel
-            </Button>
-            <Button
-              variant={reviewDialog.action === "Approved" ? "default" : "destructive"}
-              onClick={handleReview}
-              disabled={reviewing}
-              className={
-                reviewDialog.action === "Approved"
-                  ? "bg-emerald-600 hover:bg-emerald-700"
-                  : ""
-              }
-            >
-              {reviewing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              {reviewDialog.action === "Approved" ? "Approve" : "Reject"}
-            </Button>
+            {reviewDialog.action ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFeedback("");
+                    setReviewDialog((p) => ({ ...p, action: "" }));
+                  }}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant={
+                    reviewDialog.action === "Approved" ? "default" : "destructive"
+                  }
+                  onClick={handleReview}
+                  disabled={reviewing}
+                >
+                  {reviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {reviewDialog.action === "Approved" ? "Approve" : "Reject"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setReviewDialog({ open: false, proposal: null, action: "" })
+                  }
+                >
+                  Close
+                </Button>
+                {reviewProposal?.status === "Pending" && (
+                  <>
+                    <Button
+                      variant="destructive-outline"
+                      onClick={() =>
+                        setReviewDialog((p) => ({ ...p, action: "Rejected" }))
+                      }
+                    >
+                      Reject
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={() =>
+                        setReviewDialog((p) => ({ ...p, action: "Approved" }))
+                      }
+                    >
+                      Approve
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ─── Delete Confirmation Dialog ───────────────────────────────── */}
+      {/* ─── Delete confirmation ─────────────────────────────────────── */}
       <Dialog
         open={deleteDialog.open}
-        onOpenChange={(o) => setDeleteDialog((p) => ({ ...p, open: o }))}
+        onOpenChange={(o) =>
+          setDeleteDialog((p) =>
+            o ? { ...p, open: o } : { open: false, problemId: "", title: "" }
+          )
+        }
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-destructive">Delete Challenge</DialogTitle>
+            <DialogTitle className="text-danger">Delete challenge</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this challenge? This action cannot
-              be undone and will remove all associated proposals.
+              {deleteDialog.title ? `“${deleteDialog.title}” ` : ""}will be removed
+              along with every proposal attached to it. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setDeleteDialog({ open: false, problemId: "" })}
+              onClick={() =>
+                setDeleteDialog({ open: false, problemId: "", title: "" })
+              }
             >
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
               {deleting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="h-4 w-4" />
               )}
               Delete
             </Button>
@@ -517,18 +711,15 @@ export default function StartupDashboard() {
 function DashboardSkeleton() {
   return (
     <AppShell>
-      <Skeleton className="mb-2 h-4 w-28" />
-      <Skeleton className="mb-8 h-8 w-72" />
-      <div className="mb-6 grid grid-cols-3 gap-6 border-y border-border py-5">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-12" />
-        ))}
+      <div className="mb-6 space-y-2">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-7 w-72" />
+        <Skeleton className="h-4 w-full max-w-md" />
       </div>
-      <Skeleton className="mb-4 h-10 w-64" />
-      <div className="overflow-hidden rounded-lg border border-border">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-[76px] rounded-none border-b border-border last:border-0" />
-        ))}
+      <SkeletonStats count={4} />
+      <Skeleton className="mb-4 mt-6 h-9 w-64" />
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <SkeletonRows rows={5} />
       </div>
     </AppShell>
   );

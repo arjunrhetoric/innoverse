@@ -83,8 +83,13 @@ Requires Node 18+, MongoDB, and a GitHub OAuth app whose callback is
 Seed a demo dataset locally (development only):
 
 ```bash
-curl -X POST http://localhost:3000/api/dev/seed
+curl -X POST "http://localhost:3000/api/dev/seed?reset=1"
 ```
+
+`reset=1` wipes the local demo collections first. Demo logins (email + password,
+dev-only credentials): `founder@acmelabs.dev` (startup),
+`arjun@student.dev` (student), `coordinator@statetech.edu` (institution) — all
+with password `Innoverse2026`. The institution join code is `INNOV26`.
 
 ## Tests
 
