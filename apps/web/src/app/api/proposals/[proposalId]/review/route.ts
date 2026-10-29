@@ -91,8 +91,50 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pr
       // Access is granted only after the student signs the collaboration
       // agreement (see /api/proposals/[id]/accept-terms). Approval alone
       // does not touch the repository.
+      // Resolve the canonical repository identity so links never point at a
+      // stale or renamed owner.
+      const reviewToken = await getGithubToken(session.user.id);
+      let canonicalRepoUrl: string | null = null;
+      if (!problem.githubIssueUrl && reviewToken && problem.githubOwner && problem.githubRepoName) {
+        try {
+          const repoResponse = await axios.get(
+            `https://api.github.com/repos/${problem.githubOwner}/${problem.githubRepoName}`,
+            {
+              headers: {
+                Authorization: `Bearer ${reviewToken}`,
+                Accept: "application/vnd.github+json",
+              },
+            }
+          );
+          const repo = repoResponse.data;
+          canonicalRepoUrl = repo.html_url ?? null;
+          if (
+            repo.owner?.login &&
+            repo.name &&
+            (problem.githubOwner !== repo.owner.login ||
+              problem.githubRepoName !== repo.name)
+          ) {
+            problem.githubOwner = repo.owner.login;
+            problem.githubRepoName = repo.name;
+            await Problem.updateOne(
+              { _id: problem._id },
+              {
+                $set: {
+                  githubOwner: repo.owner.login,
+                  githubRepoName: repo.name,
+                  githubRepoUrl: repo.html_url,
+                },
+              }
+            );
+          }
+        } catch (repoError) {
+          console.error("Could not canonicalize repository link:", repoError);
+        }
+      }
+
       proposal.repoUrl =
         problem.githubIssueUrl ||
+        canonicalRepoUrl ||
         `https://github.com/${problem.githubOwner}/${problem.githubRepoName}`;
 
       // Draft agreement is available immediately; it is re-generated with the

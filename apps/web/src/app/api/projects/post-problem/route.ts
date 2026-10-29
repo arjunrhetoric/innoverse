@@ -181,9 +181,9 @@ export async function POST(req: NextRequest) {
           { headers: { Authorization: `Bearer ${githubAccessToken}` } }
         );
 
-        repoUrl = response.data.html_url;
-        repoOwner = githubUsername ?? null;
-        repoName = githubRepoName;
+        repoUrl = response.data.html_url ?? repoUrl;
+        repoOwner = response.data.owner?.login ?? githubUsername ?? null;
+        repoName = response.data.name ?? githubRepoName;
 
         await User.findByIdAndUpdate(session.user.id, { githubRepoName: githubRepoName });
       } catch (error: any) {

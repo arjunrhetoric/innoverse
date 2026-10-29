@@ -151,13 +151,37 @@ export async function POST(
       Authorization: `Bearer ${startupToken}`,
       Accept: "application/vnd.github+json",
     };
-    const repoApi = `https://api.github.com/repos/${problem.githubOwner}/${problem.githubRepoName}`;
+    let repoApi = `https://api.github.com/repos/${problem.githubOwner}/${problem.githubRepoName}`;
 
     // Inspect the repository first so failures are explained precisely.
     let repo: any = null;
     try {
       const repoResponse = await axios.get(repoApi, { headers });
       repo = repoResponse.data;
+
+      // Canonicalize owner/name from GitHub (renames, stale usernames).
+      if (repo.owner?.login && repo.name) {
+        if (
+          problem.githubOwner !== repo.owner.login ||
+          problem.githubRepoName !== repo.name
+        ) {
+          problem.githubOwner = repo.owner.login;
+          problem.githubRepoName = repo.name;
+          await Problem.updateOne(
+            { _id: problem._id },
+            {
+              $set: {
+                githubOwner: repo.owner.login,
+                githubRepoName: repo.name,
+                githubRepoUrl: repo.html_url,
+              },
+            }
+          );
+        }
+        repoApi = `https://api.github.com/repos/${repo.owner.login}/${repo.name}`;
+        problem.githubRepoUrl = repo.html_url;
+        proposal.repoUrl = problem.githubIssueUrl || repo.html_url;
+      }
     } catch (error: any) {
       const status = error.response?.status;
       console.error("Repository lookup failed:", error.response?.data || error.message);
@@ -295,16 +319,20 @@ export async function POST(
     }
 
     if (alreadySigned) {
-      if (accessState !== "invited" && !proposal.accessGrantedAt) {
-        await Proposal.updateOne(
-          { _id: proposal._id },
-          { $set: { accessGrantedAt: new Date() } }
-        );
+      const updates: Record<string, unknown> = { repoUrl: proposal.repoUrl };
+      if (
+        accessState !== "invited" &&
+        accessState !== "failed" &&
+        !proposal.accessGrantedAt
+      ) {
+        updates.accessGrantedAt = new Date();
       }
+      await Proposal.updateOne({ _id: proposal._id }, { $set: updates });
       return NextResponse.json({
         message: accessMessage,
         agreementCode: proposal.agreementCode,
         access: accessState,
+        repoUrl: proposal.repoUrl,
       });
     }
 
