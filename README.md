@@ -88,8 +88,13 @@ curl -X POST "http://localhost:3000/api/dev/seed?reset=1"
 
 `reset=1` wipes the local demo collections first. Demo logins (email + password,
 dev-only credentials): `founder@acmelabs.dev` (startup),
-`arjun@student.dev` (student), `coordinator@statetech.edu` (institution) — all
+`arjun@student.dev` (student), `coordinator@statetech.edu` (institution) - all
 with password `Innoverse2026`. The institution join code is `INNOV26`.
+
+For a real repository-access demo, sign in with GitHub instead of the credentials
+form. The seed links the startup account to `@arjundsingh` and the student account
+to `@arjunrhetoric`. Credentials logins are UI-only and do not carry a GitHub token,
+so they cannot send invites or change collaborator permissions.
 
 ## Tests
 

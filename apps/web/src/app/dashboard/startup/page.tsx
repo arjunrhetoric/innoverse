@@ -516,6 +516,11 @@ export default function StartupDashboard() {
                           ) : (
                             "Student"
                           )}
+                          {student?.githubUsername && (
+                            <span className="ml-1.5 font-mono text-2xs font-normal text-subtle-foreground">
+                              @{student.githubUsername}
+                            </span>
+                          )}
                         </span>
                         <StatusBadge status={proposal.status} />
                         {agreement && (
@@ -670,10 +675,17 @@ export default function StartupDashboard() {
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
                 <div className="col-span-2 min-w-0">
                   <dt className="text-subtle-foreground">Candidate</dt>
-                  <dd className="mt-0.5 truncate text-sm text-foreground">
-                    {reviewStudent
-                      ? reviewStudent.name || reviewStudent.githubUsername
-                      : "Student"}
+                  <dd className="mt-0.5 flex flex-wrap items-baseline gap-1.5 text-sm text-foreground">
+                    <span className="truncate">
+                      {reviewStudent
+                        ? reviewStudent.name || reviewStudent.githubUsername
+                        : "Student"}
+                    </span>
+                    {reviewStudent?.githubUsername && (
+                      <span className="font-mono text-2xs text-subtle-foreground">
+                        @{reviewStudent.githubUsername}
+                      </span>
+                    )}
                   </dd>
                 </div>
                 <div className="col-span-2 min-w-0">

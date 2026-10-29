@@ -44,9 +44,11 @@ export async function GET(
     }
 
     const startup = (await User.findById(problem.createdBy)
-      .select("name companyName")
+      .select("name companyName githubUsername")
       .lean()) as any;
-    const student = (await User.findById(proposal.studentId).select("name").lean()) as any;
+    const student = (await User.findById(proposal.studentId)
+      .select("name githubUsername")
+      .lean()) as any;
 
     return NextResponse.json({
       proposal: {
@@ -70,8 +72,14 @@ export async function GET(
           ? `${problem.githubOwner}/${problem.githubRepoName}`
           : null,
       },
-      startup: { name: startup?.companyName || startup?.name || "Startup" },
-      student: { name: student?.name || "Student" },
+      startup: {
+        name: startup?.companyName || startup?.name || "Startup",
+        githubUsername: startup?.githubUsername ?? null,
+      },
+      student: {
+        name: student?.name || "Student",
+        githubUsername: student?.githubUsername ?? null,
+      },
     });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });

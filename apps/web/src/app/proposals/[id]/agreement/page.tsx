@@ -44,8 +44,8 @@ interface AgreementData {
     description: string;
   };
   problem: { id: string; title: string; description: string; repo: string | null };
-  startup: { name: string };
-  student: { name: string };
+  startup: { name: string; githubUsername: string | null };
+  student: { name: string; githubUsername: string | null };
 }
 
 export default function CollaborationAgreementPage() {
@@ -125,6 +125,12 @@ export default function CollaborationAgreementPage() {
   const accessUnverified = Boolean(done && !accessVerified);
   const needsAccess = Boolean(done && !accessActive);
 
+  const repoOwner = data?.problem.repo?.split("/")[0]?.toLowerCase() ?? null;
+  const startupGithub = data?.startup.githubUsername?.toLowerCase() ?? null;
+  const studentGithub = data?.student.githubUsername?.toLowerCase() ?? null;
+  const startupGithubMissing = Boolean(data && !startupGithub);
+  const studentOwnsRepo = Boolean(repoOwner && studentGithub && repoOwner === studentGithub);
+
   const onSignatureFile = (file?: File) => {
     setError("");
     if (!file) {
@@ -196,8 +202,18 @@ export default function CollaborationAgreementPage() {
                   </h1>
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                     <span className="text-subtle-foreground">
-                      Between <span className="text-foreground">{data.startup.name}</span> and{" "}
-                      <span className="text-foreground">{data.student.name}</span>
+                      Between <span className="text-foreground">{data.startup.name}</span>
+                      {data.startup.githubUsername && (
+                        <span className="ml-1 font-mono text-2xs">
+                          @{data.startup.githubUsername}
+                        </span>
+                      )}{" "}
+                      and <span className="text-foreground">{data.student.name}</span>
+                      {data.student.githubUsername && (
+                        <span className="ml-1 font-mono text-2xs">
+                          @{data.student.githubUsername}
+                        </span>
+                      )}
                     </span>
                     {data.problem.repo && (
                       <span className="font-mono text-subtle-foreground">{data.problem.repo}</span>
@@ -261,6 +277,19 @@ export default function CollaborationAgreementPage() {
                       <ShieldCheck className="h-3.5 w-3.5 text-subtle-foreground" />
                       Acceptance
                     </h2>
+
+                    {(studentOwnsRepo || startupGithubMissing) && (
+                      <div className="mb-3 rounded-md border border-warning-border bg-warning-subtle px-3 py-2.5">
+                        <p className="text-xs font-medium text-warning">
+                          {studentOwnsRepo ? "Repository is owned by the student" : "Startup GitHub is not connected"}
+                        </p>
+                        <p className="mt-0.5 text-xs leading-relaxed text-warning">
+                          {studentOwnsRepo
+                            ? `This repo is under @${repoOwner}, so GitHub will not let the platform assign that account read access. Transfer the repo to @${startupGithub ?? "the startup account"} or create the challenge repo from the startup account.`
+                            : "The startup needs to sign in with GitHub again before repository access can be requested."}
+                        </p>
+                      </div>
+                    )}
 
                     {error && (
                       <p

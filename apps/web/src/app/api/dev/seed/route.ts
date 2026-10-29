@@ -83,7 +83,9 @@ export async function POST(req: Request) {
 
     // ── Users ──
     const startup = await User.create({
-      githubId: "seed-foundr-acme",
+      // Real startup account, so GitHub sign-in links to this seeded workspace
+      // and its access token can manage the challenge repositories.
+      githubId: "110763131",
       githubUsername: "arjundsingh",
       name: "Acme Labs",
       email: "founder@acmelabs.dev",
@@ -113,8 +115,11 @@ export async function POST(req: Request) {
     });
 
     const arjun = await User.create({
-      githubId: "seed-arjun",
-      githubUsername: "arjun-dev",
+      // Real student account used for the two-account read-only demo, so
+      // GitHub sign-in links to this seeded student instead of creating a
+      // duplicate account.
+      githubId: "161180082",
+      githubUsername: "arjunrhetoric",
       name: "Arjun Singh",
       email: "arjun@student.dev",
       role: "Student",

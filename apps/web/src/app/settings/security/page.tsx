@@ -132,9 +132,19 @@ export default function SecuritySettingsPage() {
             title="Repository access"
             description="Students contribute through forks and pull requests. GitHub invites default to Write, and older approvals may still grant write access; this resets every approved contributor on your linked repositories to read-only."
             meta={
-              <Badge variant="outline" className="font-mono">
-                POST /api/github/downgrade-collaborators
-              </Badge>
+              <>
+                <Badge
+                  variant={user?.githubUsername ? "success" : "warning"}
+                  className="font-mono"
+                >
+                  {user?.githubUsername
+                    ? `GitHub @${user.githubUsername}`
+                    : "GitHub not connected"}
+                </Badge>
+                <Badge variant="outline" className="font-mono">
+                  POST /api/github/downgrade-collaborators
+                </Badge>
+              </>
             }
           />
 
