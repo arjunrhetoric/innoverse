@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Rocket,
   Inbox,
+  KeyRound,
 } from "lucide-react";
 import { GithubIcon as Github } from "@/components/ui/icons";
 import { AppShell } from "@/components/layout/app-shell";
@@ -31,6 +32,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -43,6 +45,15 @@ import type { Problem, Proposal } from "@/lib/types";
 
 type ReviewAction = "Approved" | "Rejected" | "";
 
+function accessIsActive(proposal: Proposal): boolean {
+  return (
+    Boolean(proposal.accessGrantedAt) &&
+    Boolean(proposal.accessStatus) &&
+    proposal.accessStatus !== "invited" &&
+    proposal.accessStatus !== "failed"
+  );
+}
+
 /** Agreement lifecycle for an approved proposal, derived from its own fields. */
 function agreementState(proposal: Proposal): { label: string; hint: string } | null {
   if (proposal.status !== "Approved") return null;
@@ -52,13 +63,39 @@ function agreementState(proposal: Proposal): { label: string; hint: string } | n
       hint: "Repository access is not granted until the student signs.",
     };
   }
-  if (!proposal.accessGrantedAt) {
+  if (accessIsActive(proposal)) {
+    return { label: "Access active", hint: "Agreement signed and read access is active." };
+  }
+  if (proposal.accessStatus === "failed") {
     return {
-      label: "Invited",
-      hint: "Signed — waiting for the student to accept the GitHub invitation.",
+      label: "Access failed",
+      hint:
+        proposal.accessError ||
+        "GitHub did not grant access. Use Fix access to retry from Innoverse.",
     };
   }
-  return { label: "Signed", hint: "Agreement signed and read access granted." };
+  if (proposal.accessStatus === "invited") {
+    return {
+      label: "Invite pending",
+      hint: "Signed — the student must accept the GitHub invitation before the repository opens.",
+    };
+  }
+  return {
+    label: "Access unverified",
+    hint: "Signed — verify the GitHub permission before sharing the repository.",
+  };
+}
+
+/** Extract owner/repo from the challenge fields or a GitHub URL. */
+function repoFor(proposal: Proposal): { owner: string; repo: string } | null {
+  const problem = typeof proposal.problemId === "object" ? proposal.problemId : null;
+  if (problem?.githubOwner && problem?.githubRepoName) {
+    return { owner: problem.githubOwner, repo: problem.githubRepoName };
+  }
+  const url = problem?.githubRepoUrl || proposal.repoUrl || "";
+  const match = /github\.com\/([^/]+)\/([^/?#]+)/i.exec(url);
+  if (!match) return null;
+  return { owner: match[1], repo: match[2].replace(/\.git$/i, "") };
 }
 
 export default function StartupDashboard() {
@@ -78,6 +115,9 @@ export default function StartupDashboard() {
   }>({ open: false, proposal: null, action: "" });
   const [feedback, setFeedback] = useState("");
   const [reviewing, setReviewing] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [fixingAccessId, setFixingAccessId] = useState<string | null>(null);
 
   // Delete Confirmation
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -123,8 +163,9 @@ export default function StartupDashboard() {
       activeChalllenges: challenges.filter((c) => !c.completed).length,
       totalProposals: allProposals.length,
       pending: allProposals.filter((p) => p.status === "Pending").length,
-      signed: allProposals.filter(
-        (p) => p.status === "Approved" && p.termsAcceptedAt && p.accessGrantedAt
+      signed: allProposals.filter((p) => p.status === "Approved" && p.termsAcceptedAt).length,
+      withAccess: allProposals.filter(
+        (p) => p.status === "Approved" && p.termsAcceptedAt && accessIsActive(p)
       ).length,
     }),
     [challenges, allProposals]
@@ -140,6 +181,7 @@ export default function StartupDashboard() {
   const handleReview = async () => {
     if (!reviewDialog.proposal || !reviewDialog.action) return;
     setReviewing(true);
+    setReviewError("");
     try {
       await proposalsApi.review(
         reviewDialog.proposal._id,
@@ -148,9 +190,14 @@ export default function StartupDashboard() {
       );
       setReviewDialog({ open: false, proposal: null, action: "" });
       setFeedback("");
+      setNotice(
+        reviewDialog.action === "Approved"
+          ? "Proposal approved. The collaboration agreement is ready for the student to sign."
+          : "Proposal rejected and feedback shared with the student."
+      );
       await fetchData();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to review proposal");
+      setReviewError(err instanceof Error ? err.message : "Failed to review proposal");
     } finally {
       setReviewing(false);
     }
@@ -171,7 +218,44 @@ export default function StartupDashboard() {
 
   const openReview = (proposal: Proposal, action: ReviewAction) => {
     setFeedback("");
+    setReviewError("");
     setReviewDialog({ open: true, proposal, action });
+  };
+
+  const fixAccess = async (proposal: Proposal) => {
+    const student = typeof proposal.studentId === "object" ? proposal.studentId : null;
+    const repo = repoFor(proposal);
+    if (!student?.githubUsername || !repo) {
+      setError(
+        "This proposal is missing the student's GitHub username or the repository owner/name."
+      );
+      return;
+    }
+    setFixingAccessId(proposal._id);
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch("/api/github/repo-access", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          owner: repo.owner,
+          repo: repo.repo,
+          username: student.githubUsername,
+          proposalId: proposal._id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not repair repository access");
+      setNotice(data.message || "Repository access updated.");
+      await fetchData();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not repair repository access");
+      await fetchData();
+    } finally {
+      setFixingAccessId(null);
+    }
   };
 
   if (authLoading || loading) {
@@ -226,7 +310,7 @@ export default function StartupDashboard() {
           {
             label: "Agreements signed",
             value: stats.signed,
-            hint: stats.signed === 1 ? "Read access held" : "Read access granted",
+            hint: `${stats.withAccess} with active access`,
           },
         ]}
       />
@@ -238,6 +322,16 @@ export default function StartupDashboard() {
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
           <p className="text-sm text-danger">{error}</p>
+        </div>
+      )}
+
+      {notice && (
+        <div
+          role="status"
+          className="mb-6 flex items-start gap-2 rounded-lg border border-success-border bg-success-subtle p-4"
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+          <p className="text-sm text-success">{notice}</p>
         </div>
       )}
 
@@ -503,6 +597,23 @@ export default function StartupDashboard() {
                           </Button>
                         )
                       )}
+                      {proposal.status === "Approved" &&
+                        proposal.termsAcceptedAt &&
+                        !accessIsActive(proposal) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => fixAccess(proposal)}
+                            disabled={fixingAccessId === proposal._id}
+                          >
+                            {fixingAccessId === proposal._id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <KeyRound className="h-3.5 w-3.5" />
+                            )}
+                            Fix access
+                          </Button>
+                        )}
                       <Button
                         size="sm"
                         variant="ghost"
@@ -527,7 +638,7 @@ export default function StartupDashboard() {
           setReviewDialog((p) => ({ ...p, open: o }));
         }}
       >
-        <DialogContent>
+        <DialogContent size="lg">
           <DialogHeader>
             <DialogTitle>
               {reviewDialog.action === "Approved"
@@ -546,7 +657,16 @@ export default function StartupDashboard() {
           </DialogHeader>
 
           {reviewProposal && (
-            <div className="space-y-4 py-4">
+            <DialogBody className="space-y-5">
+              {reviewError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-md border border-danger-border bg-danger-subtle px-3 py-2.5"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                  <p className="text-sm text-danger">{reviewError}</p>
+                </div>
+              )}
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
                 <div className="col-span-2 min-w-0">
                   <dt className="text-subtle-foreground">Candidate</dt>
@@ -590,6 +710,14 @@ export default function StartupDashboard() {
                 </Button>
               )}
 
+              {reviewDialog.action === "Approved" && (
+                <div className="rounded-md border border-border bg-surface px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+                  Approving generates the collaboration and IP agreement. After the student signs,
+                  Innoverse grants read-only repository access and notifies you here if GitHub
+                  needs attention.
+                </div>
+              )}
+
               {reviewDialog.action && (
                 <Field
                   id="feedback"
@@ -605,7 +733,7 @@ export default function StartupDashboard() {
                   />
                 </Field>
               )}
-            </div>
+            </DialogBody>
           )}
 
           <DialogFooter>

@@ -325,9 +325,15 @@ function ProposalRow({ proposal, last }: { proposal: Proposal; last?: boolean })
   const problem = typeof proposal.problemId === "object" ? proposal.problemId : null;
   const problemId = problem?._id || (typeof proposal.problemId === "string" ? proposal.problemId : null);
 
+  const accessActive =
+    Boolean(proposal.accessGrantedAt) &&
+    Boolean(proposal.accessStatus) &&
+    proposal.accessStatus !== "invited" &&
+    proposal.accessStatus !== "failed";
   const awaitingSignature = proposal.status === "Approved" && !proposal.termsAcceptedAt;
   const awaitingInvite =
-    proposal.status === "Approved" && Boolean(proposal.termsAcceptedAt) && !proposal.accessGrantedAt;
+    proposal.status === "Approved" && Boolean(proposal.termsAcceptedAt) && !accessActive;
+  const accessFailed = proposal.accessStatus === "failed";
 
   return (
     <li
@@ -343,9 +349,15 @@ function ProposalRow({ proposal, last }: { proposal: Proposal; last?: boolean })
           </h4>
           <StatusBadge status={proposal.status} />
           {awaitingInvite && (
-            <Badge variant="info">
-              <span className="h-1.5 w-1.5 rounded-full bg-info" aria-hidden />
-              Invite pending
+            <Badge variant={accessFailed ? "danger" : "info"}>
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  accessFailed ? "bg-danger" : "bg-info"
+                )}
+                aria-hidden
+              />
+              {accessFailed ? "Access failed" : "Invite pending"}
             </Badge>
           )}
         </div>
@@ -373,7 +385,7 @@ function ProposalRow({ proposal, last }: { proposal: Proposal; last?: boolean })
           </Button>
         )}
 
-        {proposal.status === "Approved" && proposal.termsAcceptedAt && proposal.accessGrantedAt && problemId && (
+        {proposal.status === "Approved" && proposal.termsAcceptedAt && accessActive && problemId && (
           <Button size="sm" variant="outline" asChild>
             <Link href={`/project/${problemId}`}>
               <Activity className="h-3.5 w-3.5" />
@@ -382,7 +394,7 @@ function ProposalRow({ proposal, last }: { proposal: Proposal; last?: boolean })
           </Button>
         )}
 
-        {proposal.status === "Approved" && proposal.accessGrantedAt && proposal.repoUrl && (
+        {proposal.status === "Approved" && accessActive && proposal.repoUrl && (
           <Button size="sm" variant="outline" asChild>
             <a href={proposal.repoUrl} target="_blank" rel="noopener noreferrer">
               <GitFork className="h-3.5 w-3.5" />

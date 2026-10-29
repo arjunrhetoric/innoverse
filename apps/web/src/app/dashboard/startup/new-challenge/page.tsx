@@ -8,10 +8,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Field } from "@/components/ui/field";
 import { Section } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import { useUser } from "@/hooks/useUser";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +20,6 @@ interface FormState {
   finalDeadline: string;
   contributionType: "project" | "issue";
   githubOwner: string;
-  createGithubRepo: boolean;
   githubRepoName: string;
   issueNumber: string;
   issueLabels: string;
@@ -35,7 +32,6 @@ const EMPTY: FormState = {
   finalDeadline: "",
   contributionType: "project",
   githubOwner: "",
-  createGithubRepo: false,
   githubRepoName: "",
   issueNumber: "",
   issueLabels: "",
@@ -67,6 +63,9 @@ export default function NewChallengePage() {
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [minDeadline] = useState(() =>
+    new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+  );
 
   useEffect(() => {
     if (authLoading) return;
@@ -87,6 +86,21 @@ export default function NewChallengePage() {
   const fail = (key: keyof FormState, message: string) => {
     setFieldErrors({ [key]: message });
     setError(message);
+    const ids: Partial<Record<keyof FormState, string>> = {
+      title: "title",
+      description: "description",
+      skillsRequired: "skills",
+      finalDeadline: "deadline",
+      githubOwner: "owner",
+      githubRepoName: form.contributionType === "issue" ? "repo" : "repoName",
+      issueNumber: "issueNumber",
+      issueLabels: "labels",
+    };
+    requestAnimationFrame(() => {
+      const el = document.getElementById(ids[key] ?? key);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      (el as HTMLElement | null)?.focus?.();
+    });
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -112,11 +126,8 @@ export default function NewChallengePage() {
           "Enter the GitHub owner and repository name for the issue."
         );
       }
-    } else if (form.createGithubRepo && !form.githubRepoName.trim()) {
-      return fail(
-        "githubRepoName",
-        "Enter a repository name, or turn off repository creation."
-      );
+    } else if (!form.githubRepoName.trim()) {
+      return fail("githubRepoName", "Name the private repository for this challenge.");
     }
 
     setPosting(true);
@@ -128,6 +139,7 @@ export default function NewChallengePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          createGithubRepo: form.contributionType === "project",
           skillsRequired: form.skillsRequired.split(",").map((s) => s.trim()).filter(Boolean),
           issueLabels: form.issueLabels.split(",").map((s) => s.trim()).filter(Boolean),
         }),
@@ -167,9 +179,10 @@ export default function NewChallengePage() {
         </div>
       )}
 
-      <form onSubmit={submit} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <form onSubmit={submit} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         {/* ─── Left: challenge details ─────────────────────────────────── */}
         <Section
+          className="min-w-0"
           title="Challenge details"
           description="Students see this on the challenge page before they apply."
         >
@@ -238,7 +251,7 @@ export default function NewChallengePage() {
                 <Input
                   id="deadline"
                   type="date"
-                  min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                  min={minDeadline}
                   value={form.finalDeadline}
                   onChange={(e) => set("finalDeadline", e.target.value)}
                   required
@@ -258,12 +271,12 @@ export default function NewChallengePage() {
         </Section>
 
         {/* ─── Right: contribution + publish ───────────────────────────── */}
-        <div className="space-y-6 lg:sticky lg:top-[72px]">
+        <div className="min-w-0 space-y-6 xl:sticky xl:top-[72px]">
           <Section
             title="Contribution type"
             description="How the student will contribute."
           >
-            <div className="space-y-2 p-4" role="radiogroup" aria-label="Contribution type">
+            <div className="space-y-2 p-5" role="radiogroup" aria-label="Contribution type">
               {OPTIONS.map((option) => {
                 const selected = form.contributionType === option.value;
                 const Icon = option.icon;
@@ -311,10 +324,10 @@ export default function NewChallengePage() {
             description={
               isIssue
                 ? "Where the issue lives."
-                : "Optional private repo created for this challenge."
+                : "A private repo is created and linked to this challenge."
             }
           >
-            <div className="space-y-4 p-4">
+            <div className="space-y-4 p-5">
               {isIssue ? (
                 <>
                   <Field
@@ -381,44 +394,33 @@ export default function NewChallengePage() {
                 </>
               ) : (
                 <>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <Label htmlFor="github" className="text-[13px] font-medium text-foreground">
-                        Create GitHub repository
-                      </Label>
-                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                        A private repo is created and linked to this challenge.
-                      </p>
-                    </div>
-                    <Switch
-                      id="github"
-                      checked={form.createGithubRepo}
-                      onCheckedChange={(v) => set("createGithubRepo", v)}
-                    />
-                  </div>
-
-                  {form.createGithubRepo && (
-                    <Field
+                  <Field
+                    id="repoName"
+                    label="Repository name"
+                    required
+                    hint="Created under your GitHub account"
+                    error={fieldErrors.githubRepoName}
+                  >
+                    <Input
                       id="repoName"
-                      label="Repository name"
-                      required
-                      error={fieldErrors.githubRepoName}
-                    >
-                      <Input
-                        id="repoName"
-                        value={form.githubRepoName}
-                        onChange={(e) => set("githubRepoName", e.target.value)}
-                        placeholder="my-challenge-repo"
-                        aria-invalid={Boolean(fieldErrors.githubRepoName)}
-                      />
-                    </Field>
-                  )}
+                      value={form.githubRepoName}
+                      onChange={(e) =>
+                        set(
+                          "githubRepoName",
+                          e.target.value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-")
+                        )
+                      }
+                      placeholder="my-challenge-repo"
+                      aria-invalid={Boolean(fieldErrors.githubRepoName)}
+                    />
+                  </Field>
 
                   <div className="flex items-start gap-2 rounded-md border border-border bg-surface p-3">
                     <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-subtle-foreground" />
                     <p className="text-xs leading-relaxed text-muted-foreground">
-                      Students get read-only access after signing the agreement. They
-                      contribute through forks and pull requests; you review and merge.
+                      The repo is private. After signing, the student gets read-only
+                      access and contributes through forks and pull requests; you review
+                      and merge.
                     </p>
                   </div>
                 </>
@@ -428,7 +430,7 @@ export default function NewChallengePage() {
         </div>
 
         {/* ─── Sticky footer ───────────────────────────────────────────── */}
-        <div className="sticky bottom-0 z-20 flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-sm lg:col-span-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky bottom-0 z-20 flex flex-col gap-3 rounded-lg border border-border bg-card px-5 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between xl:col-span-2">
           <p className="text-xs text-muted-foreground">
             You can delete a challenge later; proposals stay in your records.
           </p>

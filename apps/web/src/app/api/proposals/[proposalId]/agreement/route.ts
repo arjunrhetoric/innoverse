@@ -55,6 +55,9 @@ export async function GET(
         repoUrl: proposal.repoUrl ?? null,
         termsAcceptedAt: proposal.termsAcceptedAt ?? null,
         accessGrantedAt: proposal.accessGrantedAt ?? null,
+        accessStatus: proposal.accessStatus ?? null,
+        accessError: proposal.accessError ?? null,
+        accessCheckedAt: proposal.accessCheckedAt ?? null,
         agreementCode: proposal.agreementCode ?? null,
         agreementFile: proposal.agreementFile ?? null,
         description: proposal.description,
@@ -218,13 +221,15 @@ export async function POST(
 
     const existingAccess = async (): Promise<"collaborator" | "invited" | "none"> => {
       try {
-        await axios.get(
-          `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}`,
+        const perm = await axios.get(
+          `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}/permission`,
           { headers }
         );
-        return "collaborator";
+        const permission = String(perm.data?.permission ?? "").toLowerCase();
+        // GitHub reports "none" for a pending invitation or a non-collaborator.
+        if (permission && permission !== "none") return "collaborator";
       } catch {
-        // Not a collaborator (yet).
+        // Fall through to the invitation check.
       }
       try {
         const invitations = await axios.get(`${repoApi}/invitations?per_page=100`, { headers });
@@ -247,18 +252,23 @@ export async function POST(
     } else {
       // If the student is already a collaborator, enforce read-only.
       // Manual GitHub invites default to Write, which this corrects.
-      let permission: string | null = null;
+      let rawPermission: string | null = null;
       try {
         const perm = await axios.get(
           `${repoApi}/collaborators/${encodeURIComponent(student.githubUsername)}/permission`,
           { headers }
         );
-        permission = String(perm.data?.permission ?? "").toLowerCase() || null;
+        rawPermission = String(perm.data?.permission ?? "").toLowerCase() || null;
       } catch {
         // Not a collaborator, or this token cannot read permissions.
       }
 
-      if (permission) {
+      // GitHub reports "none" for a non-collaborator; "read" and "pull" both
+      // mean read-only.
+      const permission = rawPermission === "read" ? "pull" : rawPermission;
+      const isCollaborator = Boolean(permission) && permission !== "none";
+
+      if (isCollaborator) {
         if (permission !== "pull") {
           try {
             await axios.put(
@@ -267,14 +277,14 @@ export async function POST(
               { headers }
             );
             accessState = "collaborator";
-            accessNote = `GitHub access was "${permission}" and has been downgraded to read-only.`;
+            accessNote = `GitHub access was "${rawPermission}" and has been downgraded to read-only.`;
           } catch (downgradeError: any) {
             console.error(
               "Could not downgrade collaborator:",
               downgradeError.response?.data || downgradeError.message
             );
             accessState = "collaborator";
-            accessNote = `The student currently has "${permission}" access on GitHub; the startup should change it to Read in repository settings.`;
+            accessNote = `GitHub kept "${rawPermission}" access. Retry the downgrade from Innoverse → Repo access; the account still has repository access in the meantime.`;
           }
         } else {
           accessState = "collaborator";
@@ -290,8 +300,21 @@ export async function POST(
             { permission: "pull" },
             { headers }
           );
-          // 204 = already a collaborator; 201 = invitation created.
-          accessState = invite.status === 204 ? "collaborator" : "invited";
+          // 204 usually means the account already has a pending invitation or
+          // collaborator row; verify the real state instead of assuming access.
+          if (invite.status === 204) {
+            const state = await existingAccess();
+            if (state === "collaborator") {
+              accessState = "collaborator";
+            } else if (state === "invited") {
+              accessState = "invited";
+            } else {
+              accessState = "failed";
+              accessFailure = `GitHub accepted the request but did not report access for @${student.githubUsername}. Retry from Innoverse or check the repository's collaborator settings.`;
+            }
+          } else {
+            accessState = "invited";
+          }
         } catch (error: any) {
           const status = error.response?.status;
           const githubMessage = error.response?.data?.message;
@@ -314,11 +337,11 @@ export async function POST(
               // Signing must not be blocked by GitHub. The agreement is valid;
               // access can be granted manually by the startup.
               accessState = "failed";
-              accessFailure = `GitHub did not add @${student.githubUsername} automatically (422: ${reason}). This usually means the account already has access, is the repository owner, or the startup lacks admin rights. Invite them manually from the repository settings if needed.`;
+              accessFailure = `GitHub did not add @${student.githubUsername} automatically (422: ${reason}). Retry from this page, or use Repo access in Innoverse settings.`;
             }
           } else {
             accessState = "failed";
-            accessFailure = `GitHub refused access (${status ?? "no response"}: ${reason}). The startup must be a repository admin, or can invite the student manually.`;
+            accessFailure = `GitHub refused access (${status ?? "no response"}: ${reason}). The startup can retry from Repo access in Innoverse settings.`;
           }
         }
       }
@@ -340,6 +363,12 @@ export async function POST(
 
     if (accessNote) accessMessage += ` ${accessNote}`;
 
+    const accessRecord = {
+      accessStatus: accessState,
+      accessError: accessState === "failed" ? accessFailure : null,
+      accessCheckedAt: new Date(),
+    };
+
     if (isIssue) {
       try {
         await axios.post(
@@ -359,12 +388,14 @@ export async function POST(
     }
 
     if (alreadySigned) {
-      const updates: Record<string, unknown> = { repoUrl: proposal.repoUrl };
-      if (
-        accessState !== "invited" &&
-        accessState !== "failed" &&
-        !proposal.accessGrantedAt
-      ) {
+      const updates: Record<string, unknown> = {
+        repoUrl: proposal.repoUrl,
+        ...accessRecord,
+      };
+      if (accessState === "invited" || accessState === "failed") {
+        // A pending or failed invitation is not active access.
+        updates.accessGrantedAt = null;
+      } else if (!proposal.accessGrantedAt) {
         updates.accessGrantedAt = new Date();
       }
       await Proposal.updateOne({ _id: proposal._id }, { $set: updates });
@@ -399,6 +430,9 @@ export async function POST(
     // For private repos, access is not active until the invitation is accepted.
     proposal.accessGrantedAt =
       accessState === "invited" || accessState === "failed" ? null : acceptedAt;
+    proposal.accessStatus = accessState;
+    proposal.accessError = accessState === "failed" ? accessFailure : null;
+    proposal.accessCheckedAt = new Date();
     proposal.agreementCode = generated.agreementCode;
     proposal.agreementFile = generated.agreementFile;
     await proposal.save();

@@ -57,6 +57,9 @@ export interface Proposal {
   termsAcceptedAt?: string | null;
   termsAcceptedName?: string | null;
   accessGrantedAt?: string | null;
+  accessStatus?: "owner" | "collaborator" | "invited" | "public" | "granted" | "failed" | null;
+  accessError?: string | null;
+  accessCheckedAt?: string | null;
   agreementCode?: string | null;
   agreementFile?: string | null;
 }

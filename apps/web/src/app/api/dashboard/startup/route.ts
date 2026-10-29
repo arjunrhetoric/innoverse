@@ -17,7 +17,8 @@ export async function GET() {
       .populate("studentId", "name email githubUsername")
       .populate({
         path: "problemId",
-        select: "title createdBy",
+        select:
+          "title createdBy githubOwner githubRepoName githubRepoUrl contributionType githubIssueNumber githubIssueUrl",
         populate: { path: "createdBy", select: "name _id" },
       });
       

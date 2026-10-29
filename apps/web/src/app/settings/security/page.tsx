@@ -94,9 +94,8 @@ export default function SecuritySettingsPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="px-4 pb-16 pt-24">
-          <div className="mx-auto max-w-3xl">
-            <Skeleton className="h-3 w-28" />
+        <div className="mx-auto max-w-3xl pb-16">
+          <Skeleton className="h-3 w-28" />
             <Skeleton className="mt-3 h-7 w-64" />
             <Skeleton className="mt-2 h-4 w-full max-w-lg" />
             <div className="mt-8 space-y-6">
@@ -113,7 +112,6 @@ export default function SecuritySettingsPage() {
                 <Skeleton className="mt-3 h-3 w-2/3" />
                 <Skeleton className="mt-4 h-8 w-52" />
               </div>
-            </div>
           </div>
         </div>
       </AppShell>
@@ -122,9 +120,8 @@ export default function SecuritySettingsPage() {
 
   return (
     <AppShell>
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-3xl">
-<SettingsNav items={startupSettingsItems} />
+      <div className="mx-auto max-w-3xl pb-16">
+        <SettingsNav items={startupSettingsItems} />
           <PageHeader
             back={{ href: "/dashboard/startup", label: "Dashboard" }}
             eyebrow={
@@ -249,8 +246,8 @@ export default function SecuritySettingsPage() {
             </Section>
 
             <Section
-              title="Fix a specific collaborator"
-              description="For repositories that are not linked to a challenge — for example after a manual GitHub invite. Reads the real permission back from GitHub after changing it."
+              title="Invite or fix one collaborator"
+              description="Use this for a repository outside a challenge or to repair one student. If the account has no access, Innoverse sends a read-only invitation; otherwise it sets the role to Read and verifies the result with GitHub."
               contentClassName="p-5"
             >
               <div className="grid gap-3 sm:grid-cols-3">
@@ -318,10 +315,16 @@ export default function SecuritySettingsPage() {
                     <span>→</span>
                     <span>After</span>
                     <Badge
-                      variant={fixResult.after === "pull" ? "success" : "warning"}
+                      variant={
+                        ["pull", "public", "owner"].includes(fixResult.after ?? "")
+                          ? "success"
+                          : "warning"
+                      }
                       className="font-mono"
                     >
-                      {fixResult.invitationUpdated ? "read (pending invite)" : fixResult.after ?? "unknown"}
+                      {fixResult.invitationUpdated
+                        ? "read (invite pending)"
+                        : fixResult.after ?? "unknown"}
                     </Badge>
                   </div>
                   {fixResult.orgNote && fixResult.after !== "pull" && (
@@ -408,7 +411,6 @@ export default function SecuritySettingsPage() {
               and reviews for <span className="font-mono text-muted-foreground">main</span>.
             </p>
           </div>
-        </div>
       </div>
 
       <ConfirmAction

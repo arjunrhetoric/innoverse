@@ -48,6 +48,21 @@ const ProposalSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  // Last known repository-access result, so the UI never has to guess from a
+  // timestamp alone. "invited" and "failed" both mean access is not active.
+  accessStatus: {
+    type: String,
+    enum: ["owner", "collaborator", "invited", "public", "granted", "failed"],
+    default: null,
+  },
+  accessError: {
+    type: String,
+    default: null,
+  },
+  accessCheckedAt: {
+    type: Date,
+    default: null,
+  },
   agreementCode: {
     type: String,
     default: null,

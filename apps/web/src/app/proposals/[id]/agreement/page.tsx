@@ -15,6 +15,9 @@ import {
   Upload,
   X,
   ShieldCheck,
+  RefreshCw,
+  Clock3,
+  ShieldAlert,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -24,7 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CopyButton } from "@/components/ui/copy-button";
 import { useUser } from "@/hooks/useUser";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 interface AgreementData {
   proposal: {
@@ -33,6 +36,9 @@ interface AgreementData {
     repoUrl: string | null;
     termsAcceptedAt: string | null;
     accessGrantedAt: string | null;
+    accessStatus: "owner" | "collaborator" | "invited" | "public" | "granted" | "failed" | null;
+    accessError: string | null;
+    accessCheckedAt: string | null;
     agreementCode: string | null;
     agreementFile: string | null;
     description: string;
@@ -103,6 +109,22 @@ export default function CollaborationAgreementPage() {
 
   const isStudent = user?.role === "Student";
 
+  // Access is active only when GitHub access has been verified AND the stored
+  // status is not a pending/failed invitation. Legacy rows without a status
+  // are treated as unverified rather than assumed to work — that assumption is
+  // what previously produced a false "access granted" and a 404 repo link.
+  const accessStatus = data?.proposal.accessStatus ?? null;
+  const accessVerified = Boolean(accessStatus);
+  const accessActive =
+    Boolean(data?.proposal.accessGrantedAt) &&
+    accessVerified &&
+    accessStatus !== "invited" &&
+    accessStatus !== "failed";
+  const accessFailed = accessStatus === "failed";
+  const invitePending = accessStatus === "invited";
+  const accessUnverified = Boolean(done && !accessVerified);
+  const needsAccess = Boolean(done && !accessActive);
+
   const onSignatureFile = (file?: File) => {
     setError("");
     if (!file) {
@@ -124,8 +146,7 @@ export default function CollaborationAgreementPage() {
 
   return (
     <AppShell>
-      <div className="px-4 pb-16 pt-24">
-        <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-5xl pb-16">
           <Link
             href="/dashboard/student"
             className="mb-6 inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -268,36 +289,108 @@ export default function CollaborationAgreementPage() {
                           </div>
                         </div>
 
+                        {needsAccess && (
+                          <div
+                            className={cn(
+                              "rounded-lg border px-3 py-3",
+                              accessFailed
+                                ? "border-danger-border bg-danger-subtle"
+                                : accessUnverified
+                                  ? "border-info-border bg-info-subtle"
+                                  : "border-warning-border bg-warning-subtle"
+                            )}
+                          >
+                            <div className="flex items-start gap-2">
+                              {accessFailed ? (
+                                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                              ) : accessUnverified ? (
+                                <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+                              ) : (
+                                <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                              )}
+                              <div className="min-w-0">
+                                <p
+                                  className={cn(
+                                    "text-xs font-medium",
+                                    accessFailed
+                                      ? "text-danger"
+                                      : accessUnverified
+                                        ? "text-info"
+                                        : "text-warning"
+                                  )}
+                                >
+                                  {accessFailed
+                                    ? "Repository access could not be granted"
+                                    : accessUnverified
+                                      ? "Repository access needs a quick check"
+                                      : "GitHub invitation is pending"}
+                                </p>
+                                <p
+                                  className={cn(
+                                    "mt-0.5 text-xs leading-relaxed",
+                                    accessFailed
+                                      ? "text-danger"
+                                      : accessUnverified
+                                        ? "text-info"
+                                        : "text-warning"
+                                  )}
+                                >
+                                  {accessFailed
+                                    ? data.proposal.accessError ||
+                                      "GitHub did not accept the invitation. Retry access, or ask the startup to repair it from the platform."
+                                    : accessUnverified
+                                      ? "We have not confirmed your GitHub permission yet. Check access to sync it before opening the repository."
+                                      : "Accept the invitation in GitHub notifications. The repository link stays disabled until access is active."}
+                                </p>
+                                {data.proposal.accessCheckedAt && (
+                                  <p className="mt-1 font-mono text-2xs opacity-70">
+                                    Last checked {formatDate(data.proposal.accessCheckedAt)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="mt-2.5 flex flex-wrap gap-2">
+                              {invitePending && (
+                                <Button size="sm" variant="outline" asChild>
+                                  <a
+                                    href="https://github.com/notifications"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    Open GitHub invitations
+                                  </a>
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant={accessFailed ? "default" : "outline"}
+                                onClick={resend}
+                                disabled={submitting}
+                              >
+                                {submitting ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                )}
+                                {accessFailed
+                                  ? "Retry access"
+                                  : accessUnverified
+                                    ? "Check access"
+                                    : "I accepted — check access"}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
                         {warning && (
-                          <p className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2 text-xs text-warning">
+                          <p className="rounded-md border border-border bg-surface px-3 py-2 text-xs leading-relaxed text-muted-foreground">
                             {warning}
                           </p>
                         )}
 
-                        {!data.proposal.accessGrantedAt && (
-                          <div className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2.5">
-                            <p className="text-xs leading-relaxed text-warning">
-                              Access is not active yet. If an invitation was sent, accept it from
-                              your email or GitHub notifications. If the invite failed, ask the
-                              startup to add you manually from the repository settings.
-                            </p>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="mt-2"
-                              onClick={resend}
-                              disabled={submitting}
-                            >
-                              {submitting ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : null}
-                              Retry invitation
-                            </Button>
-                          </div>
-                        )}
-
                         <div className="flex flex-wrap gap-2 pt-1">
-                          {data.proposal.repoUrl && (
+                          {accessActive && data.proposal.repoUrl && (
                             <Button variant="outline" size="sm" asChild>
                               <a
                                 href={data.proposal.repoUrl}
@@ -426,13 +519,13 @@ export default function CollaborationAgreementPage() {
                             ) : (
                               <FileSignature className="h-4 w-4" />
                             )}
-                            Sign & get read access
+                            Sign agreement
                           </Button>
-                          {!isStudent && (
-                            <p className="text-xs text-muted-foreground">
-                              Waiting for the student to sign.
-                            </p>
-                          )}
+                          <p className="text-xs text-muted-foreground">
+                            {isStudent
+                              ? "Innoverse will request read-only GitHub access for you."
+                              : "Waiting for the student to sign."}
+                          </p>
                         </div>
                       </div>
                     )}
@@ -441,7 +534,7 @@ export default function CollaborationAgreementPage() {
               </article>
 
               {/* ── Terms rail ───────────────────────────────────────────── */}
-              <aside className="lg:sticky lg:top-24 lg:self-start">
+              <aside className="lg:sticky lg:top-20 lg:self-start">
                 <section className="overflow-hidden rounded-lg border border-border bg-card">
                   <header className="border-b border-border px-4 py-3">
                     <h2 className="text-sm font-semibold text-foreground">Summary of terms</h2>
@@ -462,8 +555,27 @@ export default function CollaborationAgreementPage() {
                       </dd>
                     </div>
                     <div className="px-4 py-2.5">
-                      <dt className="text-subtle-foreground">Access granted</dt>
-                      <dd className="mt-0.5 text-foreground">Read only — fork and pull requests</dd>
+                      <dt className="text-subtle-foreground">Repository access</dt>
+                      <dd
+                        className={cn(
+                          "mt-0.5",
+                          accessActive
+                            ? "text-success"
+                            : accessFailed
+                              ? "text-danger"
+                              : "text-warning"
+                        )}
+                      >
+                        {!done
+                          ? "Read only — requested after signing"
+                          : accessActive
+                            ? "Read only — active"
+                            : accessFailed
+                              ? "Read only — access failed"
+                              : accessUnverified
+                                ? "Read only — needs verification"
+                                : "Read only — invitation pending"}
+                      </dd>
                     </div>
                     <div className="px-4 py-2.5">
                       <dt className="text-subtle-foreground">IP assignment</dt>
@@ -528,7 +640,6 @@ export default function CollaborationAgreementPage() {
               </aside>
             </div>
           )}
-        </div>
       </div>
     </AppShell>
   );
