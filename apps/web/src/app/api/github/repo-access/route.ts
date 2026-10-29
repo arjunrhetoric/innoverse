@@ -78,6 +78,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // GitHub cannot lower the permission of the repository owner or of the
+    // account holding the token; treat that as already effectively admin.
+    let tokenLogin: string | null = null;
+    try {
+      const me = await fetch("https://api.github.com/user", { headers, cache: "no-store" });
+      if (me.ok) {
+        const data: any = await me.json();
+        tokenLogin = String(data?.login ?? "").toLowerCase() || null;
+      }
+    } catch {
+      // Non-fatal.
+    }
+    const targetLogin = username.toLowerCase();
+    const ownerLogin = String(repository.owner?.login ?? "").toLowerCase();
+    if (targetLogin === ownerLogin || (tokenLogin && targetLogin === tokenLogin)) {
+      const reason =
+        targetLogin === ownerLogin ? "the repository owner" : "the GitHub account you are signed in as";
+      return NextResponse.json({
+        message: `@${username} is ${reason}, so GitHub cannot reduce its permission. Use a separate student account if you want to demonstrate read-only access.`,
+        isAdmin,
+        before: targetLogin === ownerLogin ? "owner" : "token owner",
+        after: targetLogin === ownerLogin ? "owner" : "token owner",
+        changed: false,
+        invitationUpdated: false,
+      });
+    }
+
     // 2. Check the current collaborator permission.
     let before: string | null = null;
     let collaboratorExists = false;
@@ -167,9 +194,12 @@ export async function POST(req: NextRequest) {
       });
       if (!put.ok) {
         const body = await put.text().catch(() => "");
+        const hint = /Cannot assign .* permission/i.test(body)
+          ? " GitHub will not lower this account's permission because it is an owner/admin or has a higher organization role."
+          : "";
         return NextResponse.json(
           {
-            message: `GitHub refused the downgrade (HTTP ${put.status}). ${body.slice(0, 300)}`,
+            message: `GitHub refused the downgrade (HTTP ${put.status}). ${body.slice(0, 300)}${hint}`,
             isAdmin,
             before,
             after: null,
