@@ -263,10 +263,10 @@ export async function POST(
       } else if (!isCollaborator && isPersonalRepo && repo.private !== false) {
         // GitHub's API cannot grant read-only access on a personal private
         // repo. Do NOT send a write invitation as a fallback: that is worse
-        // than no access. The startup can make the repo public/fork-only.
+        // than no access. New challenges use public fork-only repositories.
         accessState = "failed";
         accessFailure =
-          "GitHub does not allow read-only collaborators on personal private repositories. The startup should use Repo access → Make fork-only to make this repo public and remove write access, or move it to a GitHub organization.";
+          "GitHub does not allow read-only collaborators on personal private repositories. Move this repository to a GitHub organization, or make it public and remove the collaborator so the student can fork it. New Innoverse challenges create public fork-only repositories automatically.";
       } else {
         const invite = await inviteReadOnly(
           repoApi,

@@ -15,9 +15,6 @@ const Schema = z.object({
   username: z.string().trim().min(1).max(100),
   // When called from a proposal row, keep that proposal's access state in sync.
   proposalId: z.string().trim().optional(),
-  // "fork-only" makes a personal repo public and removes the collaborator,
-  // because GitHub cannot grant a read-only collaborator role on personal repos.
-  action: z.enum(["fix", "fork-only"]).optional(),
 });
 
 const READ_OR_BELOW = new Set(["pull"]);
@@ -124,61 +121,6 @@ export async function POST(req: NextRequest) {
     }
 
     const isPersonalRepo = repository.owner?.type === "User";
-    const isPrivateRepo = repository.private !== false;
-
-    if (parsed.data.action === "fork-only") {
-      // GitHub's API only honours an explicit permission on organization-owned
-      // repositories. On a personal repo the only platform-only way to remove
-      // write access is to make the repo public and remove the collaborator;
-      // the student then contributes through a fork.
-      const makePublic = await fetch(base, {
-        method: "PATCH",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ private: false }),
-      });
-      if (!makePublic.ok) {
-        const body = await makePublic.text().catch(() => "");
-        return NextResponse.json(
-          {
-            message: `GitHub could not make ${owner}/${repo} public (HTTP ${makePublic.status}). ${body.slice(0, 300)}`,
-            isAdmin,
-          },
-          { status: 502 }
-        );
-      }
-
-      const remove = await fetch(
-        `${base}/collaborators/${encodeURIComponent(username)}`,
-        { method: "DELETE", headers }
-      );
-      const removed = remove.ok || remove.status === 404;
-
-      await syncProposalAccess(parsed.data.proposalId, session.user.id, "public", null);
-      await audit({
-        actorId: session.user.id,
-        actorName: session.user.name ?? null,
-        action: "access.repo_made_fork_only",
-        resourceType: "User",
-        resourceId: session.user.id,
-        metadata: { owner, repo, username, removed },
-        request: req,
-      });
-
-      return NextResponse.json({
-        message: removed
-          ? `${owner}/${repo} is now public and @${username} no longer has write access. They can fork it and open pull requests.`
-          : `${owner}/${repo} is now public. GitHub kept @${username} as a collaborator because they are the owner or token account.`,
-        isAdmin,
-        before: "write",
-        after: "public",
-        changed: true,
-        invitationUpdated: false,
-        needsForkOnly: false,
-        accessStatus: "public",
-        repoVisibility: "public",
-        removedCollaborator: removed,
-      });
-    }
 
     // GitHub cannot lower the permission of the repository owner or of the
     // account holding the token; treat that as already effectively admin.
@@ -299,31 +241,33 @@ export async function POST(req: NextRequest) {
       }
 
       // Never send a write invitation to compensate for GitHub's personal-repo
-      // limitation. Offer the fork-only path instead.
+      // limitation. Personal private repos need an organization or a public
+      // fork-only workflow.
       if (
         isPersonalRepo &&
-        isPrivateRepo &&
+        repository.private !== false &&
         (!collaboratorExists || (before && before !== "pull"))
       ) {
         const message =
           `GitHub does not allow read-only collaborator roles on personal private repositories, so Innoverse did not add @${username} as a collaborator. ` +
-          `Use “Make fork-only” to make this repo public and remove write access; the student can then fork it.`;
+          `Move this repository to a GitHub organization, or make it public and remove the collaborator so the student can fork it.`;
         await syncProposalAccess(
           parsed.data.proposalId,
           session.user.id,
           collaboratorExists ? "collaborator" : "failed",
           message
         );
-        return NextResponse.json({
-          message,
-          isAdmin,
-          before,
-          after: before,
-          changed: false,
-          needsForkOnly: true,
-          accessStatus: collaboratorExists ? "collaborator" : "failed",
-          repoVisibility: "private",
-        });
+        return NextResponse.json(
+          {
+            message,
+            isAdmin,
+            before,
+            after: before,
+            changed: false,
+            accessStatus: collaboratorExists ? "collaborator" : "failed",
+          },
+          { status: 409 }
+        );
       }
 
       const invite = await inviteReadOnly(base, username, headers);
@@ -339,19 +283,13 @@ export async function POST(req: NextRequest) {
             message
           );
           return NextResponse.json(
-            {
-              message,
-              isAdmin,
-              before,
-              after: before,
-              needsForkOnly: isPersonalRepo && isPrivateRepo,
-            },
+            { message, isAdmin, before, after: before },
             { status: 502 }
           );
         }
         await syncProposalAccess(parsed.data.proposalId, session.user.id, "failed", message);
         return NextResponse.json(
-          { message, isAdmin, before, after: null, needsForkOnly: false },
+          { message, isAdmin, before, after: null },
           { status: 502 }
         );
       }
@@ -390,36 +328,22 @@ export async function POST(req: NextRequest) {
     );
 
     const ok = invited || invitationUpdated || (after && READ_OR_BELOW.has(after));
-    const needsForkOnly =
-      isPersonalRepo &&
-      isPrivateRepo &&
-      (Boolean(accessWarning) || (!invited && !invitationUpdated && after !== "pull"));
-
-    let message = invited
-      ? accessWarning ?? `Invitation sent to @${username} with read-only access.`
-      : invitationUpdated
-        ? `Pending invitation downgraded to read-only (was ${before ?? "unknown"}).`
-        : accessWarning
-          ? accessWarning
-          : ok
-            ? `@${username} is now read-only (was ${before ?? "unknown"}).`
-            : `GitHub accepted the request, but the reported permission is still ${after ?? "unknown"}. If the user is an organization member with a base Write role, change the org/team permission.`;
-
-    if (needsForkOnly) {
-      message +=
-        " GitHub does not support read-only collaborator roles on personal repositories. Use “Make fork-only” to make this repo public and remove write access.";
-    }
-
     return NextResponse.json({
-      message,
+      message: invited
+        ? accessWarning ?? `Invitation sent to @${username} with read-only access.`
+        : invitationUpdated
+          ? `Pending invitation downgraded to read-only (was ${before ?? "unknown"}).`
+          : accessWarning
+            ? accessWarning
+            : ok
+              ? `@${username} is now read-only (was ${before ?? "unknown"}).`
+              : `GitHub accepted the request, but the reported permission is still ${after ?? "unknown"}. If the user is an organization member with a base Write role, change the org/team permission.`,
       isAdmin,
       before,
       after,
       invitationUpdated: invitationUpdated || invited,
       changed: invited || before !== after || invitationUpdated,
-      needsForkOnly,
       accessStatus: status,
-      repoVisibility: isPrivateRepo ? "private" : "public",
       orgNote:
         "If the student is an organization member or in a team with Write access, the effective permission can exceed the collaborator role. Lower the organization base role or remove the team.",
     });

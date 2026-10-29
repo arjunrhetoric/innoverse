@@ -118,15 +118,6 @@ export default function StartupDashboard() {
   const [reviewError, setReviewError] = useState("");
   const [notice, setNotice] = useState("");
   const [fixingAccessId, setFixingAccessId] = useState<string | null>(null);
-  const [forkOnlyPrompt, setForkOnlyPrompt] = useState<{
-    owner: string;
-    repo: string;
-    username: string;
-    proposalId: string;
-    title: string;
-  } | null>(null);
-  const [forkOnlyOpen, setForkOnlyOpen] = useState(false);
-  const [makingForkOnly, setMakingForkOnly] = useState(false);
 
   // Delete Confirmation
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -256,21 +247,6 @@ export default function StartupDashboard() {
         }),
       });
       const data = await res.json();
-      if (data?.needsForkOnly) {
-        setForkOnlyPrompt({
-          owner: repo.owner,
-          repo: repo.repo,
-          username: student.githubUsername,
-          proposalId: proposal._id,
-          title:
-            typeof proposal.problemId === "object"
-              ? proposal.problemId.title
-              : "this challenge",
-        });
-        setNotice("");
-        await fetchData();
-        return;
-      }
       if (!res.ok) {
         setError(data.message || "Could not repair repository access");
         await fetchData();
@@ -283,38 +259,6 @@ export default function StartupDashboard() {
       await fetchData();
     } finally {
       setFixingAccessId(null);
-    }
-  };
-
-  const makeForkOnly = async () => {
-    if (!forkOnlyPrompt) return;
-    setMakingForkOnly(true);
-    setError("");
-    setNotice("");
-    try {
-      const res = await fetch("/api/github/repo-access", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          owner: forkOnlyPrompt.owner,
-          repo: forkOnlyPrompt.repo,
-          username: forkOnlyPrompt.username,
-          proposalId: forkOnlyPrompt.proposalId,
-          action: "fork-only",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Could not make the repository fork-only");
-      setNotice(data.message || "Repository is now public and fork-only.");
-      setForkOnlyOpen(false);
-      setForkOnlyPrompt(null);
-      await fetchData();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not make the repository fork-only");
-      setForkOnlyOpen(false);
-    } finally {
-      setMakingForkOnly(false);
     }
   };
 
@@ -395,42 +339,6 @@ export default function StartupDashboard() {
         </div>
       )}
 
-      {forkOnlyPrompt && (
-        <div
-          role="alert"
-          className="mb-6 rounded-lg border border-warning-border bg-warning-subtle p-4"
-        >
-          <div className="flex items-start gap-2">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-warning">
-                GitHub cannot make this personal repo read-only
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-warning">
-                <span className="font-mono">
-                  {forkOnlyPrompt.owner}/{forkOnlyPrompt.repo}
-                </span>{" "}
-                is a personal repository. GitHub only supports read-only collaborators on
-                organization-owned repos, so @{forkOnlyPrompt.username} still has write access. Make
-                the repo public and remove their write access instead — they can then fork it and
-                open pull requests. The code becomes public.
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="destructive-outline"
-              onClick={() => setForkOnlyOpen(true)}
-            >
-              Make public &amp; remove write access
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setForkOnlyPrompt(null)}>
-              Not now
-            </Button>
-          </div>
-        </div>
-      )}
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-4">
@@ -937,50 +845,6 @@ export default function StartupDashboard() {
                 <Trash2 className="h-4 w-4" />
               )}
               Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── Personal repo: fork-only fallback ─────────────────────────── */}
-      <Dialog open={forkOnlyOpen} onOpenChange={setForkOnlyOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Make {forkOnlyPrompt ? `${forkOnlyPrompt.owner}/${forkOnlyPrompt.repo}` : "repository"} public?
-            </DialogTitle>
-            <DialogDescription>
-              GitHub only allows read-only collaborators on organization-owned repositories. On a
-              personal repo, Innoverse cannot lower {forkOnlyPrompt ? `@${forkOnlyPrompt.username}` : "the student"}{" "}
-              below write access.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogBody className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-            <p>This will:</p>
-            <ul className="list-disc space-y-1 pl-5">
-              <li>Make the repository public. Anyone can view and fork it.</li>
-              <li>
-                Remove {forkOnlyPrompt ? `@${forkOnlyPrompt.username}` : "the student"} as a
-                collaborator, so they no longer have write access.
-              </li>
-              <li>Let them contribute through a fork and pull request.</li>
-            </ul>
-            <p className="rounded-md border border-warning-border bg-warning-subtle px-3 py-2 text-xs text-warning">
-              Only do this if the challenge code can be public. If the student already has a fork,
-              GitHub may remove it when the collaborator is removed.
-            </p>
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setForkOnlyOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={makeForkOnly}
-              disabled={makingForkOnly}
-            >
-              {makingForkOnly ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Make public &amp; fork-only
             </Button>
           </DialogFooter>
         </DialogContent>
