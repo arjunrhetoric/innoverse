@@ -68,7 +68,7 @@ const TONES: Record<string, StatusTone> = {
   declined: "danger",
   revoked: "danger",
   failed: "danger",
-  expired: "danger",
+  expired: "neutral",
   delivered: "brand",
   "in progress": "brand",
   "in review ": "info",

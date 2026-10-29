@@ -74,9 +74,16 @@ export function Hero() {
           className="animate-hero mx-auto mt-12 max-w-4xl sm:mt-14"
           style={{ ["--d" as string]: "300ms" }}
         >
-          <AppPreview />
+          <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:overflow-visible sm:px-0">
+            <div className="min-w-[640px] sm:min-w-0">
+              <AppPreview />
+            </div>
+          </div>
           <p className="mt-3 text-center font-mono text-2xs text-subtle-foreground">
             The real interface, populated with sample data.
+          </p>
+          <p className="mt-1 text-center text-[11px] text-muted-foreground sm:hidden">
+            Swipe to explore the interface
           </p>
         </div>
       </div>

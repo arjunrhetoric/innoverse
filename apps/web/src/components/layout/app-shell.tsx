@@ -109,7 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         : [
             { href: "/dashboard/student", label: "Overview", icon: LayoutDashboard },
             { href: "/engagements", label: "Engagements", icon: Handshake },
-            { href: "/profile", label: "Profile", icon: User },
+            { href: "/profile", label: "Portfolio", icon: User },
           ];
 
   const discover: NavItem[] = [
@@ -126,7 +126,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ]
       : role === "Institution"
         ? []
-        : [{ href: "/settings/profile", label: "Settings", icon: Settings }];
+        : [{ href: "/settings/profile", label: "Public profile", icon: Settings }];
 
   const groups = [
     { title: "Workspace", items: workspace },
