@@ -45,7 +45,7 @@ const OPTIONS = [
     icon: Rocket,
     title: "New project repo",
     detail:
-      "Innoverse creates a private GitHub repository owned by your startup. The approved student gets read-only access after signing and contributes through forks.",
+      "Innoverse creates a public GitHub repository owned by your startup. Students fork it and open pull requests — no collaborator write access is needed.",
   },
   {
     value: "issue" as const,
@@ -127,7 +127,7 @@ export default function NewChallengePage() {
         );
       }
     } else if (!form.githubRepoName.trim()) {
-      return fail("githubRepoName", "Name the private repository for this challenge.");
+      return fail("githubRepoName", "Name the public repository for this challenge.");
     }
 
     setPosting(true);
@@ -324,7 +324,7 @@ export default function NewChallengePage() {
             description={
               isIssue
                 ? "Where the issue lives."
-                : "A private repo is created and linked to this challenge."
+                : "A public, fork-only repo is created and linked to this challenge."
             }
           >
             <div className="space-y-4 p-5">
@@ -418,9 +418,9 @@ export default function NewChallengePage() {
                   <div className="flex items-start gap-2 rounded-md border border-border bg-surface p-3">
                     <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-subtle-foreground" />
                     <p className="text-xs leading-relaxed text-muted-foreground">
-                      The repo is private. After signing, the student gets read-only
-                      access and contributes through forks and pull requests; you review
-                      and merge.
+                      The repo is public. Students fork it and open pull requests; no
+                      collaborator write access is granted. You review and merge. Use a
+                      GitHub organization later if the code must stay private.
                     </p>
                   </div>
                 </>

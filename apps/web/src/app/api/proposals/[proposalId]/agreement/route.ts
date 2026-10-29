@@ -212,6 +212,7 @@ export async function POST(
     const repoOwner = String(repo.owner?.login ?? "").toLowerCase();
     const isRepoOwner = studentLogin === repoOwner;
     const isPublicRepo = repo.private === false;
+    const isPersonalRepo = repo.owner?.type === "User";
 
     // GitHub also rejects inviting the token owner to their own repo (422).
     // This matters when testing with a single account.
@@ -259,6 +260,13 @@ export async function POST(
         // Public repositories allow forks without an invitation; skip the
         // invite entirely and avoid unnecessary emails/API failures.
         accessState = "public";
+      } else if (!isCollaborator && isPersonalRepo && repo.private !== false) {
+        // GitHub's API cannot grant read-only access on a personal private
+        // repo. Do NOT send a write invitation as a fallback: that is worse
+        // than no access. The startup can make the repo public/fork-only.
+        accessState = "failed";
+        accessFailure =
+          "GitHub does not allow read-only collaborators on personal private repositories. The startup should use Repo access → Make fork-only to make this repo public and remove write access, or move it to a GitHub organization.";
       } else {
         const invite = await inviteReadOnly(
           repoApi,

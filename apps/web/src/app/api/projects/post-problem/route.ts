@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     if (createGithubRepo && !githubRepoName) {
       return NextResponse.json(
-        { message: "Provide a repository name, or turn off “Create a private GitHub repo”." },
+        { message: "Provide a repository name, or turn off “Create a GitHub repo”." },
         { status: 400 }
       );
     }
@@ -177,7 +177,9 @@ export async function POST(req: NextRequest) {
         const githubUsername = session.user.githubUsername;
         const response = await axios.post(
           "https://api.github.com/user/repos",
-          { name: githubRepoName, private: true, auto_init: true },
+          // Public fork-only by default: GitHub cannot grant a read-only
+          // collaborator role on a personal repository.
+          { name: githubRepoName, private: false, auto_init: true },
           { headers: { Authorization: `Bearer ${githubAccessToken}` } }
         );
 
