@@ -11,6 +11,8 @@ import {
   Send,
   Search,
   FileCode2,
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Section } from "@/components/ui/card";
+import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
 
 interface Entry {
@@ -28,9 +31,57 @@ interface Entry {
   pullNumber: number | null;
   answer: string;
   sources: string[];
-  payload: any;
+  payload: unknown;
   createdAt: string;
+  model: string | null;
 }
+
+interface StoredReview {
+  verdict: "safe" | "caution" | "block";
+  summary: string;
+  risks: Array<{ severity: string; file?: string; issue: string }>;
+  checklist: string[];
+  title?: string;
+  pullNumber?: number;
+}
+
+function asStoredReview(value: unknown): StoredReview | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (!["safe", "caution", "block"].includes(String(candidate.verdict))) return null;
+  if (typeof candidate.summary !== "string") return null;
+  const risks = Array.isArray(candidate.risks)
+    ? candidate.risks
+        .filter((risk): risk is Record<string, unknown> => Boolean(risk) && typeof risk === "object")
+        .map((risk) => ({
+          severity: ["low", "medium", "high"].includes(String(risk.severity))
+            ? String(risk.severity)
+            : "medium",
+          file: typeof risk.file === "string" ? risk.file : undefined,
+          issue: typeof risk.issue === "string" ? risk.issue : String(risk.issue ?? ""),
+        }))
+        .filter((risk) => risk.issue.length > 0)
+    : [];
+
+  return {
+    verdict: candidate.verdict as StoredReview["verdict"],
+    summary: candidate.summary,
+    risks,
+    checklist: Array.isArray(candidate.checklist)
+      ? candidate.checklist.filter((item): item is string => typeof item === "string")
+      : [],
+    title: typeof candidate.title === "string" ? candidate.title : undefined,
+    pullNumber:
+      typeof candidate.pullNumber === "number" ? candidate.pullNumber : undefined,
+  };
+}
+
+const SUGGESTIONS = [
+  "Where is authentication enforced?",
+  "Trace the main request flow end to end.",
+  "What should a new contributor read first?",
+  "Which files carry the highest regression risk?",
+];
 
 interface ReviewResult {
   verdict: "safe" | "caution" | "block";
@@ -62,11 +113,19 @@ export function KnowledgePanel({ projectId }: { projectId: string }) {
   const [reviewing, setReviewing] = useState(false);
   const [review, setReview] = useState<ReviewResult | null>(null);
   const [error, setError] = useState("");
+  const [repo, setRepo] = useState("");
+  const [grounding, setGrounding] = useState<{
+    files: number;
+    note: string | null;
+  } | null>(null);
 
   const load = () =>
     fetch(`/api/knowledge/${projectId}`, { credentials: "include" })
       .then((res) => res.json())
-      .then((data) => setEntries(data.entries ?? []))
+      .then((data) => {
+        setEntries(data.entries ?? []);
+        setRepo(data.repo ?? "");
+      })
       .catch(() => null)
       .finally(() => setLoading(false));
 
@@ -75,7 +134,10 @@ export function KnowledgePanel({ projectId }: { projectId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  const ask = async () => {
+  const ask = async (text?: string) => {
+    const value = (text ?? question).trim();
+    if (value.length < 5 || asking) return;
+    setQuestion(value);
     setAsking(true);
     setError("");
     try {
@@ -83,10 +145,14 @@ export function KnowledgePanel({ projectId }: { projectId: string }) {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question: value }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Could not answer that");
+      setGrounding({
+        files: Array.isArray(data.files) ? data.files.length : 0,
+        note: typeof data.note === "string" ? data.note : null,
+      });
       setQuestion("");
       await load();
     } catch (err: unknown) {
@@ -95,6 +161,14 @@ export function KnowledgePanel({ projectId }: { projectId: string }) {
       setAsking(false);
     }
   };
+
+  const sourceHref = (path: string) =>
+    repo
+      ? `https://github.com/${repo}/blob/HEAD/${path
+          .split("/")
+          .map(encodeURIComponent)
+          .join("/")}`
+      : null;
 
   const reviewPr = async () => {
     setReviewing(true);
@@ -123,6 +197,13 @@ export function KnowledgePanel({ projectId }: { projectId: string }) {
       <Section
         title="Repository knowledge"
         description="Ask about the codebase, or get a merge-safety assessment of a pull request. Answers are grounded in repository files and saved to the project."
+        actions={
+          repo ? (
+            <Badge variant="outline" className="max-w-full truncate font-mono">
+              {repo}
+            </Badge>
+          ) : undefined
+        }
       >
         <div className="grid gap-5 p-5 lg:grid-cols-2">
           {/* Ask */}
@@ -164,6 +245,19 @@ export function KnowledgePanel({ projectId }: { projectId: string }) {
             <p className="text-2xs leading-relaxed text-subtle-foreground">
               Answers cite the files they were drawn from. Nothing is sent to the repository.
             </p>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => ask(suggestion)}
+                  disabled={asking}
+                  className="cursor-pointer rounded-full border border-border bg-surface px-2.5 py-1 text-2xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
           </form>
 
           {/* PR safety review */}
@@ -210,6 +304,16 @@ export function KnowledgePanel({ projectId }: { projectId: string }) {
             </p>
           </form>
         </div>
+        {grounding && (
+          <p className="flex items-start gap-1.5 border-t border-border px-5 py-3 text-2xs leading-relaxed text-subtle-foreground">
+            <Sparkles className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+            <span>
+              Grounded in <span className="font-mono text-foreground">{grounding.files}</span>{" "}
+              repository {grounding.files === 1 ? "file" : "files"}
+              {grounding.note ? ` · ${grounding.note}` : ""}
+            </span>
+          </p>
+        )}
       </Section>
 
       <FormError>{error}</FormError>
@@ -218,17 +322,27 @@ export function KnowledgePanel({ projectId }: { projectId: string }) {
         <Section
           title={`PR #${prNumber} assessment`}
           actions={
-            <Badge variant={verdictMeta[review.verdict].variant} className="gap-1">
-              {(() => {
-                const Icon = verdictMeta[review.verdict].icon;
-                return <Icon className="h-3 w-3" />;
-              })()}
-              {verdictMeta[review.verdict].label}
-            </Badge>
+            <>
+              <Badge variant={verdictMeta[review.verdict].variant} className="gap-1">
+                {(() => {
+                  const Icon = verdictMeta[review.verdict].icon;
+                  return <Icon className="h-3 w-3" />;
+                })()}
+                {verdictMeta[review.verdict].label}
+              </Badge>
+              <CopyButton value={review.summary} label="Copy summary" />
+            </>
           }
         >
           <div className="space-y-4 p-5">
             <p className="text-sm leading-relaxed text-foreground/90">{review.summary}</p>
+            {review.files.length > 0 && (
+              <p className="flex flex-wrap items-center gap-1.5 font-mono text-2xs text-subtle-foreground">
+                <FileCode2 className="h-3 w-3" aria-hidden />
+                Reviewed {review.files.length}{" "}
+                {review.files.length === 1 ? "file" : "files"}
+              </p>
+            )}
 
             {review.risks.length > 0 && (
               <div>
@@ -308,36 +422,132 @@ export function KnowledgePanel({ projectId }: { projectId: string }) {
           />
         ) : (
           <ul className="divide-y divide-border">
-            {entries.map((entry) => (
-              <li key={entry.id} className="px-5 py-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  {entry.type === "qa" ? (
-                    <Badge variant="brand">Question</Badge>
-                  ) : (
-                    <Badge variant="info" className="font-mono">
-                      PR #{entry.pullNumber} review
-                    </Badge>
+            {entries.map((entry) => {
+              const stored = entry.type === "review" ? asStoredReview(entry.payload) : null;
+              const prHref =
+                repo && entry.pullNumber
+                  ? `https://github.com/${repo}/pull/${entry.pullNumber}/files`
+                  : null;
+              return (
+                <li key={entry.id} className="px-5 py-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {entry.type === "qa" ? (
+                      <Badge variant="brand">Question</Badge>
+                    ) : (
+                      <>
+                        {stored && (
+                          <Badge
+                            variant={verdictMeta[stored.verdict].variant}
+                            className="gap-1"
+                          >
+                            {(() => {
+                              const Icon = verdictMeta[stored.verdict].icon;
+                              return <Icon className="h-3 w-3" />;
+                            })()}
+                            {verdictMeta[stored.verdict].label}
+                          </Badge>
+                        )}
+                        <Badge variant="info" className="font-mono">
+                          PR #{entry.pullNumber ?? stored?.pullNumber ?? "?"}
+                        </Badge>
+                      </>
+                    )}
+                    <span className="font-mono text-2xs text-subtle-foreground">
+                      {new Date(entry.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+
+                  {entry.question && (
+                    <p className="mt-2 text-sm font-medium text-foreground">{entry.question}</p>
                   )}
-                  <span className="font-mono text-2xs text-subtle-foreground">
-                    {new Date(entry.createdAt).toLocaleString()}
-                  </span>
-                </div>
-
-                {entry.question && (
-                  <p className="mt-2 text-sm font-medium text-foreground">{entry.question}</p>
-                )}
-                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-                  {entry.answer}
-                </p>
-
-                {entry.sources.length > 0 && (
-                  <p className="mt-2 flex flex-wrap items-center gap-1.5 font-mono text-2xs text-subtle-foreground">
-                    <FileCode2 className="h-3 w-3" aria-hidden />
-                    {entry.sources.join(" · ")}
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                    {entry.answer}
                   </p>
-                )}
-              </li>
-            ))}
+
+                  {stored && (stored.risks.length > 0 || stored.checklist.length > 0) && (
+                    <details className="mt-2 rounded-md border border-border bg-surface px-3 py-2">
+                      <summary className="cursor-pointer text-2xs font-medium text-muted-foreground hover:text-foreground">
+                        {stored.risks.length} {stored.risks.length === 1 ? "risk" : "risks"} ·{" "}
+                        {stored.checklist.length}{" "}
+                        {stored.checklist.length === 1 ? "check" : "checks"}
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {stored.risks.length > 0 && (
+                          <ul className="space-y-1.5">
+                            {stored.risks.map((risk, i) => {
+                              const tone = severityTone(risk.severity);
+                              return (
+                                <li key={i} className="flex gap-2 text-xs leading-relaxed">
+                                  <span
+                                    className={cn(
+                                      "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
+                                      tone.dot
+                                    )}
+                                  />
+                                  <span className="min-w-0 text-muted-foreground">
+                                    <span
+                                      className={cn(
+                                        "font-mono text-2xs uppercase",
+                                        tone.text
+                                      )}
+                                    >
+                                      {risk.severity}
+                                    </span>
+                                    {risk.file && (
+                                      <span className="ml-2 font-mono text-foreground">
+                                        {risk.file}
+                                      </span>
+                                    )}
+                                    <span className="mt-0.5 block text-foreground/90">
+                                      {risk.issue}
+                                    </span>
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                        {stored.checklist.length > 0 && (
+                          <ol className="list-decimal space-y-1 pl-5 text-xs leading-relaxed text-muted-foreground">
+                            {stored.checklist.map((item, i) => (
+                              <li key={i}>{item}</li>
+                            ))}
+                          </ol>
+                        )}
+                      </div>
+                    </details>
+                  )}
+
+                  {entry.sources.length > 0 && (
+                    <p className="mt-2 flex flex-wrap items-center gap-1.5 font-mono text-2xs text-subtle-foreground">
+                      <FileCode2 className="h-3 w-3" aria-hidden />
+                      {entry.sources.slice(0, 6).map((source, i) => {
+                        const href = entry.type === "review" ? prHref : sourceHref(source);
+                        return (
+                          <span key={source}>
+                            {href ? (
+                              <a
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-0.5 hover:text-foreground hover:underline"
+                              >
+                                {source}
+                                <ExternalLink className="h-2.5 w-2.5" aria-hidden />
+                              </a>
+                            ) : (
+                              source
+                            )}
+                            {i < Math.min(entry.sources.length, 6) - 1 ? " · " : ""}
+                          </span>
+                        );
+                      })}
+                      {entry.sources.length > 6 && ` +${entry.sources.length - 6}`}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

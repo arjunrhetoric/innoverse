@@ -84,14 +84,22 @@ export async function POST(
       }
     );
 
+    const sources = context.files.map((f) => f.path);
+    const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+
     const entry = await KnowledgeEntry.create({
       problemId,
       startupId: session.user.id,
       type: "qa",
       question,
       answer,
-      sources: context.files.map((f) => f.path),
-      model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
+      sources,
+      payload: {
+        repo: context.repo,
+        files: sources,
+        note: context.note || null,
+      },
+      model,
     });
 
     await audit({
@@ -100,14 +108,18 @@ export async function POST(
       action: "knowledge.asked",
       resourceType: "Problem",
       resourceId: problemId,
-      metadata: { question, sources: context.files.map((f) => f.path) },
+      metadata: { question, sources },
       request: req,
     });
 
     return NextResponse.json({
       answer,
-      sources: context.files.map((f) => f.path),
+      sources,
       entryId: String(entry._id),
+      repo: context.repo,
+      files: sources,
+      note: context.note || null,
+      model,
     });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });

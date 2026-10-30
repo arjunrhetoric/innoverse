@@ -6,6 +6,7 @@ import { requireKnowledgeAccess } from "@/lib/knowledge-access";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { buildPrContext } from "@/lib/repo-context";
 import { askGemini, extractJson, isGeminiConfigured } from "@/lib/gemini";
+import { parseReviewPayload } from "@/lib/knowledge-review";
 import { audit } from "@/lib/audit";
 import { z } from "zod";
 
@@ -14,13 +15,6 @@ export const dynamic = "force-dynamic";
 const ReviewSchema = z.object({
   pullNumber: z.number().int().positive().max(1_000_000),
 });
-
-interface ReviewPayload {
-  verdict: "safe" | "caution" | "block";
-  summary: string;
-  risks: Array<{ severity: "low" | "medium" | "high"; file?: string; issue: string }>;
-  checklist: string[];
-}
 
 /** AI merge-safety review for a pull request. */
 export async function POST(
@@ -86,18 +80,33 @@ export async function POST(
       }
     );
 
-    const payload = extractJson<ReviewPayload>(raw);
-    const answer = payload?.summary?.trim() || raw.slice(0, 2000);
+    const payload = parseReviewPayload(extractJson<unknown>(raw));
+    if (!payload) {
+      return NextResponse.json(
+        {
+          message:
+            "The AI returned a review in an unexpected format. Please try again; no result was saved.",
+        },
+        { status: 502 }
+      );
+    }
+
+    const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+    const sources = pr.files.map((f) => f.filename);
 
     await KnowledgeEntry.create({
       problemId,
       startupId: session.user.id,
       type: "review",
       pullNumber: parsed.data.pullNumber,
-      answer,
-      sources: pr.files.map((f) => f.filename),
-      payload: payload ?? null,
-      model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
+      answer: payload.summary,
+      sources,
+      payload: {
+        ...payload,
+        pullNumber: pr.pullNumber,
+        title: pr.title,
+      },
+      model,
     });
 
     await audit({
@@ -108,18 +117,15 @@ export async function POST(
       resourceId: problemId,
       metadata: {
         pullNumber: parsed.data.pullNumber,
-        verdict: payload?.verdict ?? "unknown",
+        verdict: payload.verdict,
       },
       request: req,
     });
 
     return NextResponse.json({
-      verdict: payload?.verdict ?? "caution",
-      summary: answer,
-      risks: payload?.risks ?? [],
-      checklist: payload?.checklist ?? [],
-      files: pr.files.map((f) => f.filename),
-      raw: payload ? undefined : raw,
+      ...payload,
+      files: sources,
+      model,
     });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });

@@ -17,6 +17,10 @@ function isTextFile(path: string) {
   return TEXT_EXTENSIONS.has(ext);
 }
 
+const ENTRYPOINT =
+  /(^|\/)(index|main|server|app|route|layout|middleware|auth|database|db)\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt)$/i;
+const SOURCE_DIR = /(^|\/)(src|app|lib|server|api|packages|services)\//i;
+
 function scorePath(path: string, terms: string[]) {
   const lower = path.toLowerCase();
   let score = 0;
@@ -26,6 +30,9 @@ function scorePath(path: string, terms: string[]) {
     if (term.length < 3) continue;
     if (lower.includes(term)) score += 10;
   }
+  // Keep a useful baseline when the question's words don't match file names.
+  if (ENTRYPOINT.test(path)) score += 12;
+  else if (SOURCE_DIR.test(path)) score += 3;
   // Prefer source over tests/generated assets.
   if (/(^|\/)(test|tests|__tests__|dist|build|vendor|node_modules)\//.test(lower)) score -= 20;
   return score;

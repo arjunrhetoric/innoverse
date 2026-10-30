@@ -29,6 +29,7 @@ export async function GET(
       .lean();
 
     return NextResponse.json({
+      repo: `${access.problem.githubOwner}/${access.problem.githubRepoName}`,
       entries: entries.map((e: any) => ({
         id: String(e._id),
         type: e.type,
@@ -37,6 +38,7 @@ export async function GET(
         answer: e.answer,
         sources: e.sources ?? [],
         payload: e.payload ?? null,
+        model: e.model ?? null,
         createdAt: e.createdAt,
       })),
     });
