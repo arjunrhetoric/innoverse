@@ -1,7 +1,7 @@
 # Innoverse — First-Round PPT Content
 
 **Deck title:** Innoverse — Proof, not promises.  
-**Subtitle:** The evidence layer for early-career hiring.  
+**Subtitle:** A hiring pipeline built on shipped work, not claims.  
 **Format:** 7 content slides + optional cover/closing. 16:9. 5–7 minute pitch.  
 **Design direction:** near-monochrome, one accent, generous whitespace, real product screenshots, one diagram per slide. No stock photos, no fake metrics, no testimonial quotes.
 
@@ -24,32 +24,35 @@
 ### On-slide copy
 
 **Headline:**  
-**Early-career hiring still runs on claims.**
+**Students can build. Hiring still can’t see it.**
 
 **Subhead:**  
-A resume says what someone knows. A merged pull request shows what they shipped.
+Two applicants can look identical on paper. One has shipped a real feature. The other has only watched tutorials.
 
 **Three-column pain map**
 
 | Student | Startup | Institution |
 |---|---|---|
-| “No experience → no proof → no interview.” | “Screening is slow, and portfolios are unverifiable.” | “Placement reports lack auditable outcome data.” |
-| Projects are buried in GitHub, notebooks, or slide decks. | A polished portfolio does not prove authorship, scope, or delivery. | Participation is tracked, but real work outcomes are not. |
+| “I have projects, but no one can tell what I actually built or how I work in a team.” | “Every application has the same skills list. We don’t have time to audit every GitHub profile.” | “We can report grades and attendance, not what students actually shipped.” |
+| Projects sit in GitHub, notebooks, or slide decks — with no context around ownership or scope. | A polished portfolio can hide who wrote the code, what broke, and how the person handled review. | Placement reports show activity. They don’t show proof of work. |
+
+**A familiar scenario:**  
+A second-year student has three real projects, applies to dozens of internships, and hears nothing. A founder has a stack of applications and no quick way to tell who can ship. Both sides lose.
 
 **Bottom line:**  
-The missing layer is not another job board. It is a **trusted record of real work**.
+So hiring falls back to resumes, referrals, and who interviews well. Ability gets filtered out before it gets tested.
 
-**Visual:** Split screen — left: a generic resume with self-reported bullets; right: a merged PR, commit graph, rubric, and a verified report badge.
+**Visual:** Two identical resumes side by side. Behind one: a merged PR, a review thread, and a completed milestone. Behind the other: an empty outline. Let the contrast do the work.
 
 ### Speaker notes (30–35 sec)
 
-> Early-career hiring is a trust problem. Students are told they need experience to get experience. Startups receive hundreds of claims but very little evidence. Universities can report attendance and grades, but not what a student actually shipped.
+> Picture a second-year student with three real projects. They apply to dozens of internships and hear nothing. On paper, they look the same as someone who only followed tutorials. On the other side, a founder gets a stack of applications and has no quick way to tell who has actually shipped something.
 >
-> The result is a market that rewards presentation over proof. Work-sample tests are one of the strongest predictors of job performance, yet most early-career hiring still starts with a resume and a keyword filter. Innoverse closes that gap.
+> Universities see grades and attendance, not the work. So everyone defaults to resumes, referrals, and interview performance. This isn’t a talent problem. It’s a visibility problem. [Optional: add your own 10-second example here — a student you know, a founder you spoke to, or your own experience.]
 
 ### Judge takeaway
 
-This is a large, real, three-sided problem — and the pain is measurable in time, risk, and missed talent.
+The pain is concrete and three-sided: students can’t prove it, startups can’t see it, institutions can’t report it.
 
 ---
 
@@ -58,10 +61,10 @@ This is a large, real, three-sided problem — and the pain is measurable in tim
 ### On-slide copy
 
 **Headline:**  
-**Innoverse turns real startup work into verifiable hiring evidence.**
+**Innoverse turns real startup work into proof you can check.**
 
 **One-liner:**  
-Startups post scoped work. Students ship it on GitHub. Innoverse captures the evidence and issues a report anyone can verify.
+Startups post scoped work. Students ship it on GitHub. Innoverse captures what happened and turns it into a report anyone can verify.
 
 **Four pillars**
 
@@ -74,21 +77,21 @@ Startups post scoped work. Students ship it on GitHub. Innoverse captures the ev
 3. **Explainable report**  
    A weighted rubric plus a confidence score with printed reasons — not a black-box ranking.
 
-4. **One record for three sides**  
-   Students prove capability, startups hire with evidence, institutions report outcomes.
+4. **One shared record for three sides**  
+   Students show what they built, startups hire with proof, institutions report outcomes.
 
 **What is live today**
 
 `Challenge marketplace` · `Proposals` · `Collaboration agreement` · `GitHub PR review` · `Milestones` · `Proof-of-Work Report` · `QR verification` · `Talent directory` · `Shortlist` · `Cohorts` · `Paid engagements`
 
 **Core artifact:**  
-**The Proof-of-Work Report.** The certificate is the display layer; the evidence is the product.
+**The Proof-of-Work Report.** The certificate is the display layer; the shipped work behind it is the product.
 
 **Visual:** Product screenshot of the report preview, with callouts on “merged PRs”, “rubric”, “confidence + reasons”, and “QR verify”.
 
 ### Speaker notes (40–45 sec)
 
-> Innoverse is not a course platform and not another profile. It is the evidence layer between real work and hiring.
+> Innoverse is not a course platform and not another profile. It sits between real work and hiring, and makes the work visible.
 >
 > A startup posts a scoped challenge. A student applies, gets approved, signs the collaboration and IP agreement, and works in a GitHub repository through forks and pull requests. Innoverse reviews the work, tracks milestones, and at sign-off snapshots the evidence: merged PRs, commit attribution, active days, review comments, and the startup’s rubric.
 >
@@ -96,7 +99,7 @@ Startups post scoped work. Students ship it on GitHub. Innoverse captures the ev
 
 ### Judge takeaway
 
-The solution is not “better resumes.” It is a new primitive: **verifiable work evidence**.
+The solution is not “better resumes.” It is a way to make shipped work **visible and checkable**.
 
 ---
 
@@ -231,7 +234,7 @@ This is not a prototype UI wrapped around a spreadsheet. The auth, evidence capt
    Students keep working in the workflow they already use: fork, commit, pull request.
 
 4. **Three-sided network**  
-   Student, startup, and institution read the same record. One evidence layer, three products.
+   Student, startup, and institution read the same record. One shared record, three products.
 
 5. **Full loop, not a point solution**  
    Discover → prove → verify → hire → pay. Reports, talent discovery, cohorts, and paid engagements share one engine.
@@ -321,7 +324,7 @@ The build is real, the cost structure is sane, and the go-to-market starts where
 ### On-slide copy
 
 **Headline:**  
-**Research says work samples predict performance. We built the missing evidence layer.**
+**Research says work samples predict performance. We built the missing proof.**
 
 **What the research says**
 
@@ -379,7 +382,7 @@ The idea is grounded in selection research, and the build reflects the research 
 
 **Innoverse**  
 **Proof, not promises.**  
-The evidence layer for early-career hiring.
+Proof-of-work hiring for students, startups, and universities.
 
 `Live product` · `GitHub-native` · `Verifiable reports`
 
@@ -402,7 +405,7 @@ Help us put the first cohorts and startups on the evidence loop.
 
 ## Appendix A — 60-Second Demo Script
 
-1. **Landing page (5 sec):** “Innoverse is the evidence layer for early-career hiring.”
+1. **Landing page (5 sec):** “Innoverse turns real startup work into proof you can check.”
 2. **Explore (10 sec):** Show a real challenge with scope, skills, deadline, and repo.
 3. **Student proposal (10 sec):** Show the proposal, deck, and approval state.
 4. **Agreement (8 sec):** Show the collaboration/IP agreement and signature.

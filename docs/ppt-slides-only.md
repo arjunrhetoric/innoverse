@@ -8,7 +8,7 @@
 
 **Innoverse**  
 **Proof, not promises.**  
-The evidence layer for early-career hiring.
+Proof-of-work hiring for students, startups, and universities.
 
 `GitHub-native` · `Verifiable reports` · `Built for students, startups, and universities`
 
@@ -16,32 +16,36 @@ The evidence layer for early-career hiring.
 
 ## 1. Problem Statement
 
-**Early-career hiring still runs on claims.**
+**Students can build. Hiring still can’t see it.**
 
-A resume says what someone knows. A merged pull request shows what they shipped.
+Two applicants can look identical on paper. One has shipped a real feature. The other has only watched tutorials.
 
-- **Students:** no experience → no proof → no interview.
-- **Startups:** screening is slow, and portfolios are unverifiable.
-- **Institutions:** placement reports lack auditable outcome data.
+- **Students:** “I have projects, but no one can tell what I actually built or how I work in a team.”
+- **Startups:** “Every application has the same skills list. We don’t have time to audit every GitHub profile.”
+- **Institutions:** “We can report grades and attendance, not what students actually shipped.”
 
-**The missing layer:** a trusted record of real work.
+**A familiar scenario:**  
+A second-year student has three real projects, applies to dozens of internships, and hears nothing. A founder has a stack of applications and no quick way to tell who can ship. Both sides lose.
 
-*Visual: resume with self-reported bullets vs. merged PR + evidence report.*
+**Bottom line:**  
+Hiring falls back to resumes, referrals, and who interviews well. Ability gets filtered out before it gets tested.
+
+*Visual: two identical resumes. Behind one: a merged PR, review thread, completed milestone. Behind the other: an empty outline.*
 
 ---
 
 ## 2. Solution
 
-**Innoverse turns real startup work into verifiable hiring evidence.**
+**Innoverse turns real startup work into proof you can check.**
 
-Startups post scoped work. Students ship it on GitHub. Innoverse captures the evidence and issues a report anyone can verify.
+Startups post scoped work. Students ship it on GitHub. Innoverse captures what happened and turns it into a report anyone can verify.
 
 - **Real work, not practice tests** — challenges come from startups.
 - **GitHub-native proof** — merged PRs, commits, active days, reviews, milestones.
-- **Explainable report** — weighed rubric + confidence score with printed reasons.
-- **One record for three sides** — student, startup, institution.
+- **Explainable report** — weighted rubric + confidence score with printed reasons.
+- **One shared record for three sides** — student, startup, institution.
 
-**Core artifact:** the **Proof-of-Work Report**. The certificate is the display layer.
+**Core artifact:** the **Proof-of-Work Report**. The certificate is the display layer; the shipped work behind it is the product.
 
 *Visual: report preview with merged PRs, rubric, confidence, QR.*
 
@@ -49,7 +53,7 @@ Startups post scoped work. Students ship it on GitHub. Innoverse captures the ev
 
 ## 3. Flow of Solution
 
-**One loop. Three sides. One auditable record.**
+**One loop. Three sides. One shared record.**
 
 ```
 STARTUP     Post challenge → Review proposal → Approve → Review PRs → Sign off
@@ -144,7 +148,7 @@ Deploy: Vercel · Tests: Vitest
 
 ## 7. Research and References
 
-**Research says work samples predict performance. We built the missing evidence layer.**
+**Research says work samples predict performance. We built the missing proof.**
 
 - Work-sample tests are among the strongest predictors of job performance.  
   *Schmidt & Hunter (1998), Psychological Bulletin.*
