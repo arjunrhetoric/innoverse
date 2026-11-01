@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, Engagement } from "@innoverse/database";
 import { canManageEngagement, type Actor } from "@/lib/policy";
-import { applyFund, checkFund, escrowView, round2, stateOf } from "@/lib/escrow";
+import { checkFund, escrowView, round2, stateOf } from "@/lib/escrow";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
 import { z } from "zod";
@@ -65,16 +65,43 @@ export async function POST(
     });
     if (!check.ok) return NextResponse.json({ message: check.reason }, { status: 409 });
 
-    engagement.escrow.fundedAmount = applyFund(stateOf(engagement), amount).fundedAmount;
-    engagement.escrow.ledger.push({
-      type: "fund",
-      amount,
-      reference: parsed.data.reference,
-      milestoneId: null,
-      actorId: actor.id,
-      createdAt: new Date(),
-    });
-    await engagement.save();
+    // Conditional write: funding cannot push the total past the contract
+    // value, even when two funding requests arrive at the same time.
+    const funded = await Engagement.findOneAndUpdate(
+      {
+        _id: engagement._id,
+        status: "Active",
+        $expr: {
+          $lte: [
+            { $round: [{ $add: [{ $ifNull: ["$escrow.fundedAmount", 0] }, amount] }, 2] },
+            { $round: ["$totalAmount", 2] },
+          ],
+        },
+      },
+      {
+        $inc: { "escrow.fundedAmount": amount },
+        $push: {
+          "escrow.ledger": {
+            type: "fund",
+            amount,
+            reference: parsed.data.reference,
+            milestoneId: null,
+            actorId: actor.id,
+            createdAt: new Date(),
+          },
+        },
+      },
+      { new: true }
+    );
+    if (!funded) {
+      return NextResponse.json(
+        {
+          message:
+            "The funding total changed while you were saving. Refresh and check what remains to fund.",
+        },
+        { status: 409 }
+      );
+    }
 
     await audit({
       actorId: actor.id,
@@ -95,7 +122,7 @@ export async function POST(
 
     return NextResponse.json({
       message: "Escrow funding recorded",
-      escrow: escrowView(engagement),
+      escrow: escrowView(funded),
     });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });

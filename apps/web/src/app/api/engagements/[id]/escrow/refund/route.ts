@@ -49,17 +49,38 @@ export async function POST(
     const check = checkRefund({ engagementStatus: engagement.status, state });
     if (!check.ok) return NextResponse.json({ message: check.reason }, { status: 409 });
 
+    // Exact-match on the balances read above: if any of them moved in the
+    // meantime nothing matches, so the refund cannot be applied twice.
     const { state: next, amount } = applyRefund(state);
-    engagement.escrow.refundedAmount = next.refundedAmount;
-    engagement.escrow.ledger.push({
-      type: "refund",
-      amount,
-      reference: parsed.data.reference ?? null,
-      milestoneId: null,
-      actorId: actor.id,
-      createdAt: new Date(),
-    });
-    await engagement.save();
+    const returned = await Engagement.findOneAndUpdate(
+      {
+        _id: engagement._id,
+        status: { $in: ["Completed", "Cancelled"] },
+        "escrow.fundedAmount": { $in: [state.fundedAmount, null] },
+        "escrow.releasedAmount": { $in: [state.releasedAmount, null] },
+        "escrow.refundedAmount": { $in: [state.refundedAmount, null] },
+      },
+      {
+        $set: { "escrow.refundedAmount": next.refundedAmount },
+        $push: {
+          "escrow.ledger": {
+            type: "refund",
+            amount,
+            reference: parsed.data.reference ?? null,
+            milestoneId: null,
+            actorId: actor.id,
+            createdAt: new Date(),
+          },
+        },
+      },
+      { new: true }
+    );
+    if (!returned) {
+      return NextResponse.json(
+        { message: "The escrow balance changed while you were saving. Refresh and try again." },
+        { status: 409 }
+      );
+    }
 
     await audit({
       actorId: actor.id,
@@ -80,7 +101,7 @@ export async function POST(
 
     return NextResponse.json({
       message: `Returned ${amount} ${engagement.currency} from escrow`,
-      escrow: escrowView(engagement),
+      escrow: escrowView(returned),
     });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });

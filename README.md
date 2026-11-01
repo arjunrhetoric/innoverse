@@ -26,7 +26,7 @@ Résumés and slide decks don't prove anything. Innoverse runs a hiring pipeline
 
 **Universities** create a cohort with a join code; students enrol themselves, and the institution sees each member's reports, confidence, merged PRs, and cohort-wide participation — evidence that maps directly to accreditation and placement reporting.
 
-**Paid engagements** turn a completed project into a transaction: the startup scopes milestones with amounts, the student accepts the IP-assignment terms, and acceptance generates a signed one-page agreement. Payments are recorded manually with a reference (no gateway yet) and confirmed by the student; the engagement closes when every milestone is confirmed.
+**Paid engagements** turn a completed project into a transaction: the startup scopes milestones with amounts, the student accepts the IP-assignment terms, and acceptance generates a signed one-page agreement. The startup records funding into an escrow ledger, and each milestone payment is released only from funds on record. Money moves outside Innoverse for now (a payment provider can replace that step), and any unreleased balance can be returned once the engagement ends. The student confirms each payment; the engagement closes when every milestone is confirmed.
 
 ## What makes the claim falsifiable
 
@@ -103,11 +103,17 @@ npm test --workspace apps/web
 npx tsc --noEmit -p apps/web
 ```
 
+Escrow concurrency check. It needs a local MongoDB, uses its own database, and drops it afterwards:
+
+```bash
+node --experimental-strip-types scripts/escrow-integration.mts
+```
+
 ## Roadmap
 
 - **Now:** challenge-based hiring (reports, talent directory, shortlist), university cohorts, and paid engagements — all built on the same evidence engine.
 - **Next:** open-source issue workflows, AI repository knowledge base, and read-only GitHub access by default.
-- **Later:** escrow with a payment provider, organizations with team roles, SSO for enterprise buyers.
+- **Later:** a payment provider for escrow (the ledger and release rules are in place), organizations with team roles, SSO for enterprise buyers.
 - **Platform:** GitHub App short-lived per-repo tokens instead of the OAuth `repo` scope; see `docs/github-app-setup.md`.
 
 ## License

@@ -5,7 +5,7 @@ import { connectDB, Engagement } from "@innoverse/database";
 import { canManageEngagement, type Actor } from "@/lib/policy";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
-import { applyRelease, checkRelease, stateOf } from "@/lib/escrow";
+import { checkRelease, escrowBalanceExpr, round2, stateOf } from "@/lib/escrow";
 import { z } from "zod";
 import mongoose from "mongoose";
 
@@ -70,21 +70,51 @@ export async function POST(
     if (!escrowCheck.ok) {
       return NextResponse.json({ message: escrowCheck.reason }, { status: 409 });
     }
-    const released = applyRelease(stateOf(engagement), milestone.amount);
-    engagement.escrow.releasedAmount = released.releasedAmount;
-    engagement.escrow.ledger.push({
-      type: "release",
-      amount: milestone.amount,
-      reference: parsed.data.reference ?? null,
-      milestoneId: String(milestone._id),
-      actorId: actor.id,
-      createdAt: new Date(),
-    });
-
-    milestone.status = "Paid";
-    milestone.paidAt = new Date();
-    milestone.paidReference = parsed.data.reference ?? null;
-    await engagement.save();
+    // One conditional write: the milestone moves to Paid and the escrow
+    // release is recorded together, so concurrent requests cannot both pay it.
+    const amount = round2(milestone.amount);
+    const reference = parsed.data.reference ?? null;
+    const paidAt = new Date();
+    const updated = await Engagement.findOneAndUpdate(
+      {
+        _id: engagement._id,
+        status: "Active",
+        milestones: { $elemMatch: { _id: milestone._id, status: "Delivered" } },
+        $expr: { $gte: [escrowBalanceExpr(), amount] },
+      },
+      {
+        $set: {
+          "milestones.$[m].status": "Paid",
+          "milestones.$[m].paidAt": paidAt,
+          "milestones.$[m].paidReference": reference,
+        },
+        $inc: { "escrow.releasedAmount": amount },
+        $push: {
+          "escrow.ledger": {
+            type: "release",
+            amount,
+            reference,
+            milestoneId: String(milestone._id),
+            actorId: actor.id,
+            createdAt: paidAt,
+          },
+        },
+      },
+      {
+        new: true,
+        arrayFilters: [{ "m._id": milestone._id, "m.status": "Delivered" }],
+      }
+    );
+    if (!updated) {
+      return NextResponse.json(
+        {
+          message:
+            "This milestone or the escrow balance changed while you were saving. Refresh the engagement and try again.",
+        },
+        { status: 409 }
+      );
+    }
+    const paid = updated.milestones.id(milestoneId);
 
     await audit({
       actorId: actor.id,
@@ -92,18 +122,18 @@ export async function POST(
       action: "engagement.milestone_paid",
       resourceType: "Engagement",
       resourceId: id,
-      metadata: { milestoneId, amount: milestone.amount, reference: milestone.paidReference },
+      metadata: { milestoneId, amount, reference },
       request: req,
     });
 
     await notify(String(engagement.studentId), {
       title: "Milestone marked paid",
-      message: `${session.user.name ?? "The startup"} marked "${milestone.title}" paid. Confirm receipt in your engagement.`,
+      message: `${session.user.name ?? "The startup"} marked "${paid?.title ?? milestone.title}" paid. Confirm receipt in your engagement.`,
       link: `/engagements/${id}`,
       type: "success",
     });
 
-    return NextResponse.json({ message: "Milestone marked as paid", milestone });
+    return NextResponse.json({ message: "Milestone marked as paid", milestone: paid });
   } catch (error: any) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }

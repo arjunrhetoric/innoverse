@@ -115,6 +115,29 @@ export function escrowView(doc: { escrow?: unknown } | null | undefined) {
   };
 }
 
+/**
+ * Live escrow balance as a MongoDB aggregation expression, rounded to cents.
+ * Used inside conditional updates so the check and the write are one operation.
+ */
+export function escrowBalanceExpr() {
+  return {
+    $round: [
+      {
+        $subtract: [
+          { $ifNull: ["$escrow.fundedAmount", 0] },
+          {
+            $add: [
+              { $ifNull: ["$escrow.releasedAmount", 0] },
+              { $ifNull: ["$escrow.refundedAmount", 0] },
+            ],
+          },
+        ],
+      },
+      2,
+    ],
+  };
+}
+
 export function applyFund(state: EscrowState, amount: number): EscrowState {
   return { ...state, fundedAmount: round2(state.fundedAmount + round2(amount)) };
 }
