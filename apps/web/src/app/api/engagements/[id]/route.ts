@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectDB, Engagement } from "@innoverse/database";
 import { canViewEngagement, type Actor } from "@/lib/policy";
+import { escrowView } from "@/lib/escrow";
 import mongoose from "mongoose";
 
 export const dynamic = "force-dynamic";
@@ -68,6 +69,7 @@ export async function GET(
           id: String(engagement.problemId?._id ?? engagement.problemId),
           title: engagement.problemId?.title ?? "Challenge",
         },
+        escrow: escrowView(engagement),
         milestones: (engagement.milestones ?? []).map((m: any) => ({
           id: String(m._id),
           title: m.title,

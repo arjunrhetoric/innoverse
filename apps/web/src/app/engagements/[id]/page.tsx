@@ -40,6 +40,21 @@ interface Milestone {
   confirmedAt: string | null;
 }
 
+interface EscrowView {
+  fundedAmount: number;
+  releasedAmount: number;
+  refundedAmount: number;
+  balance: number;
+  ledger: Array<{
+    id: string;
+    type: "fund" | "release" | "refund";
+    amount: number;
+    reference: string | null;
+    milestoneId: string | null;
+    createdAt: string | null;
+  }>;
+}
+
 interface Detail {
   id: string;
   title: string;
@@ -57,6 +72,7 @@ interface Detail {
   startup: { id: string; name: string };
   problem: { id: string; title: string };
   milestones: Milestone[];
+  escrow: EscrowView;
 }
 
 const STAGE_ORDER: Milestone["status"][] = ["Pending", "Delivered", "Paid", "Confirmed"];
@@ -85,6 +101,8 @@ export default function EngagementDetailPage() {
   const [signatureDataUrl, setSignatureDataUrl] = useState("");
   const [confirmMilestone, setConfirmMilestone] = useState<string | null>(null);
   const [confirmEngagement, setConfirmEngagement] = useState(false);
+  const [fundAmount, setFundAmount] = useState("");
+  const [fundRef, setFundRef] = useState("");
 
   useEffect(() => {
     if (authLoading) return;
@@ -123,8 +141,10 @@ export default function EngagementDetailPage() {
       setReference("");
       setDelivering(null);
       setEvidence("");
+      return true;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Action failed");
+      return false;
     } finally {
       setBusy(null);
     }
@@ -620,6 +640,115 @@ export default function EngagementDetailPage() {
 
             {/* Right rail: contract summary */}
             <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+              <Section
+                title="Escrow"
+                description="Funding the startup records. Milestone payments draw from this balance."
+              >
+                <dl className="divide-y divide-border">
+                  <div className="px-5 py-4">
+                    <dt className="text-2xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                      Held in escrow
+                    </dt>
+                    <dd className="mt-1 font-mono text-xl font-semibold tracking-tight text-foreground tnum">
+                      {money(data.escrow.balance)}
+                    </dd>
+                    <dd className="mt-0.5 text-2xs text-subtle-foreground">
+                      <span className="tnum">{money(data.escrow.fundedAmount)}</span> funded ·{" "}
+                      <span className="tnum">{money(data.escrow.releasedAmount)}</span> released ·{" "}
+                      <span className="tnum">{money(data.escrow.refundedAmount)}</span> returned
+                    </dd>
+                  </div>
+
+                  {data.party === "startup" &&
+                    data.status === "Active" &&
+                    data.escrow.fundedAmount < data.totalAmount && (
+                      <div className="space-y-2 px-5 py-3">
+                        <label htmlFor="fund-amount" className="text-xs font-medium text-foreground">
+                          Record funding
+                        </label>
+                        <input
+                          id="fund-amount"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={fundAmount}
+                          onChange={(e) => setFundAmount(e.target.value)}
+                          placeholder={`Up to ${data.totalAmount - data.escrow.fundedAmount}`}
+                          className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                        />
+                        <input
+                          type="text"
+                          value={fundRef}
+                          onChange={(e) => setFundRef(e.target.value)}
+                          placeholder="Bank transfer or UPI reference"
+                          aria-label="Funding reference"
+                          className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                        />
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          disabled={busy === "fund" || !fundAmount || fundRef.trim().length < 3}
+                          onClick={async () => {
+                            const ok = await act("fund", `/api/engagements/${data.id}/escrow`, {
+                              amount: Number(fundAmount),
+                              reference: fundRef.trim(),
+                            });
+                            if (ok) {
+                              setFundAmount("");
+                              setFundRef("");
+                            }
+                          }}
+                        >
+                          Record funding
+                        </Button>
+                      </div>
+                    )}
+
+                  {data.party === "startup" &&
+                    (data.status === "Completed" || data.status === "Cancelled") &&
+                    data.escrow.balance > 0 && (
+                      <div className="px-5 py-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          disabled={busy === "refund"}
+                          onClick={() => act("refund", `/api/engagements/${data.id}/escrow/refund`, {})}
+                        >
+                          Return unreleased balance
+                        </Button>
+                      </div>
+                    )}
+
+                  {data.escrow.ledger.length > 0 && (
+                    <div className="px-5 py-3">
+                      <p className="text-2xs uppercase tracking-[0.08em] text-subtle-foreground">Ledger</p>
+                      <ul className="mt-2 space-y-1.5 text-xs">
+                        {data.escrow.ledger.slice(0, 6).map((entry) => (
+                          <li key={entry.id} className="flex items-baseline justify-between gap-2">
+                            <span className="min-w-0 text-muted-foreground">
+                              {entry.type === "fund"
+                                ? "Funded"
+                                : entry.type === "release"
+                                  ? "Released"
+                                  : "Returned"}
+                              {entry.reference && (
+                                <span className="ml-1.5 font-mono text-subtle-foreground">
+                                  {entry.reference}
+                                </span>
+                              )}
+                            </span>
+                            <span className="shrink-0 font-mono text-foreground tnum">
+                              {money(entry.amount)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </dl>
+              </Section>
+
               <Section title="Contract">
                 <dl className="divide-y divide-border">
                   <div className="px-5 py-4">

@@ -5,6 +5,7 @@ import { connectDB, Engagement } from "@innoverse/database";
 import { canManageEngagement, type Actor } from "@/lib/policy";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notifications";
+import { applyRelease, checkRelease, stateOf } from "@/lib/escrow";
 import { z } from "zod";
 import mongoose from "mongoose";
 
@@ -59,6 +60,26 @@ export async function POST(
         { status: 409 }
       );
     }
+
+    // Escrow: the payment is drawn from funds the startup recorded earlier.
+    const escrowCheck = checkRelease({
+      engagementStatus: engagement.status,
+      amount: milestone.amount,
+      state: stateOf(engagement),
+    });
+    if (!escrowCheck.ok) {
+      return NextResponse.json({ message: escrowCheck.reason }, { status: 409 });
+    }
+    const released = applyRelease(stateOf(engagement), milestone.amount);
+    engagement.escrow.releasedAmount = released.releasedAmount;
+    engagement.escrow.ledger.push({
+      type: "release",
+      amount: milestone.amount,
+      reference: parsed.data.reference ?? null,
+      milestoneId: String(milestone._id),
+      actorId: actor.id,
+      createdAt: new Date(),
+    });
 
     milestone.status = "Paid";
     milestone.paidAt = new Date();

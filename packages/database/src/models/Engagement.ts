@@ -19,6 +19,18 @@ const MilestoneSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const EscrowLedgerSchema = new mongoose.Schema(
+  {
+    type: { type: String, enum: ["fund", "release", "refund"], required: true },
+    amount: { type: Number, required: true, min: 0 },
+    reference: { type: String, default: null, maxlength: 120 },
+    milestoneId: { type: String, default: null },
+    actorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
 const EngagementSchema = new mongoose.Schema(
   {
     problemId: {
@@ -55,6 +67,14 @@ const EngagementSchema = new mongoose.Schema(
     studentAcceptedName: { type: String, default: null },
     contractCode: { type: String, unique: true, sparse: true },
     contractFile: { type: String, default: null },
+    // Ledger-based escrow: what the startup has funded, what milestones
+    // released, and what was returned. See apps/web/src/lib/escrow.ts.
+    escrow: {
+      fundedAmount: { type: Number, default: 0, min: 0 },
+      releasedAmount: { type: Number, default: 0, min: 0 },
+      refundedAmount: { type: Number, default: 0, min: 0 },
+      ledger: { type: [EscrowLedgerSchema], default: [] },
+    },
   },
   { timestamps: true }
 );
