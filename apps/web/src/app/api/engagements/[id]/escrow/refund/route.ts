@@ -94,7 +94,7 @@ export async function POST(
 
     await notify(String(engagement.studentId), {
       title: "Escrow balance returned",
-      message: `${amount} ${engagement.currency} of unreleased escrow for "${engagement.title}" was returned to the startup.`,
+      message: `${amount} ${engagement.currency} of unreleased escrow for "${engagement.title}" was recorded as returned to the startup.`,
       link: `/engagements/${id}`,
       type: "info",
     });

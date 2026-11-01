@@ -641,13 +641,13 @@ export default function EngagementDetailPage() {
             {/* Right rail: contract summary */}
             <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
               <Section
-                title="Escrow"
+                title="Escrow ledger"
                 description="Funding the startup records. Milestone payments draw from this balance."
               >
                 <dl className="divide-y divide-border">
                   <div className="px-5 py-4">
                     <dt className="text-2xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                      Held in escrow
+                      Unreleased balance
                     </dt>
                     <dd className="mt-1 font-mono text-xl font-semibold tracking-tight text-foreground tnum">
                       {money(data.escrow.balance)}
@@ -715,7 +715,7 @@ export default function EngagementDetailPage() {
                           disabled={busy === "refund"}
                           onClick={() => act("refund", `/api/engagements/${data.id}/escrow/refund`, {})}
                         >
-                          Return unreleased balance
+                          Record return of balance
                         </Button>
                       </div>
                     )}
