@@ -433,6 +433,32 @@ export async function POST(req: Request) {
       studentAcceptedName: arjun.name,
       contractCode,
       contractFile,
+      // Demo ledger: 60k funded, the first two milestones released, 15k left.
+      escrow: {
+        fundedAmount: 60000,
+        releasedAmount: 45000,
+        refundedAmount: 0,
+        ledger: [
+          {
+            type: "fund",
+            amount: 60000,
+            reference: "DEMO-UTR-6001",
+            createdAt: inDays(-23),
+          },
+          {
+            type: "release",
+            amount: 20000,
+            reference: "DEMO-UTR-6002",
+            createdAt: inDays(-21),
+          },
+          {
+            type: "release",
+            amount: 25000,
+            reference: "UTR-8842",
+            createdAt: inDays(-5),
+          },
+        ],
+      },
     });
 
     await Engagement.create({
