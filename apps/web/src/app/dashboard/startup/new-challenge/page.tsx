@@ -19,6 +19,7 @@ interface FormState {
   skillsRequired: string;
   finalDeadline: string;
   contributionType: "project" | "issue";
+  repoMode: "create" | "link";
   githubOwner: string;
   githubRepoName: string;
   issueNumber: string;
@@ -31,6 +32,7 @@ const EMPTY: FormState = {
   skillsRequired: "",
   finalDeadline: "",
   contributionType: "project",
+  repoMode: "create",
   githubOwner: "",
   githubRepoName: "",
   issueNumber: "",
@@ -92,7 +94,10 @@ export default function NewChallengePage() {
       skillsRequired: "skills",
       finalDeadline: "deadline",
       githubOwner: "owner",
-      githubRepoName: form.contributionType === "issue" ? "repo" : "repoName",
+      githubRepoName:
+        form.contributionType === "issue" || form.repoMode === "link"
+          ? "repo"
+          : "repoName",
       issueNumber: "issueNumber",
       issueLabels: "labels",
     };
@@ -126,6 +131,13 @@ export default function NewChallengePage() {
           "Enter the GitHub owner and repository name for the issue."
         );
       }
+    } else if (form.repoMode === "link") {
+      if (!form.githubOwner.trim() || !form.githubRepoName.trim()) {
+        return fail(
+          form.githubOwner.trim() ? "githubRepoName" : "githubOwner",
+          "Enter the organization and repository name to link."
+        );
+      }
     } else if (!form.githubRepoName.trim()) {
       return fail("githubRepoName", "Name the public repository for this challenge.");
     }
@@ -133,13 +145,16 @@ export default function NewChallengePage() {
     setPosting(true);
     setError("");
     try {
+      const isIssue = form.contributionType === "issue";
+      const linkExisting = !isIssue && form.repoMode === "link";
       const res = await fetch("/api/projects/post-problem", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          createGithubRepo: form.contributionType === "project",
+          createGithubRepo: !isIssue && form.repoMode === "create",
+          githubOwner: isIssue || linkExisting ? form.githubOwner.trim() : "",
           skillsRequired: form.skillsRequired.split(",").map((s) => s.trim()).filter(Boolean),
           issueLabels: form.issueLabels.split(",").map((s) => s.trim()).filter(Boolean),
         }),
@@ -324,7 +339,9 @@ export default function NewChallengePage() {
             description={
               isIssue
                 ? "Where the issue lives."
-                : "A public, fork-only repo is created and linked to this challenge."
+                : form.repoMode === "link"
+                  ? "Link an existing organization repo. Private org repos support read-only collaborators."
+                  : "A public, fork-only repo is created and linked to this challenge."
             }
           >
             <div className="space-y-4 p-5">
@@ -394,35 +411,128 @@ export default function NewChallengePage() {
                 </>
               ) : (
                 <>
-                  <Field
-                    id="repoName"
-                    label="Repository name"
-                    required
-                    hint="Created under your GitHub account"
-                    error={fieldErrors.githubRepoName}
+                  <div
+                    className="grid gap-2 sm:grid-cols-2"
+                    role="radiogroup"
+                    aria-label="Repository source"
                   >
-                    <Input
-                      id="repoName"
-                      value={form.githubRepoName}
-                      onChange={(e) =>
-                        set(
-                          "githubRepoName",
-                          e.target.value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-")
-                        )
-                      }
-                      placeholder="my-challenge-repo"
-                      aria-invalid={Boolean(fieldErrors.githubRepoName)}
-                    />
-                  </Field>
-
-                  <div className="flex items-start gap-2 rounded-md border border-border bg-surface p-3">
-                    <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-subtle-foreground" />
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      The repo is public. Students fork it and open pull requests; no
-                      collaborator write access is granted. You review and merge. Use a
-                      GitHub organization later if the code must stay private.
-                    </p>
+                    {[
+                      {
+                        value: "create" as const,
+                        title: "Create public repo",
+                        detail: "Fork-only. No collaborator write access.",
+                      },
+                      {
+                        value: "link" as const,
+                        title: "Link existing repo",
+                        detail: "Best for private repos owned by an organization.",
+                      },
+                    ].map((option) => {
+                      const selected = form.repoMode === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => set("repoMode", option.value)}
+                          className={cn(
+                            "cursor-pointer rounded-md border p-3 text-left transition-colors",
+                            selected
+                              ? "border-brand/40 bg-brand-subtle"
+                              : "border-border bg-card hover:border-border-strong hover:bg-accent"
+                          )}
+                        >
+                          <span className="text-sm font-medium text-foreground">
+                            {option.title}
+                          </span>
+                          <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                            {option.detail}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {form.repoMode === "link" ? (
+                    <>
+                      <Field
+                        id="owner"
+                        label="Organization"
+                        required
+                        hint="GitHub org login"
+                        error={fieldErrors.githubOwner}
+                      >
+                        <Input
+                          id="owner"
+                          value={form.githubOwner}
+                          onChange={(e) => set("githubOwner", e.target.value)}
+                          placeholder="acme-labs"
+                          aria-invalid={Boolean(fieldErrors.githubOwner)}
+                        />
+                      </Field>
+                      <Field
+                        id="repo"
+                        label="Repository name"
+                        required
+                        hint="Existing private org repo"
+                        error={fieldErrors.githubRepoName}
+                      >
+                        <Input
+                          id="repo"
+                          value={form.githubRepoName}
+                          onChange={(e) =>
+                            set(
+                              "githubRepoName",
+                              e.target.value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-")
+                            )
+                          }
+                          placeholder="my-challenge-repo"
+                          aria-invalid={Boolean(fieldErrors.githubRepoName)}
+                        />
+                      </Field>
+                      <div className="flex items-start gap-2 rounded-md border border-warning-border bg-warning-subtle p-3">
+                        <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                        <p className="text-xs leading-relaxed text-warning">
+                          The repo must belong to a GitHub organization and you must be
+                          its admin. Organization private repos support a real Read
+                          collaborator role. Personal private repos are rejected because
+                          GitHub cannot grant read-only access there.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Field
+                        id="repoName"
+                        label="Repository name"
+                        required
+                        hint="Created under your GitHub account"
+                        error={fieldErrors.githubRepoName}
+                      >
+                        <Input
+                          id="repoName"
+                          value={form.githubRepoName}
+                          onChange={(e) =>
+                            set(
+                              "githubRepoName",
+                              e.target.value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-")
+                            )
+                          }
+                          placeholder="my-challenge-repo"
+                          aria-invalid={Boolean(fieldErrors.githubRepoName)}
+                        />
+                      </Field>
+
+                      <div className="flex items-start gap-2 rounded-md border border-border bg-surface p-3">
+                        <GitBranch className="mt-0.5 h-3.5 w-3.5 shrink-0 text-subtle-foreground" />
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          The repo is public. Students fork it and open pull requests; no
+                          collaborator write access is granted. You review and merge.
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>

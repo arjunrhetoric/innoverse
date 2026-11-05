@@ -17,7 +17,7 @@ Résumés and slide decks don't prove anything. Innoverse runs a hiring pipeline
 
 ## The loop
 
-1. A startup posts a challenge. Innoverse creates a private GitHub repo and adds the approved student as a collaborator.
+1. A startup posts a challenge. Innoverse creates a public, fork-only GitHub repo, or links an existing organization-owned private repo. The approved student gets read-only access after signing: a real Read collaborator invite on an org repo, or fork access on a public repo.
 2. Work happens on GitHub. Innoverse provides PR review with inline comments, file/commit/diff views, approvals, reviewer requests, and live updates.
 3. Milestones track delivery; only the startup that owns the challenge can manage or complete them.
 4. At sign-off the startup scores a weighted rubric and writes a summary.
@@ -112,7 +112,7 @@ node --experimental-strip-types scripts/escrow-integration.mts
 ## Roadmap
 
 - **Now:** challenge-based hiring (reports, talent directory, shortlist), university cohorts, and paid engagements — all built on the same evidence engine.
-- **Next:** open-source issue workflows, AI repository knowledge base, and read-only GitHub access by default.
+- **Next:** organization-owned repo creation, co-founder team access, and a payment provider for the escrow ledger.
 - **Later:** a payment provider for escrow (the ledger and release rules are in place), organizations with team roles, SSO for enterprise buyers.
 - **Platform:** GitHub App short-lived tokens now cover knowledge-base and pull-request **read** operations. Write operations still use OAuth until the App installation is granted Administration permission; see `docs/github-app-setup.md`.
 

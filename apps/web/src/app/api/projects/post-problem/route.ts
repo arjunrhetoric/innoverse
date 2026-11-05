@@ -192,6 +192,58 @@ export async function POST(req: NextRequest) {
         console.error("GitHub Repo Creation Error:", error.response?.data || error.message);
         return NextResponse.json({ message: "Failed to create GitHub repository" }, { status: 500 });
       }
+    } else if (githubOwner && githubRepoName) {
+      // Link an existing repository instead of creating one. This is the
+      // supported path for private code: organization-owned repos allow a real
+      // read-only collaborator role, while personal private repos do not.
+      if (!githubAccessToken) {
+        return NextResponse.json(
+          { message: "GitHub authorization expired. Please sign in again." },
+          { status: 401 }
+        );
+      }
+      try {
+        const repoResponse = await axios.get(
+          `https://api.github.com/repos/${githubOwner}/${githubRepoName}`,
+          {
+            headers: {
+              Authorization: `Bearer ${githubAccessToken}`,
+              Accept: "application/vnd.github+json",
+            },
+          }
+        );
+        const linked = repoResponse.data;
+        if (linked.private && linked.owner?.type === "User") {
+          return NextResponse.json(
+            {
+              message:
+                "GitHub cannot grant read-only collaborators on a personal private repository. Use an organization-owned repo, or create a public fork-only repo.",
+            },
+            { status: 400 }
+          );
+        }
+        if (linked.private && !linked.permissions?.admin) {
+          return NextResponse.json(
+            {
+              message:
+                "You need admin access to this private repository so Innoverse can invite the approved student as a read-only collaborator.",
+            },
+            { status: 403 }
+          );
+        }
+        repoUrl = linked.html_url;
+        repoOwner = linked.owner?.login ?? githubOwner;
+        repoName = linked.name ?? githubRepoName;
+      } catch (error: any) {
+        console.error("GitHub Repo Lookup Error:", error.response?.data || error.message);
+        return NextResponse.json(
+          {
+            message:
+              "Repository not found or not accessible with your GitHub account. Check the owner and name.",
+          },
+          { status: 404 }
+        );
+      }
     }
 
     const problem = await Problem.create({
