@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB, Problem } from "@innoverse/database";
 import { isChallengeOwner, requireStartup, type Actor } from "./policy";
 import { getGithubToken } from "./github-token";
+import { getRepoToken } from "./github-app";
 import mongoose from "mongoose";
 
 export interface KnowledgeAccess {
@@ -46,7 +47,14 @@ export async function requireKnowledgeAccess(
     );
   }
 
-  const token = await getGithubToken(userId);
+  const userToken = await getGithubToken(userId);
+  // Prefer a short-lived GitHub App installation token for repository reads;
+  // fall back to the user's OAuth token when the App is not installed.
+  const token = await getRepoToken(
+    problem.githubOwner,
+    problem.githubRepoName,
+    userToken
+  );
   if (!token) {
     return NextResponse.json(
       { message: "GitHub authorization expired. Please sign in again." },

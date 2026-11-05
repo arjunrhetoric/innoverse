@@ -114,7 +114,7 @@ node --experimental-strip-types scripts/escrow-integration.mts
 - **Now:** challenge-based hiring (reports, talent directory, shortlist), university cohorts, and paid engagements — all built on the same evidence engine.
 - **Next:** open-source issue workflows, AI repository knowledge base, and read-only GitHub access by default.
 - **Later:** a payment provider for escrow (the ledger and release rules are in place), organizations with team roles, SSO for enterprise buyers.
-- **Platform:** GitHub App short-lived per-repo tokens instead of the OAuth `repo` scope; see `docs/github-app-setup.md`.
+- **Platform:** GitHub App short-lived tokens now cover knowledge-base and pull-request **read** operations. Write operations still use OAuth until the App installation is granted Administration permission; see `docs/github-app-setup.md`.
 
 ## License
 
