@@ -13,9 +13,12 @@ import crypto from "crypto";
 
 const API = "https://api.github.com";
 const CACHE_TTL_MS = 50 * 60 * 1000;
+// If the App is configured but not installed on a repo, don't retry the
+// installation lookup on every PR read.
+const NEGATIVE_TTL_MS = 5 * 60 * 1000;
 
 interface CachedToken {
-  token: string;
+  token: string | null;
   expiresAt: number;
 }
 
@@ -114,17 +117,24 @@ export async function getInstallationToken(
   if (cached && cached.expiresAt > Date.now()) return cached.token;
 
   const installationId = await installationIdFor(owner, repo);
-  if (!installationId) return null;
+  if (!installationId) {
+    cache.set(cacheKey, { token: null, expiresAt: Date.now() + NEGATIVE_TTL_MS });
+    return null;
+  }
 
   try {
     const data: any = await appRequest(`/app/installations/${installationId}/access_tokens`, {
       method: "POST",
     });
-    if (!data?.token) return null;
+    if (!data?.token) {
+      cache.set(cacheKey, { token: null, expiresAt: Date.now() + NEGATIVE_TTL_MS });
+      return null;
+    }
     cache.set(cacheKey, { token: data.token, expiresAt: Date.now() + CACHE_TTL_MS });
     return data.token;
   } catch (err) {
     console.error("GitHub App installation token failed:", err);
+    cache.set(cacheKey, { token: null, expiresAt: Date.now() + NEGATIVE_TTL_MS });
     return null;
   }
 }

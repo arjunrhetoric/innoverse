@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import crypto from "crypto";
 import {
   clearInstallationTokenCache,
   createAppJwt,
+  getRepoToken,
   isGithubAppConfigured,
 } from "./github-app";
 
@@ -21,6 +22,7 @@ afterEach(() => {
   delete process.env.GITHUB_APP_ID;
   delete process.env.GITHUB_APP_PRIVATE_KEY;
   clearInstallationTokenCache();
+  vi.unstubAllGlobals();
 });
 
 describe("GitHub App JWT", () => {
@@ -55,5 +57,18 @@ describe("GitHub App JWT", () => {
     process.env.GITHUB_APP_ID = "1";
     process.env.GITHUB_APP_PRIVATE_KEY = privateKey.replace(/\n/g, "\\n");
     expect(() => createAppJwt()).not.toThrow();
+  });
+
+  it("falls back once and negative-caches a missing installation", async () => {
+    configure();
+    const fetchMock = vi.fn(async () => new Response("not found", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = await getRepoToken("owner", "repo", "user-token");
+    const second = await getRepoToken("owner", "repo", "user-token");
+
+    expect(first).toBe("user-token");
+    expect(second).toBe("user-token");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
