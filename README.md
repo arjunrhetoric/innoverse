@@ -109,6 +109,12 @@ Escrow concurrency check. It needs a local MongoDB, uses its own database, and d
 node --experimental-strip-types scripts/escrow-integration.mts
 ```
 
+GitHub App diagnostic. It checks that the App credentials can sign and that an installation exists for a repo; it never prints a token:
+
+```bash
+node --env-file=apps/web/.env.local --experimental-strip-types scripts/app-check.mts
+```
+
 ## Roadmap
 
 - **Now:** challenge-based hiring (reports, talent directory, shortlist), university cohorts, and paid engagements — all built on the same evidence engine.
